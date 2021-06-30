@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RDCMan schemaVersion="1">
+    <version>2.2</version>
+    <file>
+        <properties>
+            <name>First File</name>
+            <expanded>True</expanded>
+            <comment />
+            <logonCredentials inherit="FromParent" />
+            <connectionSettings inherit="FromParent" />
+            <gatewaySettings inherit="FromParent" />
+            <remoteDesktop inherit="FromParent" />
+            <localResources inherit="FromParent" />
+            <securitySettings inherit="FromParent" />
+            <displaySettings inherit="FromParent" />
+        </properties>
+        <group>
+            <properties>
+                <name>Testing Servers</name>
+                <expanded>True</expanded>
+                <comment />
+                <logonCredentials inherit="FromParent" />
+                <connectionSettings inherit="FromParent" />
+                <gatewaySettings inherit="FromParent" />
+                <remoteDesktop inherit="FromParent" />
+                <localResources inherit="FromParent" />
+                <securitySettings inherit="FromParent" />
+                <displaySettings inherit="FromParent" />
+            </properties>
+            <group>
+                <properties>
+                    <name>Asimo Machines</name>
+                    <expanded>True</expanded>
+                    <comment />
+                    <logonCredentials inherit="FromParent" />
+                    <connectionSettings inherit="FromParent" />
+                    <gatewaySettings inherit="FromParent" />
+                    <remoteDesktop inherit="FromParent" />
+                    <localResources inherit="FromParent" />
+                    <securitySettings inherit="FromParent" />
+                    <displaySettings inherit="FromParent" />
+                </properties>
+                <server>
+                    <name>10.226.206.42</name>
+                    <displayName>ASIMO8</displayName>
+                    <comment />
+                    <logonCredentials inherit="None">
+                        <userName>paydcommonsrv\sdinesh</userName>
+                        <domain>ipaydcommonsrv</domain>
+                        <password storeAsClearText="False">monett@123</password>
+                    </logonCredentials>
+                    <connectionSettings inherit="FromParent" />
+                    <gatewaySettings inherit="FromParent" />
+                    <remoteDesktop inherit="FromParent" />
+                    <localResources inherit="FromParent" />
+                    <securitySettings inherit="FromParent" />
+                    <displaySettings inherit="FromParent" />
+                </server>
+                
+            </group>
+        </group>
+    </file>
+</RDCMan>
