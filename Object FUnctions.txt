@@ -1,0 +1,1199 @@
+Option explicit
+
+Dim pageObj
+Set pageObj = Browser("creationtime:=0").Page("index:=1")
+
+'**************************************************************************************************************
+''' <summary> 
+''' setValue_WebEdit Function is to set value in Web Edit box
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="webeditObj" type="string">object</param>
+''' <param name="value" type="array">Set Value</param>
+''' <param name="bSetSecure" type="array">boolean value for set secure</param>
+''' <param name="objDesc" type="array">Object description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns> type="boolean True if found and set in value</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+public function setValue_WebEdit(webeditObj,value,bSetSecure,objDesc)
+
+     Err.Clear
+     On Error Resume Next
+       Dim webeditElement   ,webeditFlag
+    Set webeditElement = eval(webeditObj)
+         webeditFlag = webeditElement.exist
+      if webeditFlag  then
+         if bSetSecure then
+             webeditElement.setsecure value
+         else
+          webeditElement.set value
+         End if
+
+         If Err.Number = 0 Then
+             Call WriteToReport(micPass, ""&objDesc, "Successfully set value for "&objDesc&" and the value is "&value, false)
+          '   Call writeLogResult("pass","Successfully set value for "&objDesc)
+		Else
+		     Call WriteToReport(micFail, ""&objDesc, "Successfully not set value for "&objDesc, True)
+		End If		
+         
+      else
+         setValue_WebEdit = webeditFlag 
+        
+      End if
+  on Error goto 0
+ setValue_WebEdit = webeditFlag 
+set webeditElement = nothing
+
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' setValue_WebEdit Function is to click on Button
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="btnObjStr" type="string">object</param>
+''' <param name="btnDescStr" type="array">Object description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean True if found and clicked</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+public function btn_click(btnObjStr,btnDescStr)
+Dim btnObj
+ Err.Clear
+     On Error Resume Next
+      Set btnObj = eval(btnObjStr)
+      
+       If btnObj.exist(30) Then
+       	  btnObj.click
+       	 Call WriteToReport(micPass, ""&btnDescStr, "Successfully clicked on"&btnDescStr, false)
+       	'  Call writeLogResult("pass","Successfully clicked on"&btnDescStr)
+       	  btn_click = true
+       	else
+       	 Call WriteToReport(micFail, ""&btnDescStr, "not successfully clicked on"&btnDescStr, true)
+       '	 Call writeLogResult("fail","not Successfully clicked on"&btnDescStr)
+       	  btn_click = false
+       End If       
+        
+        On error goto 0
+        Set btnObj = nothing
+
+End function
+'**************************************************************************************************************
+''' <summary> 
+''' click_Link Function is to click on Link
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="linkStr" type="string">object</param>
+''' <param name="linkDesc" type="array">Object description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean True if found and clicked on link</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function click_Link(linkStr,linkDesc)
+	
+	Dim obj
+	Err.Clear
+     On Error Resume Next
+	Set obj = eval(linkStr)
+	If obj.exist(30) Then
+		  
+		obj.click
+		   
+		 Call WriteToReport(micPass, ""&linkDesc, "Successfully clicked on"&linkDesc, false)
+		 click_Link = true
+	else
+         Call WriteToReport(micFail, ""&linkDesc, " NOt successfully clicked on"&linkDesc, True)	
+         click_Link = false
+	End If
+	
+	 On error goto 0
+	Set obj = nothing
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' doubleclick_Link Function is to double click on Link for some reasons single click and replay mode 2 is not working
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="linkStr" type="string">object</param>
+''' <param name="linkDesc" type="array">Object description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean True if found and clicked on link</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function doubleclick_Link(linkStr,linkDesc)
+	
+	Dim obj
+	Err.Clear
+     On Error Resume Next
+	Set obj = eval(linkStr)
+	If obj.exist(30) Then
+		  
+		obj.click
+
+		   If obj.exist Then
+		   	  obj.click
+		   End If
+		 Call WriteToReport(micPass, ""&linkDesc, "Successfully clicked on"&linkDesc, false)
+		 doubleclick_Link = true
+	else
+         Call WriteToReport(micFail, ""&linkDesc, " NOt successfully clicked on"&linkDesc, True)	
+         doubleclick_Link = false
+	End If
+	
+	 On error goto 0
+	Set obj = nothing
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' img_click Function is to click on Image
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="imgStr" type="string">object</param>
+''' <param name="imgDesc" type="array">Object description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean True if found </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+public function img_click(imgStr,imgDesc)
+Dim imgObj
+ Err.Clear
+     On Error Resume Next
+       Set imgObj = eval(imgStr)
+       
+       If imgObj.exist(30) Then
+       	
+       	  imgObj.click
+       	  Call WriteToReport(micPass, ""&strDesc, ""&strDesc&" is clicked ", false)
+       	  img_click = true
+       else
+          Call WriteToReport(micPass, ""&strDesc, ""&strDesc&" is not clicked ", true)  
+          img_click = false          
+       End If
+       
+On error goto 0
+Set imgObj = nothing
+End function
+
+'**************************************************************************************************************
+	''' <summary> 
+	''' webtblExists Function is to verify if webtable
+	''' </summary>
+	''' <author>Venu Arigela</author>
+	''' <datecreated>21-Nov-2015</datecreated>
+	''' <param name="imgStr" type="string">object</param>
+	''' <param name="imgDesc" type="array">Object description</param>
+	''' <startstate>NA</startstate>
+	''' <endstate>Completed</endstate>
+	''' <returns type="boolean True if found and set in value</returns>
+	'Change Control: 
+	'Date of Change 	Author 		Description of change
+	'**************************************************************************************************************
+Public Function webtblExists(page,property_value)
+	
+	Dim tableObj
+	Err.clear
+	On Error Resume Next
+	Set tableObj = page.WebTable(""&property_value)
+	If tableObj.Exist(30) Then
+		webtblExists = true
+	else
+       	webtblExists = false
+	End If
+End Function
+
+
+
+
+'	'**************************************************************************************************************
+'	''' <summary> 
+'	''' countOfElements Function is to count the similar elements with same unique values
+'	''' </summary>
+'	''' <author>Venu Arigela</author>
+'	''' <datecreated>21-Nov-2015</datecreated>
+'	''' <param name="pageObj" type="string">Page Object</param>
+'	''' <param name="objType" type="String">Object type like WebElement, Image etc</param>
+    ''' <param name="property1" type="string">Property like html ID, name</param>
+    ''' <param name="property2" type="string">Property </param>
+    ''' <param name="value1" type="string">Value for property1 </param>
+    ''' <param name="value2" type="string">Value for property2 </param>
+    ''' <param name="ObjDesc" type="string">Description of Object</param>
+    ''' <param name="bObjDisplay" type="string">boolean value to display all avaliable objects in report</param>
+'	''' <startstate>NA</startstate>
+'	''' <endstate>Completed</endstate>
+'	''' <returns type="String" Count of elements</returns>
+'	'Change Control: 
+'	'Date of Change 	Author 		Description of change
+'	'**************************************************************************************************************
+
+Public Function countOfElements(pageObj,objType,property1,property2,value1,value2,ObjDesc,bObjDisplay)
+	Dim objs,Obj,i,descObj,propertiesArr,valuesArr,countObjs
+	
+	Err.clear
+	On Error Resume Next
+	
+	Set descObj = Description.Create
+	
+	descObj("micClass").Value = ""&objType
+	descObj(""&property1).Value = ""&value1
+	descObj(""&property2).Value = ""&value2
+ 
+   Set objs = pageObj.childObjects(descObj) 
+	countObjs = objs.count
+	If countObjs > 0 Then
+		 Call WriteToReport(micPass, " "&ObjDesc, ""&ObjDesc&" is  displayed "&objs.count, true) 
+		If bObjDisplay = true Then
+			
+			For i = 0 To countObjs-1
+			
+				Call WriteToReport(micPass, "elements "&i+1, ""&ObjDesc&" is displayed "&objs(i).getroproperty("innertext"), false)
+			Next
+				
+			
+		End If
+		
+		countOfElements = objs.count	
+		
+  Else
+       Call WriteToReport(micFail, " "&ObjDesc, ""&ObjDesc&" is not displayed ", true) 
+       countOfElements = false
+		
+	End If
+	 
+	On error goto 0
+	
+	Set Obj = nothing
+	
+End Function
+
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' element_Click Function is to click on WebElement
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="objStr" type="string">object</param>
+''' <param name="strDesc" type="array">Object description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean True if found </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function element_Click(objStr,strDesc)
+	
+	Dim webEleObj
+	
+	Set webEleObj = eval(objStr)
+	If webEleObj.Exist(30) Then
+	   element_Click = true
+		webEleObj.Click
+'			If webEleObj.Exist Then
+'			webEleObj.Click
+'	End If
+		
+		Call WriteToReport(micPass, ""&strDesc, ""&strDesc&" is clicked ", false)
+		'Call writeLogResult("pass", ""&strDesc)
+	Else
+		Call WriteToReport(micFail, ""&strDesc, ""&strDesc&" is clicked ", true)
+		element_Click = false
+	End If
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' element_dblClickFunction is to double click on WebElement 
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="objStr" type="string">object</param>
+''' <param name="strDesc" type="array">Object description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean True if found </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function element_dblClick(objStr,strDesc)
+	
+	Dim webEleObj
+	
+	Set webEleObj = eval(objStr)
+	If webEleObj.Exist(30) Then
+	Setting.WebPackage("ReplayType") = 2
+   webEleObj.FireEvent "ondblclick" 
+Setting.WebPackage("ReplayType") = 1
+element_dblClick = true
+'		webEleObj.highlight
+'		webEleObj.Click
+		Call WriteToReport(micPass, ""&strDesc, ""&strDesc&" is clicked ", false)
+	Else
+		Call WriteToReport(micFail, ""&strDesc, ""&strDesc&" is not clicked ", true)
+		element_dblClick = false
+	End If
+	Set webEleObj = nothing
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' check_WebEditBox_Value Function is to verify the default webedit value and if it is o default value then set in
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="objStr" type="string">object</param>
+''' <param name="strValue" type="string">value to check against</param>
+''' <param name="strDesc" type="array">Object description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean True if found </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function check_WebEditBox_Value(objStr,strValue, strDesc)
+	
+	Dim boxObj 
+	Err.clear
+	On Error Resume Next
+Set	boxObj = eval(objStr)
+	
+	  If boxObj.exist(30) Then
+                boxObj.set strValue  
+                Call WriteToReport(micPass, ""&strDesc, ""&strDesc&" value is "&boxObj.getroproperty("value"), true)                
+	  	Else
+	  	  Call WriteToReport(micFail, ""&strDesc, ""&strDesc&"  is not displayed ", true)
+         End If
+	
+On error goto 0
+Set boxObj = nothing
+End Function            	  	
+	
+
+'**************************************************************************************************************
+''' <summary> 
+''' verify_WebEditBox_Value Function is to verify the default webedit value and if it is o default value then set in
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="objStr" type="string">object</param>
+''' <param name="strValue" type="string">value to check against</param>
+''' <param name="strDesc" type="array">Object description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean True if found </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function verify_WebEditBox_Value(objStr,strValue, strDesc)
+	
+	Dim boxObj 
+	Err.clear
+	On Error Resume Next
+Set	boxObj = eval(objStr)
+	
+	  If boxObj.exist(30) Then
+	          If trim(boxObj.getroproperty("value"))= trim(strValue) Then
+	          
+                Call WriteToReport(micPass, ""&strDesc, "The expected value of"&strDesc&"  is "&boxObj.getroproperty("value"), true)
+              else
+                 Call WriteToReport(micFail, ""&strDesc, "The expected value of"&strDesc&"  is "&strValue&" and the actual value is "&boxObj.getroproperty("value"), true)              
+              End if 
+	  	Else
+	  	  Call WriteToReport(micFail, ""&strDesc, ""&strDesc&"  is not displayed ", true)
+  End If
+	Set boxObj = nothing
+        On error goto 0
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' isObjectExist Function is to verify if the given object is existed
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="objStr" type="string">object</param>
+''' <param name="strDesc" type="array">Object description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean True if found </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function isObjectExist(objStr,objDesc)
+	
+	Dim obj 
+	
+	Set obj = eval(objStr)
+	
+	If obj.Exist(30) Then
+	    Call WriteToReport(micPass, ""&objDesc, ""&objDesc&" is displayed ", false)
+		isObjectExist = true
+	else
+	    Call WriteToReport(micFail, ""&objDesc, ""&objDesc&" is not displayed", true)
+        isObjectExist = false	
+	End If
+	
+	Set obj = nothing
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' isCheckBoxDisabled Function is to verify if the given object is existed
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="objStr" type="string">object</param>
+''' <param name="strDesc" type="array">Object description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean" True if found and disabled value is 1 </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function isCheckBoxDisabled(objStr,objDesc)
+	
+	Dim obj 
+	
+	Set obj = eval(objStr)
+	
+	If obj.Exist(30) Then
+	   obj.highlight
+	    If  obj.GetROProperty("disabled") = 1  Then
+	    	 Call WriteToReport(micPass, ""&objDesc, ""&objDesc&" is disabled", false)
+	       	isCheckBoxDisabled = true
+     	else
+	    Call WriteToReport(micFail, ""&objDesc, ""&objDesc&" is not disabled", true)
+        isCheckBoxDisabled = false	
+	    End If
+	Else 
+       	Call WriteToReport(micFail, ""&objDesc, ""&objDesc&" is not displayed", true)
+	End If
+	
+	Set obj = nothing
+End Function
+
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' verifyValue Function is to verify if the value is correct
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="objStr" type="string">object</param>
+''' <param name="strDesc" type="array">Object description</param>
+''' <param name="strExpectedValue" type="String">Expected value</param>
+''' <param name="propertyVal" type="String">Property of expected </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean" True if found and disabled value is 1 </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function verifyValue(objStr, strExpectedValue,propertyVal,objDesc)
+	
+	Dim obj
+	
+	Err.clear
+	On Error Resume Next
+	
+	Set obj = eval(objStr)
+	
+	  If obj.exist(30) Then
+	  	
+	  	    If strcomp(trim(obj.getroproperty(""&propertyVal)),strExpectedValue) = 0 Then
+	  	       Call WriteToReport(micPass, ""&objDesc, "The expected value "&strExpectedValue&" matches with actual value  "&trim(obj.getroproperty(""&propertyVal)), false)
+                verifyValue = true	
+             else    
+               Call WriteToReport(micFail, ""&objDesc, "The expected value "&strExpectedValue&" does not match with actual value  "&trim(obj.getroproperty(""&propertyVal)), true)	
+                verifyValue = false 	             
+	  	    End If
+	  	Else    
+	  	       Call WriteToReport(micFail, " "&objDesc, "object is not displayed", true)	
+                verifyValue = false 	 
+	 End If
+On error goto 0
+Set obj = nothing
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' click_Lookup_Img_And_Select_Item Function is to set value using look up
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="altValueImg" type="string">alt value of Image</param>
+''' <param name="htmlIDSearch" type="array">htmlID value of serach box from lookup window</param>
+''' <param name="searchString" type="String">value to be searched </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean" True if found and disabled value is 1 </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function click_Lookup_Img_And_Select_Item(altValueImg, htmlIDSearch, searchString, desc)
+	Dim objLookup, bFlag
+	bFlag = False
+	Err.Clear
+	On Error Resume Next
+	If pageObj.exist(30) Then
+		Set objLookup = pageObj.Image("alt:=" & altValueImg, "index:=0")
+		If objLookup.exist(30) Then
+			objLookup.click
+			If pageObj.WebEdit("html id:=" & htmlIDSearch).exist(30) Then
+				pageObj.WebEdit("html id:=" & htmlIDSearch).Set searchString
+
+				'Original web button html id:="Lookup" has been replaced with #ICSearch
+				If pageObj.WebButton("html id:=#ICSearch").Exist(5) Then
+					pageObj.WebButton("html id:=#ICSearch").Click
+
+				'The button exists on a PSFrame that is dynamically created due to the objLookup.Click earlier. Sometimes that is needed to find it.
+				ElseIf pageObj.PSFrame("title:=Look Up.*").WebButton("html id:=#ICSearch").Exist(5) Then
+					pageObj.PSFrame("title:=Look Up.*").WebButton("html id:=#ICSearch").Click
+				
+				'The PSFrames are dynamically named and generated and not always disposed of between function calls, so we need to grab the most recent one without knowing the name or ID
+				Else
+					Dim objDesc, i, objFrames
+					
+					'create a description object for PSFrames
+					Set objDesc = Description.Create()
+					objDesc("micclass").Value = "PSFrame"
+					Set objFrames = pageObj.ChildObjects(objDesc)
+					
+					'Once our description object was used for PSFrames, use it again for WebButtons
+					Set objDesc = Description.Create()
+					objDesc("micclass").Value = "WebButton"
+
+					'By grabbing the last frame, this ensures we get the top-most(on our display) PSFrame object
+					i = objFrames.count - 1
+					If objFrames(i).WebButton("html id:=#ICSearch").Exist(5) Then
+						objFrames(i).WebButton("html id:=#ICSearch").Click
+					Else
+						WriteToReport micFail, "Click_Lookup_Img_And_Select_Item", "Search Button not found on page", True
+					End If
+					
+					'Cleanup
+					Set objDesc = Nothing
+					Set objFrames = Nothing
+				End If
+
+				If pageObj.Link("outertext:=" & searchString, "index:=0").exist(30) Then
+					WriteToReport micDone, "" & searchString, "" & searchString & " is displayed on look up results", True
+					pageObj.Link("outertext:=" & searchString, "index:=0").click
+					Call WriteToReport(micPass, "" & desc, "" & desc & " value is displayed on look up results and selected value is " & searchString, False)
+					bFlag = True
+				Else
+					Call WriteToReport(micFail, "" & desc, "" & desc & " value " & searchString & " is not displayed on look up results", True)
+				End If
+			'Not all reference values have popups
+			ElseIf pageObj.Webbutton("Class:=PSPUSHBUTTONTBOK", "html id:=#ICOK", "name:=OK").Exist(10) Then
+				pageObj.Webbutton("Class:=PSPUSHBUTTONTBOK", "html id:=#ICOK", "name:=OK").Click
+				Wait 1
+				pageObj.WebEdit("html id:=PAYMENT_ID_ITEM_REF_VALUE\$0").Set searchString
+			Else
+				Call WriteToReport(micFail, "look up window", "look up window is not displayed", True)
+			End If
+		Else
+			Call WriteToReport(micFail, "" & altValueImg & " Image", "" & altValueImg & " icon is not displayed", True)
+		End If
+	Else
+		Call WriteToReport(micFail, "Page object", "page is not displayed", True)
+	End If
+
+	click_Lookup_Img_And_Select_Item = bFlag
+	On Error GoTo 0
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' getLinkTextValue Function is to get the link's text value
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="linkStr" type="string">link object</param>
+''' <param name="linkDesc" type="String">link's description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="string"> returns innertext value of Link </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function getLinkTextValue(linkStr,linkDesc)
+	
+	Dim obj
+	Err.Clear
+     On Error Resume Next
+     Set obj = eval(linkStr)
+     
+     If obj.exist(30) Then
+     	
+     	getLinkTextValue = obj.getroproperty("innertext")
+     	
+     else
+         Call WriteToReport(micFail, " "&linkDesc, ""&linkDesc&" is not displayed", true)  
+         getLinkTextValue = ""
+     End If
+	
+	On error goto 0
+	Set obj = nothing
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' check_CheckBox Function is to check check box
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="chkboxStr" type="string">link object</param>
+''' <param name="chkboxDesc" type="String">link's description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="string"> returns boolean if found</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function check_CheckBox(chkboxStr,chkboxDesc)
+	
+	Dim obj
+	Err.Clear
+     On Error Resume Next
+	Set obj = eval(chkboxStr)
+	
+	If obj.exist(30) Then
+	
+     	obj.Set "ON"
+     	Call WriteToReport(micPass, " "&chkboxDesc, ""&chkboxDesc&" is displayed and successfully checked ", true)  
+         check_CheckBox = true 	
+     else
+        Call WriteToReport(micFail, " "&chkboxDesc, ""&chkboxDesc&" is not displayed", true)  
+        check_CheckBox = false        
+		
+	End If
+	
+	On error goto 0
+	Set obj = nothing
+End Function
+
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' uncheck_CheckBox Function is touncheck already checked check box
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="chkboxStr" type="string">link object</param>
+''' <param name="chkboxDesc" type="String">link's description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="string"> returns boolean if found</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+
+Public Function uncheck_CheckBox(chkboxStr,chkboxDesc)
+	
+	Dim obj
+	Err.Clear
+     On Error Resume Next
+	Set obj = eval(chkboxStr)
+	
+	If obj.exist(30) Then
+	
+     	obj.Set "OFF"
+     	Call WriteToReport(micPass, " "&chkboxDesc, ""&chkboxDesc&" is displayed and successfully unchecked ", true)  
+         check_CheckBox = true 	
+     else
+        Call WriteToReport(micFail, " "&chkboxDesc, ""&chkboxDesc&" is not displayed", true)  
+        check_CheckBox = false        
+		
+	End If
+	
+	On error goto 0
+	Set obj = nothing
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' valueOfObject Function is to return value of a particular property passed in parameter
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="objStr" type="string">link object</param>
+''' <param name="prop" type="String">property name </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="string"> returns value of given property</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+
+Public Function valueOfObject(objStr,prop)
+	Dim obj
+	Err.Clear
+     On Error Resume Next
+	Set obj = eval(objStr)
+	
+	If obj.exist(30) Then
+	
+	    valueOfObject = obj.getroproperty(""&prop)
+	 else
+         valueOfObject = false
+    End if
+ On Error goto 0
+Set obj = nothing 
+	   
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' getRandomNumber Function is to return the random number for a given length
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="numberLength" type="string">Length of number you are looking for</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="string"> returns random number</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+
+Public Function getRandomNumber(numberLength)
+	
+Dim sMaxVal : sMaxVal = ""
+Dim iLength : iLength = numberLength
+Dim iTmp,iLen,iL
+
+For iL = 1 to iLength
+sMaxVal = sMaxVal & "9"
+Next
+sMaxVal = Int(sMaxVal)
+
+'Find Random Value
+Randomize
+iTmp = Int((sMaxVal * Rnd) + 1)
+'Add Trailing Zeros if required
+iLen = Len(iTmp)
+getRandomNumber = iTmp * (10 ^(iLength - iLen))
+	
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' sendKeys Function is to return the random number for a given length
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="keyVal" type="string">Key value of action like ENTER </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="nothing"> </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Function sendKeys(ByVal keyVal)
+	Set WshShell = CreateObject("WScript.Shell")
+	
+	WshShell.SendKeys keyVal
+	Set WshShell = Nothing    
+End Function
+
+public function WebList_select(pageObj,value,weblistDesc)
+	Dim strOutErrorDesc,obj
+	strOutErrorDesc =""
+    Err.Clear
+    Set obj = eval(pageObj)
+    obj.select value
+    If Err.Number = 0 Then
+      Call WriteToReport(micPass, " "&weblistDesc, ""&weblistDesc&" successfully Selected from WebList "&Value&" ", true)  
+         WebList_select = true 	
+     else
+        Call WriteToReport(micFail, " "&weblistDesc, ""&weblistDesc&" is not Selected from WebList", true)  
+        WebList_select = false        
+		 Exit Function    
+    End If    
+End function
+'**************************************************************************************************************
+''' <summary> 
+'''  Verify_ClickRadioBtn Function is to Verify if the Radio Button is Selected or Not, if Not Selected it Selects
+''' </summary>
+''' <author>Rama Peela</author>
+''' <datecreated>16-Nov-2015</datecreated>
+''' <param name="strObj" type="string">object</param>
+''' <param name="objDesc" type="array">Object description</param>
+''' <param name="radioBtnval" type="array">Set Value</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean True if found and set in value</returns>
+'Change Control: 
+'Date    	    Author 		  Description   
+'**************************************************************************************************************
+
+Public Function Verify_ClickRadioBtn(strObj,objDesc,radioBtnVal)
+	Dim obj
+	
+	Set obj = eval(strObj)
+	If obj.exist(30) Then
+	
+	      If obj.GetROProperty("value") = radioBtnVal Then
+	   	    
+	             Call WriteToReport(micPass, ""&objDesc, ""&objDesc&" is set already", false)
+	           Verify_ClickRadioBtn = true
+			Else
+			      obj.Select radioBtnVal
+			    Call WriteToReport(micPass, ""&objDesc, ""&objDesc&" is not set already and set now", false)
+			     Verify_ClickRadioBtn = true
+			End If 
+	   	
+	  Else
+	   Call WriteToReport(micFail, ""&objDesc, ""&objDesc&" is not displayed", true)
+	    Verify_ClickRadioBtn = false
+	 End If
+	 
+	 
+   
+   Set obj = nothing
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+'''  Verify_ClickCheckBox Function is to Verify if the CheckBox is Checked or Not, if Not Checked it Checks
+''' </summary>
+''' <author>Rama Peela</author>
+''' <datecreated>17-Nov-2015</datecreated>
+''' <param name="strObj" type="string">object</param>
+''' <param name="objDesc" type="array">Object description</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean True if found and set in value</returns>
+'Change Control: 
+'Date    	    Author 		  Description   
+'**************************************************************************************************************
+Public Function Verify_ClickCheckBox(strObj,objDesc)
+Dim obj
+	Set obj = eval(strObj)
+	If obj.exist(30) Then
+	
+	      If obj.GetROProperty("checked") = 1 Then
+	   	    
+	             Call WriteToReport(micPass, ""&objDesc, ""&objDesc&" is Checked already", false)
+	           Verify_ClickCheckBox = true
+			Else
+			      obj.Click
+			    Call WriteToReport(micPass, ""&objDesc, ""&objDesc&" is not Checked  and set now", false)
+			     Verify_ClickCheckBox = true
+			End If 
+	   	
+	  Else
+	   Call WriteToReport(micFail, ""&objDesc, ""&objDesc&" is not displayed", true)
+	    Verify_ClickCheckBox = false
+	 End If
+	 
+	 Set obj = nothing
+End Function
+
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' isObjExistNOReportFunction is to check object and not to report to reporter
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="strObj" type="string">Object </param>
+''' <param name="objDesc" type="string">Object description </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean"> </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function isObjExistNOReport(strObj,objDesc)
+	
+	Dim obj
+	
+	Err.Clear
+     On Error Resume Next
+	Set obj = eval(strObj)
+	
+	  If obj.exist(30) Then
+	  	  isObjExistNOReport = true
+	  else
+          isObjExistNOReport = false	  
+	  End If
+	
+	Set obj = nothing
+	On Error goto 0
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' isObjExistDisplayVal is to check object exists and reports value of particular property passed in paramaeter
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="strObj" type="string">Object </param>
+''' <param name="objDesc" type="string">Object description </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean"> </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function isObjExistDisplayVal(objStr,objDesc,propert)
+	
+	Dim obj ,val
+	Err.Clear
+     On Error Resume Next
+	Set obj = eval(objStr)
+	
+	If obj.Exist(30) Then
+	 val =   obj.getroproperty(""&propert)
+	 Call WriteToReport(micPass, ""&objDesc, ""&objDesc&" is displayed and the value is "&val, false) 
+		isObjExistDisplayVal = true
+	else
+	    Call WriteToReport(micFail, ""&objDesc, ""&objDesc&" is not displayed", true)
+        isObjExistDisplayVal = false	
+	End If
+	
+	Set obj = nothing
+	On Error goto 0
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' getObjFromMultipleObjs is a Function to get an object from Different object
+''' </summary>
+''' <author>Rama Peela</author>
+''' <datecreated>18-Nov-2015</datecreated>
+''' <param name="pageObj" type="page">Object </param>
+''' <param name="objType" type="string">Object Type </param>
+''' <param name="Property1" type="string">Object Property </param>
+''' <param name="Property2" type="string">Object Property </param>
+''' <param name="value1" type="string">Object Property value </param>
+''' <param name="value2" type="string">Object Property value </param>
+''' <param name="ObjDesc" type="string">Object description </param>
+''' <param name="objIndex" type="string">Object Index </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean"> </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function getObjFromMultipleObjs(pageObj,objType,property1,property2,value1,value2,ObjDesc,objIndex)
+	
+		Dim objs,Obj,i,descObj,propertiesArr,valuesArr,countObjs
+	
+	Err.clear
+	On Error Resume Next
+	
+	Set descObj = Description.Create
+	
+	descObj("micClass").Value = ""&objType
+	descObj(""&property1).Value = ""&value1
+	descObj(""&property2).Value = ""&value2
+ 
+   Set objs = pageObj.childObjects(descObj) 
+	countObjs = objs.count
+	If countObjs > 0 Then
+		 Call WriteToReport(micPass, " "&ObjDesc, ""&ObjDesc&" is  displayed "&objs.count, true) 
+				
+		set getObjFromMultipleObjs = objs(objIndex)	
+		
+  Else
+       Call WriteToReport(micFail, " "&ObjDesc, ""&ObjDesc&" is not displayed ", true) 
+       getObjFromMultipleObjs = false
+		
+	End If
+	 
+	On error goto 0
+	
+	Set Obj = nothing
+	
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Verify_ClickUnCheckBox is a Function to verify if the Check box is Unchecked, if not  it Unchecks the Check Box
+''' </summary>
+''' <author>Rama Peela</author>
+''' <datecreated>3-DEC-2015</datecreated>
+''' <param name="strObj" type="string">Object </param>
+''' <param name="ObjDesc" type="string">Object description </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean"> </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function Verify_ClickUnCheckBox(strObj,objDesc)
+Dim obj
+	Set obj = eval(strObj)
+	If obj.exist(30) Then
+	
+	      If obj.GetROProperty("Unchecked") = 0 Then
+	   	    
+	             Call WriteToReport(micPass, ""&objDesc, ""&objDesc&" is UnChecked already", false)
+	           Verify_ClickUnCheckBox = true
+			Else
+			      obj.Click
+			    Call WriteToReport(micPass, ""&objDesc, ""&objDesc&" is Checked  and Unchecked now", false)
+			     Verify_ClickUnCheckBox = true
+			End If 
+	   	
+	  Else
+	   Call WriteToReport(micFail, ""&objDesc, ""&objDesc&" is not displayed", true)
+	    Verify_ClickUnCheckBox = false
+	 End If
+	 End function
+	 
+	 
+'**************************************************************************************************************
+''' <summary> 
+''' ItemListSelection Function is to set value using look up
+''' </summary>
+''' <author>Vikram Reddy Enukonda</author>
+''' <datecreated>05-Dec-2015</datecreated>
+''' <param name="altValueImg" type="string">alt value of Image</param>
+''' <param name="htmlIDSearch" type="array">htmlID value of serach box from lookup window</param>
+''' <param name="searchString" type="String">value to be searched </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean" True if found and disabled value is 1 </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+	 
+Public Function ItemListSelection(htmlIDSearch, searchString,desc)
+
+Dim objLookup , bFlag
+	 
+	 bFlag = false
+	  Err.Clear
+     On Error Resume Next
+	
+      	        If pageObj.WebEdit("html id:="&htmlIDSearch).exist(30) Then
+      	        	
+      	        	pageObj.WebEdit("html id:="&htmlIDSearch).set searchString
+      	        	
+      	        	pageObj.WebButton("html id:=#ICSearch").Click
+      	        	
+      	        	If pageObj.Link("outertext:="&searchString,"index:=0").exist(30) Then
+      	        		 WriteToReport micDone,""&searchString,""&searchString&" is displayed on look up results",true
+      	        		 pageObj.Link("outertext:="&searchString,"index:=0").click
+      	        		 Call WriteToReport(micPass, ""&desc, ""&desc&" value is displayed on look up results and selected value is "&searchString, false) 
+      	        		 bFlag = true
+      	        	  else
+                            Call WriteToReport(micFail, ""&desc, ""&desc&" value "&searchString &" is not displayed on look up results", true)     	        	  
+      	        		
+      	        	End If
+      	        	
+      	        	else
+      	        	 
+      	        	  Call WriteToReport(micFail, "look up window", "look up window is not displayed", true)
+      	        	  
+      	        End If
+      	        
+  
+on error goto 0    	        
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' ItemListSelection Function is to set value using look up
+''' </summary>
+''' <author>Rama Peela</author>
+''' <datecreated>12-Jan-2015</datecreated>
+''' <param name="owebtblobj" type="string">object</param>
+''' <param name="Text" type="array">Text for which we need the row Number</param>
+''' <param name="Column" type="String">Column Number</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean" True if found and disabled value is 1 </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function getRownumberfromWebTable(owebtblobj,Text,Column)
+Dim rowNumber
+Err.clear
+	On Error Resume Next
+If owebtblobj.Exist Then
+	rowNumber = owebtblobj.GetRowWithCellText(Text,Column,1)
+	If rowNumber = -1 Then
+		rowNumber = false
+	End If
+	Else
+	Call WriteToReport(micFail, "web table object doesnot Exist", "web table object doesnot Exist", true)
+	rowNumber = false
+End If
+
+getRownumberfromWebTable = rowNumber
+on error goto 0 
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' isArrayEmptyFunction is to check if the Array is Empty or Not
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>28-Jan -2016</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean"> </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function IsArrayEmpty(ByVal arr)
+
+    If Len(Join(arr,"")) = 0 Then        
+        IsArrayEmpty = True    
+    Else        
+        IsArrayEmpty = False    
+    End If
+    
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' dtSheetExistFunction is to check if the Data Sheet Exists or Not
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>28-Jan -2016</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="boolean"> </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+
+Public Function dtSheetExist(dtSheet)
+	Dim dSheet
+	On error resume next
+	set dSheet = DataTable.GetSheet(dtSheet)
+	If err.Number <> 0 Then
+		dtSheetExist = false
+	else
+        dtSheetExist = true	
+	End If
+End Function

@@ -1,0 +1,1798 @@
+'==========================================================
+'<summary> 
+'this file will have all necessary functions related to data and actions
+'</summary>
+' PSF Test Controller  Function LIbrary
+'Contains backend functions for the PSF Framework
+'Changelog: 
+'Date				Author					Description
+'______________________________________________________ 
+Option Explicit
+Const sPSFFilePath = "C:\AutoSource_Prod\PSFinUFT\"
+
+' <summary> 
+' CaptureScreenshot() takes a screenshot of the entire  window using a unique timestamp string as a name.
+' </summary>
+'Startstate:	N/A
+'Endstate:		N/A
+'Changelog:
+'Date				Author					Description
+'2014-05-21	 Jolly Thomas		Created
+Public Function CaptureScreenshot
+Dim sImageName
+	sImageName = GlobalDictionary("TestName")
+		sImageName = "\\mir\qa\AutoRegressionResults\PSF\PSF Fin Regression\Regr_Runs_By_BusinessUnits_DoNotDelete\ScreenShots\" & sImageName & TIMESTAMPSTRING &".png"
+		Desktop.CaptureBitmap sImageName, True
+		CaptureScreenshot = sImageName
+End Function
+
+''' <summary> 
+''' LaodAllFunctionLibs() This sub will load function libraries settings
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>7/15/2014</datecreated>
+''' <startstate>None</startstate>
+''' <endstate>None</endstate>
+'Changelog:
+'Date				Author					Description
+'2015-11-09	 Venu Arigela		Created   added psfin lib files
+'2016-03-08  venu arigela                 added verifyTCExcelandSheet 
+'2018-05-18	 Eric Trout					  Commented out moveAlreadyExistingREsultExcelSheet and verifyTCExcelandSheet
+Public sub LoadAllFunctionLibs()
+	LoadFunctionLibrary(sPSFFilePath & "Lib\PSF_Database.qfl")
+	LoadFunctionLibrary(sPSFFilePath & "Lib\PSFIN_AR_BI.qfl")
+	LoadFunctionLibrary(sPSFFilePath & "Lib\PSFIN_APP.qfl")
+	LoadFunctionLibrary(sPSFFilePath & "Lib\Utilities.qfl")
+	LoadFunctionLibrary(sPSFFilePath & "Lib\Results_Upload_Sharepoint.qfl")
+	LoadFunctionLibrary(sPSFFilePath & "Lib\ResultReport_Library.qfl")
+	LoadFunctionLibrary(sPSFFilePath & "Lib\Object_Functions.qfl")
+	LoadFunctionLibrary(sPSFFilePath & "Lib\PSF_SOx.qfl")
+	LoadFunctionLibrary(sPSFFilePath & "Lib\PSF_AP.qfl")
+	LoadFunctionLibrary(sPSFFilePath & "Lib\PSFIN_GL.qfl")
+
+	 KillProcess()
+	'' to take care of excel replace warning message
+	'moveAlreadyExistingREsultExcelSheet
+	
+	'verifyTCExcelandSheet
+End sub 
+	
+
+''' <summary> 
+''' LoadQTPTestSettings() This sub will load QTP settings
+'''Parameter1:	s
+''' <para>
+''' <note></note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>7/15/2014</datecreated>
+''' <startstate>None</startstate>
+''' <endstate>None</endstate>
+'Changelog:
+'Date				Author					Description
+'2014-06-23	 Jolly Thomas		Created
+Public Function LoadEnvfromFile(sEnvFileName)
+Dim  i, sVariable, sValue
+
+	DataTable.AddSheet("Environment_Variables")
+	DataTable.ImportSheet sEnvFileName, "EnvVars", "Environment_Variables"
+
+	For i = 1 to DataTable.GetSheet("Environment_Variables").GetRowCount
+		DataTable.SetCurrentRow(i)
+		sVariable = Trim(DataTable.Value("Environment_Variable", "Environment_Variables"))
+		sValue = Trim(DataTable.Value("Value", "Environment_Variables"))
+		If GlobalDictionary.Exists(sVariable) Then
+			GlobalDictionary(sVariable) = sValue
+		Else
+			GlobalDictionary.Add sVariable, sValue
+			Environment(sVariable) = sValue
+		End If
+	Next
+
+End Function
+
+''' <summary> 
+''' LoadEnvXML() This function will load environment variables
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <param name="xmlFile" type="string">xml file path</param>
+''' <datecreated>11/10/2015</datecreated>
+''' <startstate>None</startstate>
+''' <endstate>None</endstate>
+Public Function LoadEnvXML(xmlFile)
+	
+	Dim xmlDoc,root,node,i,j,envVariableName,value, sheetName ,sVariable,sValue
+	sheetName = "Environment_Variables"
+	Set xmlDoc = XMLUtil.CreateXML
+	xmlDoc.LoadFile xmlFile
+	Set root = xmlDoc.GetRootElement()
+	Set node = root.ChildElementsByPath("/Environment_Variables/Variable")
+	 DataTable.AddSheet sheetName
+	 ' creating header names 
+	For j=1 To node.Item(1).ChildElements.Count
+	    DataTable.GetSheet(sheetName).AddParameter node.Item(1).ChildElements.Item(j).ElementName,""
+	Next
+	
+	'looping through and loading all nodes's values into the   data sheet created above 
+	For i = 1 To node.Count Step 1
+	
+		  For j = 1 To node.Item(i).ChildElements.Count
+
+		      envVariableName = node.Item(i).ChildElements.Item(j).ElementName
+		      value =  node.Item(i).ChildElements.Item(j).Value
+		      DataTable.GetSheet(sheetName).GetParameter(envVariableName).Value = value
+	
+		  Next
+		 DataTable.GetSheet(sheetName).SetCurrentRow i+1 
+	Next
+	
+	For i = 1 to DataTable.GetSheet("Environment_Variables").GetRowCount
+		DataTable.SetCurrentRow(i)
+		sVariable = Trim(DataTable.Value("Environment_Variable", "Environment_Variables"))
+		sValue = Trim(DataTable.Value("Value", "Environment_Variables"))
+		If GlobalDictionary.Exists(sVariable) Then
+		   GlobalDictionary(sVariable) = sValue
+		Else
+		   GlobalDictionary.Add sVariable, sValue
+		   Environment(sVariable) = sValue
+	   End If           		 
+	Next
+End Function
+
+''' <summary> 
+''' LoadQTPTestSettings() This sub will load QTP settings
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>7/15/2014</datecreated>
+''' <startstate>None</startstate>
+''' <endstate>None</endstate>
+'Changelog:
+'Date				Author				Description
+'2014-06-23	 Jolly Thomas				Created
+Public Function LoadQTPTestSettings()
+
+	Dim oApp
+	
+	'Checks for connection to Quality Center 
+	If QCUtil.IsConnected Then
+		'set the Debug value
+		If QCUtil.CurrentRun Is Nothing Then 'Local Runs
+			GlobalDictionary("DEBUG") = True
+		Else
+			GlobalDictionary("DEBUG") = False
+		End If
+	 Else
+		'without QC the test default to debug mode
+		WriteToReport micDone, "QC Connection", "No QC Connection detected running with DEBUG turned on.", false
+		GlobalDictionary("DEBUG") = True
+	End If
+	
+	'Disable Smart Identification
+	Set oApp = CreateObject("QuickTest.Application")
+	oApp.Test.Settings.Run.DisableSmartIdentification = True
+	
+	'Hide or show QTP
+	If NOT GlobalDictionary("QTPVisible") Then
+		oApp.Visible = False
+	End If
+	Set oApp = Nothing 
+	
+	'Set the object synchronization timeout to 1 second
+	Setting("DefaultTimeOut")="1000"
+		
+End Function 
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' CloseExcelSheetObject Function is to close the excel object
+''' </summary>
+''' <author>Jolly Thomas</author>
+''' <datecreated>2014-06-23	</datecreated>
+''' <param name="objExcelSheet" type="string">object</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns> type="Nothing"</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Sub CloseExcelSheetObject (objExcelSheet)
+   If IsObject(objExcelSheet) Then
+	   objExcelSheet.DisplayAlerts = False
+	   objExcelSheet.Workbooks.Close			
+	   objExcelSheet.Quit
+	   Set objExcelSheet = Nothing
+   End If
+End Sub
+
+
+'#########################################################################
+''' <summary> 
+''' LoadandRunTestFlowActions() This sub will 
+'''Parameter1:	s
+''' <para>
+''' <note></note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>7/17/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+''' <endstate>None</endstate>
+'Changelog:
+'Date				Author				Description
+'2014-09-15	 Jolly Thomas				Created
+'#########################################################################
+Public Function LoadandRunPreconditions ()
+	Dim sAllPreConditions, arrPreConList, sPreConFunction
+	Dim oReport, nRow, iCount,  nContext
+	 
+	'Add a datasheet for the testflows
+	DataTable.AddSheet("TestPreCondition")
+	DataTable.GetSheet("TestPreCondition").AddParameter "FunctionName", ""
+	DataTable.GetSheet("TestPreCondition").AddParameter "DataSet", ""
+	DataTable.GetSheet("TestPreCondition").AddParameter "Status", ""
+	DataTable.GetSheet("TestPreCondition").AddParameter "OutputValue", ""
+	'Set the datatable row counter
+	nRow = 1
+	sAllPreConditions = GlobalDictionary("sPreCondition")
+	If TRim(sAllPreConditions) <> "" Then
+		arrPreConList = Split(GlobalDictionary("sPreCondition"), "|")
+		For iCount = 0 to uBound(arrPreConList)
+	      sPreConFunction = arrPreConList(iCount)
+		  If sPreConFunction <> "" Then
+
+		'Set Reporter group and run the function
+			'Set oReport = CreateObject("Scripting.Dictionary")
+			'oReport("NodeName") = sPreConFunction
+			'Reporter.UnSetContext
+			'nContext = Reporter.LogEvent ("Replay", oReport, Reporter.GetContext()-1)
+			'Reporter.SetContext nContext
+			
+			'Call the precondition function
+			GlobalDictionary("TestOutputValues") = ""
+			Call WriteToReport(micdone, "Start of Function-" & sPreConFunction, "", False)
+			Execute  "Call "& sPreConFunction &"()"
+			Call WriteToReport(micdone, "End of Function-" & sPreConFunction,"",False)
+			
+			'Update function results in Datatable for review
+			DataTable.SetCurrentRow(nRow)
+			DataTable.GetSheet("TestPreCondition").GetParameter(1).Value = sPreConFunction
+			DataTable.GetSheet("TestPreCondition").GetParameter(3).Value =  Reporter.RunStatus 
+			If GlobalDictionary("TestOutputValues") <> "" Then
+			   DataTable.GetSheet("TestPreCondition").GetParameter(4).Value =  GlobalDictionary("TestOutputValues")		
+			End If
+
+			'proceed to work with next row 
+			nRow = nRow + 1
+		else
+			Call WriteToReport(micdone, "Skipped blank Precondition function- " & sPreConFunction,"",False)		
+		End If
+		
+	  Next
+	End If
+	'Clean-up for test failure
+	If Reporter.RunStatus = "Fail" Then
+		Call WriteToReport(micFail, "Failed PreCondition function - " & sPreConFunction,"",False)		
+		wait 2
+		SystemUtil.CloseProcessByName("IExplore.exe") 
+	End If
+	set oReport = Nothing
+End Function	
+
+
+'#########################################################################
+''' <summary> 
+''' LoadandRunTestFlowActions() This sub will loop through the various test actions
+'''Parameter1:	s
+''' <para>
+''' <note></note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>7/17/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+''' <endstate>None</endstate>
+'Changelog:
+'Date				Author				Description
+'2015-11-10	Venu Arigela				Created
+'#########################################################################
+Public Function LoadandRunTestFlowActions ()
+	Dim arrTestFlowList, arrFunctionList, sFunction
+	Dim nRow, iCount, nDataSet, nContext
+	Dim oReport
+	
+	'Add a datasheet for the testflows
+	DataTable.AddSheet("TestOutput")
+	DataTable.GetSheet("TestOutput").AddParameter "FunctionName", ""
+	DataTable.GetSheet("TestOutput").AddParameter "DataSet", ""
+	DataTable.GetSheet("TestOutput").AddParameter "Status", ""
+	DataTable.GetSheet("TestOutput").AddParameter "OutputValue", ""
+	'Set the datatable row counter
+	nRow = 1
+	arrTestFlowList = Split(GlobalDictionary("sTestFlow"), "|")
+	'Process each function in the test flow list
+	For iCount = 0 to uBound(arrTestFlowList)
+	
+		'Verify user input , parse function name and number of iterations.
+		If arrTestFlowList(iCount) <> "" Then
+			
+			arrFunctionList = Split(arrTestFlowList(iCount), "_")
+			sFunction = arrFunctionList(0)
+			nDataSet = 1
+
+			'Set Reporter group and run the function
+			Set oReport = CreateObject("Scripting.Dictionary")
+			oReport("NodeName") = sFunction
+			Reporter.UnSetContext
+			nContext = Reporter.LogEvent ("Replay", oReport, Reporter.GetContext()-1)
+			Reporter.SetContext nContext
+			
+			GlobalDictionary("TestOutputValues") = ""
+            Call WriteToReport(micdone, "Start of Function-" &sFunction,"",False)
+			Execute  "Call "&sFunction&"()"
+			Call WriteToReport(micdone, "End of Function-" &sFunction,"",False)
+			'Update function output in testoutput datatable 
+			DataTable.SetCurrentRow(nRow)
+			DataTable.GetSheet("TestOutput").GetParameter(1).Value = sFunction
+			DataTable.GetSheet("TestOutput").GetParameter(2).Value = nDataSet
+			DataTable.GetSheet("TestOutput").GetParameter(3).Value =  Reporter.RunStatus 
+			If GlobalDictionary("TestOutputValues") <> "" Then
+			   DataTable.GetSheet("TestOutput").GetParameter(4).Value =  GlobalDictionary("TestOutputValues")		
+			End If			
+			'proceed to work with next row 
+			nRow = nRow + 1
+		else
+			Call WriteToReport(micdone, "Skipped blank function in TestFlow - " &arrTestFlowList(iCount),"",False)		
+		End If
+		
+	Next
+	
+	'Clean-up for test failure
+	If Reporter.RunStatus = "Fail" Then
+		wait 2
+		SystemUtil.CloseProcessByName("IExplore.exe") 
+	End If
+	set oReport = Nothing
+End Function
+
+
+'#########################################################################
+''' <summary> 
+''' GetTestrunStatus() This function is to get the status of run
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>7/17/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+''' <endstate>None</endstate>
+'Changelog:
+'Date				Author				Description
+'2015-11-10	Venu Arigela				Created
+'#########################################################################
+Public Function GetTestrunStatus()
+
+	Dim qtApp, qtTest, sStatus
+	Set qtApp = CreateObject("QuickTest.Application") ' Create the Application object
+	 Set qtTest = qtApp.Test
+	sStatus = this.LastRunResults.Status 
+	qtTest.Close ' Close the test
+
+	Set qtTest = Nothing ' Release the Test object
+	Set qtApp = Nothing ' Release the Application object
+	GetTestrunStatus = sStatus
+End Function
+Public Sub DebugTimer(sTimerLabel)
+	Dim nElapsed
+	Dim sPrevTimer
+
+	If GlobalDictionary("DebugTimer") = "" Then
+		GlobalDictionary("DebugTimer") = GlobalDictionary("TestStart")
+		nElapsed = FormatNumber(Timer - GlobalDictionary("DebugTimer"))
+		sPrevTimer = "test start"
+	Else
+		nElapsed = FormatNumber(Timer - GlobalDictionary("DebugTimer"))
+		GlobalDictionary("DebugTimer") = Timer
+		sPrevTimer = "previous timer"
+	End If
+	
+	Print "Timer ["&sTimerLabel&"] - time elapsed since "&sPrevTimer&": ["&nElapsed&"] seconds."
+
+End Sub
+
+
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' WriteToReport() This sub will write to a report, and take screenshots if required criteria is met
+'''Parameter1:	sEventStats / Delcares whether the report is a micPass, micFail, etc.
+'''Parameter2:	sReportDescription / Report title description
+'''Parameter3: sReportFullDetails / Details of report
+'''Parameter4: bTakeScreenshot / Determines if a screen shot should or should not be taken
+''' <para>
+''' <note>Required Excel Input Parameter ="sEventStatus " and "sReportDescription"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>5/21/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+     '12/21/2015            venu arigela           added if condition to map the status
+     '10/25/2017            Eric Trout             updated to include MicWarning
+'**********************************************************************************************************************************************************
+Sub WriteToReport(sEventStatus, sReportDescription, sReportFullDetails, bCaptureScreenshot)
+
+	Dim bDebug, status,status1
+	
+	bDebug = GlobalDictionary("DEBUG")
+	
+	If bCaptureScreenshot = False Then
+		Reporter.ReportEvent sEventStatus, sReportDescription, sReportFullDetails
+	Else 
+		If sEventStatus = micFail or bDebug = True Then			
+			Reporter.ReportEvent sEventStatus, sReportDescription, sReportFullDetails, CaptureScreenshot
+		Else
+			Reporter.ReportEvent sEventStatus, sReportDescription, sReportFullDetails
+		End If	
+	End If
+	
+	if(sEventStatus = 0 ) then
+	    status = "Pass"
+	  ElseIf sEventStatus = 1 Then
+         status = "Fail"
+       ElseIf sEventStatus = 2 Then
+         status = "Done"   
+       ElseIf sEventStatus = 3 Then
+         status = "Warning"
+     End if 
+     
+     if(sEventStatus = 0 or sEventStatus = 2 or sEventStatus = 3 ) then
+	    status1 = "Pass"
+	  ElseIf sEventStatus = 1 Then
+         status1 = "Fail"  
+     End if
+     Call writeLogResult(status1,sReportFullDetails,sReportDescription)
+
+	 'call writeToExcel(status,sReportFullDetails,sReportDescription)
+
+End Sub
+
+'**************************************************************************************************************
+''' <summary> 
+''' writeToExcel Function is write to reports into excel
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>16-Feb-2016</datecreated>
+''' <param name="status" type="string">status of step</param>
+''' <param name="details" type="string">step details</param>
+''' <param name="sdescription" type="string">step description with expected and actual values</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function writeToExcel(status,details,sdescription)
+	
+	Dim oExcel, oWB, oSheet,rows,fso,objSht,colNumber,rowNumber,row,objWrkSht
+	Err.clear
+	On Error Resume Next
+	Set fso = CreateObject("Scripting.FileSystemObject")
+	Set oExcel=CreateObject("Excel.Application")
+	oExcel.DisplayAlerts = false
+	Set oWB=oExcel.Workbooks.Open("K:\AutoRegressionResults\PSF\PSF Fin Regression\Regr_Runs_By_BusinessUnits_DoNotDelete\TestCases\"&environment.Value("TestName")&".xlsx")
+	oExcel.Visible=false
+		If fso.FileExists(oWB) Then
+			
+		
+			If NOT verifySheetExists(oWB,trim(Environment.Value("TestName"))) Then
+			
+			 
+			  Set objSht = oWB.Worksheets(Environment.Value("TestName"))
+				rows = objSht.UsedRange.Rows.Count
+				row = rows+1
+			    objSht.Cells(row,1).value = ucase(status)
+				objSht.Cells(row,2).value = sdescription
+				objSht.Cells(row,3).value = details
+				
+				If strcomp("FAIL",ucase(status)) <> 0 Then
+					objSht.Cells(row,4).value = "NA"
+				 else
+			        objSht.Cells(row,4).value = 	CaptureScreenshot 
+				End If
+			
+			
+			Else
+			   
+			   Set objSht = oWB.Sheets.Add
+			   objSht.Name = environment.Value("TestName")
+			    objSht.Cells(1,1).value = "TestStatus"
+				objSht.Cells(1,2).value = "stepdescription"
+				objSht.Cells(1,3).value = "Stepdetails"
+				objSht.Cells(1,4).value = "Screenshotpath"
+			
+			End If
+		
+		Else
+		     createanExcel
+		     Set oExcel=CreateObject("Excel.Application")
+		oExcel.DisplayAlerts = false
+		Set oWB=oExcel.Workbooks.Open("K:\AutoRegressionResults\PSF\PSF Fin Regression\Regr_Runs_By_BusinessUnits_DoNotDelete\TestCases\"&environment.Value("TestName")&".xlsx")
+		oExcel.Visible=false
+			       Set objSht = oWB.Worksheets(Environment.Value("TestName"))
+				rows = objSht.UsedRange.Rows.Count
+				row = rows+1
+			    objSht.Cells(row,1).value = ucase(status)
+				objSht.Cells(row,2).value = sdescription
+				objSht.Cells(row,3).value = details
+				
+				If strcomp("FAIL",ucase(status)) <> 0 Then
+					objSht.Cells(row,4).value = "NA"
+				 else
+			        objSht.Cells(row,4).value = 	CaptureScreenshot 
+				End If
+		End If
+
+oWB.Save
+oWB.Close
+Set oSheet = nothing
+Set objSht = nothing
+Set objWrkSht = nothing
+Set oWB = nothing
+Set oExcel = nothing
+Set fso = nothing
+
+On Error goto 0
+	
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' createanExcel Function is to create the excel for reports
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>16-Feb-2016</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function createanExcel()
+	Dim xlObj,objSht
+	
+	'Create a new Microsoft Excel object
+    Set xlObj = createobject("excel.application")
+    xlObj.Workbooks.Add
+    xlObj.ActiveWorkbook.SaveAs "K:\AutoRegressionResults\PSF\PSF Fin Regression\Regr_Runs_By_BusinessUnits_DoNotDelete\TestCases\"&Environment.Value("TestName")&".xlsx"
+    xlObj.Application.Quit
+    set xlObj = nothing
+     Set xlObj = createobject("excel.application")
+     xlObj.Workbooks.Open "K:\AutoRegressionResults\PSF\PSF Fin Regression\Regr_Runs_By_BusinessUnits_DoNotDelete\TestCases\"&Environment.Value("TestName")&".xlsx"
+    Set objSht = xlObj.Sheets.Add
+	objSht.Name = Environment.Value("TestName")
+    objSht.Cells(1,1).value = "StepResult"
+	objSht.Cells(1,2).value = "StepDescription"
+	objSht.Cells(1,3).value = "StepDetails"
+	objSht.Cells(1,4).value = "ScreenShotPath"
+	xlObj.ActiveWorkbook.Save
+	xlObj.Application.Quit
+	Set objSht = nothing
+    Set xlObj = nothing
+    
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' LoadTestDataSettings Function is to load test dat setting with little tweak of existing function
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+''' <param name="sDataLocation" type="string">Data file location</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"> True if found and clicked</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function LoadTestDataSettings(sDataLocation)
+	Dim sTestDriverData, sTestName, sTestDataSheet
+	Dim arrTestFlowList, sAllVarsFile, sAllVarReference
+	Dim iCount, bFound, nRows, i
+	Dim oTempFile
+	Dim oDataSheetExcel, oDataSheet
+	Dim sParmName, sParmValue , aExcelLocation , sSheet ,	sParameter 
+	Dim sTestOutputFile
+		
+	Set oDataSheetExcel = CreateObject("Excel.Application") 
+	oDataSheetExcel.DisplayAlerts = False
+	
+	'Set the location of the datasheets
+	If uCase(GlobalDictionary("DataLocation")) = "LOCAL" Then
+		GlobalDictionary("DataLocation") = sDataLocation
+	Else
+		'shared location
+		GlobalDictionary("DataLocation") = ""
+	End If
+	'Get the test name and env values
+	sDataLocation = GlobalDictionary("DataLocation")
+	sAllVarsFile =  GlobalDictionary("DataLocation")&GlobalDictionary("AllVars")
+	sTestOutputFile = sPSFFilePath & "autolocal\"
+	'Import the test driver data
+	sTestDriverData = sDataLocation & GlobalDictionary("TestFlowAction")
+	DataTable.AddSheet("TestFlowAction")
+	DataTable.ImportSheet sTestDriverData, "Driver_Data", "TestFlowAction"
+
+	'Search for the test name
+	bFound = False
+	For iCount = 1 to DataTable.GetSheet("TestFlowAction").GetRowCount
+		DataTable.SetCurrentRow(iCount)
+		
+		If DataTable.Value("TestName", "TestFlowAction") = sTestName Then
+			'If the test is found
+			bFound = True
+			sTestDataSheet = sDataLocation&DataTable.Value("DataSheet", "TestFlowAction")
+			GlobalDictionary("sTestFlow") = DataTable.Value("Flow", "TestFlowAction")
+			GlobalDictionary("sPreCondition") = DataTable.Value("Precondition", "TestFlowAction")
+			'Add it for results reference
+			''''''''''''''''''''''''''''''''''''''
+			GlobalDictionary("TestName") = DataTable.Value("TestName", "TestFlowAction")
+	         sTestName = GlobalDictionary("TestName")
+			'''''''''''''''''''''''''''''''''''''
+			DataTable.AddSheet(sTestName)
+			DataTable.ImportSheet sTestDataSheet, sTestName, sTestName
+			
+			'Get all the data parameters and values to the Global Dictionary for future  use 
+			Set oTempFile = oDataSheetExcel.Workbooks.Open(sTestDataSheet)	
+			Set oDataSheet = oDataSheetExcel.Sheets.Item(sTestName)			
+			nRows = oDataSheet.UsedRange.Rows.Count
+
+			For i = 1 to nRows
+				sParmName = Trim(oDataSheet.Cells(i, 1))
+				sParmValue = Trim(oDataSheet.Cells(i, 2))
+				
+				'If the sParmValue is an AllVars reference, then go to allvars and get details
+				If Left(sParmValue,1) = "$" Then
+
+					'Determine the location of the data in AllVars
+					sParmValue = Replace(sParmValue, "$", "")
+					aExcelLocation = Split(sParmValue, "_")
+					sSheet = aExcelLocation(0)
+					sParameter = Trim(aExcelLocation(1))
+					
+					sAllVarReference = ReadExcelFile(sAllVarsFile, sSheet, sParameter, 2, 1)
+
+					GlobalDictionary (sParmName) = sAllVarReference
+					'Add Allvars to datatable for reference	
+						DataTable.AddSheet("AllVars_"&sSheet)
+					  DataTable.ImportSheet sAllVarsFile, sSheet, "AllVars_"&sSheet
+				'	End If
+				ElseIf Left(sParmValue,1) = "&" Then
+				 
+					'Determine the location of the data 
+
+					sParmValue = Replace(sParmValue, "&", "")
+					aExcelLocation = Split(sParmValue, ";")
+					sTestOutputFile = sTestOutputFile&aExcelLocation(0)&".xls"
+					sSheet = "ExtReference"
+					sParameter = aExcelLocation(1)
+
+					sAllVarReference = ReadExcelFile(sTestOutputFile,"TestOutput" , sParameter, 2, 1)
+
+					GlobalDictionary (sParmName) = sAllVarReference
+					'Add Allvars to datatable for reference
+					'If DataTable.GetSheet(sSheet) < 1 Then			
+						DataTable.AddSheet(sSheet)
+					  DataTable.ImportSheet sTestOutputFile, "TestOutput", sSheet
+				'	End If
+				
+				else
+					GlobalDictionary(sParmName) = sParmValue
+				End If
+			Next
+		  Exit For
+		End If
+	Next
+	CloseExcelSheetObject (oDataSheetExcel)
+	'If the testcase isn't found
+	If NOT bFound Then
+		WriteToReport micFail, "Test name not found", "The test name ["&sTestName&"] was not found in the test driver datasheet ["&sTestDriverData&"]", false
+		ExitTest
+	End If
+	
+	'Report that processing the test data is complete
+	WriteToReport micPass, "Importing test data complete", "The test data was imported successfully .", false
+
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' LoadTestDataSettingsMultipleIterations Function is to load test dat settings for multiple iterations
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <param name="sDataLocation" type="string">Data file location</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"> True if found and clicked</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function LoadTestDataSettingsMultipleIterations(sDataLocation)
+	Dim sTestDriverData, sTestName, sTestDataSheet
+	Dim arrTestFlowList, sAllVarsFile, sAllVarReference
+	Dim iCount, bFound, nRows, i
+	Dim oTempFile
+	Dim oDataSheetExcel, oDataSheet, iterationExcel,iterationsSheet
+	Dim sParmName, sParmValue , aExcelLocation , sSheet ,	sParameter 
+	Dim sTestOutputFile
+		
+	Set oDataSheetExcel = CreateObject("Excel.Application") 
+	oDataSheetExcel.DisplayAlerts = False
+	
+	'Set the location of the datasheets
+	If uCase(GlobalDictionary("DataLocation")) = "LOCAL" Then
+		GlobalDictionary("DataLocation") = sDataLocation
+	Else
+		'shared location
+		GlobalDictionary("DataLocation") = ""
+	End If
+	'Get the test name and env values
+	GlobalDictionary("TestName") = Environment.Value("TestName")
+	sTestName = GlobalDictionary("TestName")
+	sDataLocation = GlobalDictionary("DataLocation")
+	sAllVarsFile =  GlobalDictionary("DataLocation")&GlobalDictionary("AllVars")
+	sTestOutputFile = sPSFFilePath & "autolocal\"
+	
+	'Import the test driver data
+	sTestDriverData = sDataLocation & GlobalDictionary("TestFlowAction")
+	DataTable.AddSheet("TestFlowAction")
+	DataTable.ImportSheet sTestDriverData, "Driver_Data", "TestFlowAction"
+
+	'Search for the test name
+	bFound = False
+	For iCount = 1 to DataTable.GetSheet("TestFlowAction").GetRowCount
+		DataTable.SetCurrentRow(iCount)
+		
+		If trim(DataTable.Value("TestName", "TestFlowAction")) = sTestName Then
+			'If the test is found
+			bFound = True
+			sTestDataSheet = sDataLocation&DataTable.Value("DataSheet", "TestFlowAction")
+			GlobalDictionary("sTestFlow") = DataTable.Value("Flow", "TestFlowAction")
+			GlobalDictionary("sPreCondition") = DataTable.Value("Precondition", "TestFlowAction")
+			'Add it for results reference
+			''''''''''''''''''''''''''''''''''''''
+			GlobalDictionary("TestName") = DataTable.Value("TestName", "TestFlowAction")
+	         sTestName = GlobalDictionary("TestName")
+	         '''''''''''''''''''''''''''''''''''
+	       '  Environment.Value("TestName") = sTestName
+			'''''''''''''''''''''''''''''''''''''
+			DataTable.AddSheet(sTestName)
+			DataTable.ImportSheet sTestDataSheet, sTestName, sTestName
+			
+			'Get all the data parameters and values to the Global Dictionary for future  use 
+			Set oTempFile = oDataSheetExcel.Workbooks.Open(sTestDataSheet)	
+			Set oDataSheet = oDataSheetExcel.Sheets.Item(sTestName)			
+			nRows = oDataSheet.UsedRange.Rows.Count
+
+			For i = 1 to nRows
+				sParmName = Trim(oDataSheet.Cells(i, 1))
+				sParmValue = Trim(oDataSheet.Cells(i, 2))
+				
+				'If the sParmValue is an AllVars reference, then go to allvars and get details
+				If Left(sParmValue,1) = "$" Then
+
+					'Determine the location of the data in AllVars
+					sParmValue = Replace(sParmValue, "$", "")
+					aExcelLocation = Split(sParmValue, "_")
+					sSheet = aExcelLocation(0)
+					sParameter = Trim(aExcelLocation(1))
+					
+					sAllVarReference = ReadExcelFile(sAllVarsFile, sSheet, sParameter, 2, 1)
+
+					GlobalDictionary (sParmName) = sAllVarReference
+					'Add Allvars to datatable for reference         
+					  DataTable.AddSheet("AllVars_"&sSheet)
+					  DataTable.ImportSheet sAllVarsFile, sSheet, "AllVars_"&sSheet
+				'	End If
+				ElseIf Left(sParmValue,1) = "&" Then
+				'If the sParmValue is an TestOut file reference, then go to autolocal output and get details
+				 
+					'Determine the location of the data 
+
+					sParmValue = Replace(sParmValue, "&", "")
+					aExcelLocation = Split(sParmValue, ";")
+					sTestOutputFile = sTestOutputFile&aExcelLocation(0)&".xls"
+					sSheet = "ExtReference"
+					sParameter = aExcelLocation(1)
+
+					sAllVarReference = ReadExcelFile(sTestOutputFile,"TestOutput" , sParameter, 2, 1)
+
+					GlobalDictionary (sParmName) = sAllVarReference
+					'Add Allvars to datatable for reference
+							
+					  DataTable.AddSheet(sSheet)
+					  DataTable.ImportSheet sTestOutputFile, "TestOutput", sSheet
+				else
+					GlobalDictionary(sParmName) = sParmValue
+				End If
+			Next
+		  Exit For
+		End If
+	Next
+	CloseExcelSheetObject (oDataSheetExcel)
+	'If the testcase isn't found
+	If NOT bFound Then
+		WriteToReport micFail, "Test name not found", "The test name ["&sTestName&"] was not found in the test driver datasheet ["&sTestDriverData&"]", false
+		ExitTest
+	End If
+	
+	'Report that processing the test data is complete
+	WriteToReport micPass, "Importing test data complete", "The test data was imported successfully .", false
+
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' LoadandRunTestFlowActionsLocal Function is to load test actions for given test 
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"> True if found and clicked</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function LoadandRunTestFlowActionsLocal ()
+Dim arrTestFlowList, arrFunctionList, sFunction
+	Dim nRow, iCount, nDataSet, nContext
+	Dim oReport,arr,itr,itrGroup,rows
+	
+	'Add a datasheet for the testflows
+	DataTable.AddSheet("TestOutput")
+	DataTable.GetSheet("TestOutput").AddParameter "FunctionName", ""
+	DataTable.GetSheet("TestOutput").AddParameter "DataSet", ""
+	DataTable.GetSheet("TestOutput").AddParameter "Status", ""
+	DataTable.GetSheet("TestOutput").AddParameter "OutputValue", ""
+	
+	'""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+	If InStr(1,GlobalDictionary("TestName"),"AR",1)<> 0  Then
+	arr =	importIterationsXMLWithonlyYesItrs(sPSFFilePath&"Environment\AR_Iterations.xml","Action1","/ARIterations/Iteration","BusinessUnit","Value")
+		GlobalDictionary("Iterations") = sPSFFilePath&"Environment\AR_Iterations.xml"
+		else
+	arr	= importIterationsXMLWithonlyYesItrs(sPSFFilePath&"Environment\BI_Iterations.xml","Action1","/BIIterations/Iteration","BusinessUnit","Value")
+		GlobalDictionary("Iterations") = sPSFFilePath&"Environment\BI_Iterations.xml"
+		Environment.Value("Iterations") = sPSFFilePath&"Environment\BI_Iterations.xml"
+	End If
+	'arr = getIterations("Global")
+	rows =DataTable.GetSheet("Action1").GetRowCount
+	DataTable.GetSheet("Action1").SetCurrentRow(1)
+	For itr = 1 To rows
+		if(DataTable.GetSheet("Action1").GetParameter("Value")="YES") Then
+			Call WriteToReport(micPass, "Running for BusinessUnit "&Right(DataTable.GetSheet("Action1").GetParameter("BusinessUnit").Value,5),"Running for BusinessUnit "&Right(DataTable.GetSheet("Action1").GetParameter("BusinessUnit").Value,5),False)	
+			loadActions(Right(DataTable.GetSheet("Action1").GetParameter("BusinessUnit").Value,5))
+		End if
+	DataTable.GetSheet("Action1").SetCurrentRow(itr+1)
+	Next
+    'addTCObjectiveForReport()
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' getIterations Function is to get the iterations to run on
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <param name="sheetName" type="string">Data file location</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"> True if found and clicked</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function getIterations(sheetName)
+	   
+    Dim i, nRowCount,iterationValue
+	Dim sValue ,j      
+
+	nRowCount = DataTable.GetSheet(sheetName).GetRowCount
+	DataTable.GetSheet(sheetName).SetCurrentRow(1)
+		j=0	
+	For i = 1 To nRowCount 
+
+		sValue = DataTable.GetSheet(sheetName).GetParameter("BusinessUnit")
+		ReDim preserve arr(j)
+		iterationValue = RTrim(DataTable.GetSheet(sheetName).GetParameter("Value"))
+			If (InStr ( Trim(sValue), "ALL") <> 0) Then    
+				If trim(iterationValue) = "YES" Then
+					arr(0) = "00001"
+					arr(1) = "00002"
+					arr(2) = "00017"
+					getIterations = arr
+					Exit Function
+				End If
+				
+				ElseIf (trim(iterationValue) = "YES") and (instr(1,sValue,"00001",1)<>0 ) Then
+					arr(j) = "00001"
+								
+			ElseIf (trim(iterationValue) = "YES") and (instr(1,sValue,"00002",1)<>0 ) Then
+			
+					arr(j) = "00002"
+
+				ElseIf (trim(iterationValue) = "YES") and (instr(1,sValue,"00017",1)<>0 ) Then
+				  
+					arr(j) = "00017"
+
+		End If
+		j =j+1
+		 DataTable.GetSheet(sheetName).SetNextRow	
+
+    Next
+	getIterations = arr
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' loadDataForIterations Function is to load the data for the given businessunit
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <param name="businessUnit" type="int">Data file location</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"> True if found and clicked</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function loadDataForIterations(businessUnit)
+	
+	Dim i,nRows,sParmName,sParmValue,aExcelLocation
+	Dim sSheet,sParameter,sAllVarReference,sTestOutputFile,sAllVarsFile
+	nRows = DataTable.GetSheet(GlobalDictionary("TestName")).GetRowCount
+	DataTable.GetSheet(GlobalDictionary("TestName")).SetCurrentRow(1)
+	sAllVarsFile =  GlobalDictionary("DataLocation")&GlobalDictionary("AllVars")
+	sTestOutputFile = sPSFFilePath & "autolocal\"
+	For i = 1 to nRows
+				sParmName = Trim(DataTable.Value("Name",GlobalDictionary("TestName")))
+				sParmValue = Trim(DataTable.Value("_"&businessUnit,GlobalDictionary("TestName")))
+				
+				'If the sParmValue is an AllVars reference, then go to allvars and get details
+				If Left(sParmValue,1) = "$" Then
+
+					'Determine the location of the data in AllVars
+					sParmValue = Replace(sParmValue, "$", "")
+					aExcelLocation = Split(sParmValue, "_")
+					sSheet = aExcelLocation(0)
+					sParameter = Trim(aExcelLocation(1))
+					sAllVarReference = ReadExcelFile(sAllVarsFile, sSheet, sParameter, 2, 1)
+					GlobalDictionary (sParmName) = sAllVarReference
+					'Add Allvars to datatable for reference
+					  DataTable.AddSheet("AllVars_"&sSheet)
+					  DataTable.ImportSheet sAllVarsFile, sSheet, "AllVars_"&sSheet
+				 ElseIf Left(sParmValue,1) = "&" Then
+				'If the sParmValue is an TestOut file reference, then go to autolocal output and get details
+				 
+					'Determine the location of the data 
+
+					sParmValue = Replace(sParmValue, "&", "")
+					aExcelLocation = Split(sParmValue, ";")
+					sTestOutputFile = sTestOutputFile&aExcelLocation(0)&".xls"
+					sSheet = "ExtReference"
+					sParameter = aExcelLocation(1)
+
+					sAllVarReference = ReadExcelFile(sTestOutputFile,"TestOutput" , sParameter, 2, 1)
+
+					GlobalDictionary (sParmName) = sAllVarReference
+					'Add Allvars to datatable for reference
+					  DataTable.AddSheet(sSheet)
+					  DataTable.ImportSheet sTestOutputFile, "TestOutput", sSheet			
+				else
+					GlobalDictionary(sParmName) = sParmValue
+				End If
+				DataTable.GetSheet(GlobalDictionary("TestName")).SetNextRow
+			Next
+		  
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' importXMlintoDT Function is to import the given xml data into datasheet
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <param name="xmlFile" type="string">xml file path</param>
+''' <param name="dtSheetname" type="string">data sheet name</param>
+''' <param name="elementsPath" type="string">element path</param>
+''' <param name="nodeName" type="string">Node name that you are looking for</param>
+''' <param name="nodeVal" type="string">Data file location</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"> True if found and clicked</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function importXMlintoDT(xmlFile,dtSheetname,elementsPath,nodeName,nodeVal)
+	
+	Dim xmlDoc,root,node,i,j,envVariableName,value, sheetName ,sVariable,sValue
+	sheetName = dtSheetname
+	Set xmlDoc = XMLUtil.CreateXML
+	xmlDoc.LoadFile xmlFile
+	Set root = xmlDoc.GetRootElement()
+	Set node = root.ChildElementsByPath(elementsPath)
+	 DataTable.AddSheet sheetName
+	 ' creating header names 
+	For j=1 To node.Item(1).ChildElements.Count
+	   
+	    DataTable.GetSheet(sheetName).AddParameter node.Item(1).ChildElements.Item(j).ElementName,""
+	Next
+	
+	'looping through and loading all nodes's values into the   data sheet created above 
+	For i = 1 To node.Count Step 1
+	
+		  For j = 1 To node.Item(i).ChildElements.Count
+
+		      envVariableName = node.Item(i).ChildElements.Item(j).ElementName
+		      value =  node.Item(i).ChildElements.Item(j).Value
+		      DataTable.GetSheet(sheetName).GetParameter(envVariableName).Value = value
+	
+		  Next
+		 DataTable.GetSheet(sheetName).SetCurrentRow i+1 
+	Next
+	
+	For i = 1 to DataTable.GetSheet(sheetName).GetRowCount
+		DataTable.SetCurrentRow(i)
+		sVariable = Trim(DataTable.Value(nodeName, sheetName))
+		sValue = Trim(DataTable.Value(nodeVal, sheetName))
+		If GlobalDictionary.Exists(sVariable) Then
+					GlobalDictionary(sVariable) = sValue
+				Else
+					GlobalDictionary.Add sVariable, sValue
+					Environment(sVariable) = sValue
+	   End If           		 
+	Next
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' importIterationsXMLWithonlyYesItrs Function is to import the given xml data into datasheet with the value YES
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <param name="xmlFile" type="string">xml file path</param>
+''' <param name="dtSheetname" type="string">data sheet name</param>
+''' <param name="elementsPath" type="string">element path</param>
+''' <param name="nodeName" type="string">Node name that you are looking for</param>
+''' <param name="nodeVal" type="string">Data file location</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"> True if found and clicked</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function importIterationsXMLWithonlyYesItrs(xmlFile,dtSheetname,elementsPath,nodeName,nodeVal)
+	
+	Dim xmlDoc,root,node,i,j,k,envVariableName,value, sheetName ,sVariable,sValue
+	Dim ARIterationsArr,biIterationsArr,iteration,x,itrFlag,oIterationsDictionary,itrArray
+	sheetName = dtSheetname
+	Set xmlDoc = XMLUtil.CreateXML
+	xmlDoc.LoadFile xmlFile
+	Set root = xmlDoc.GetRootElement()
+	Set node = root.ChildElementsByPath(elementsPath)
+	Set oIterationsDictionary = CreateObject("Scripting.Dictionary")
+	 DataTable.AddSheet sheetName
+	 ARIterationsArr = Array("00001", "00002","00017")
+	 biIterationsArr = Array("00001", "00002","00017","00012","")
+	
+	x=1
+	itrFlag = false
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''	  
+	For i = 1 To node.Count Step 1
+	
+		  For j = 1 To node.Item(i).ChildElements.Count-1
+
+		      envVariableName = node.Item(i).ChildElements.Item(j).ElementName
+		      value =  node.Item(i).ChildElements.Item(j+1).Value
+		       iteration =  node.Item(i).ChildElements.Item(j).Value
+		     if((iteration = "ALL") AND (value = "YES") )  then     
+		         DataTable.GetSheet(sheetName).SetCurrentRow(1)
+		           if inStr(1,GlobalDictionary("TestName"),"AR") <> 0  then   
+		              itrFlag = true
+		              itrArray = ARIterationsArr
+		             
+		            Else
+		            itrFlag = true
+		            itrArray = biIterationsArr
+                          
+		           End if 
+		       ElseIf value = "YES" Then
+                      oIterationsDictionary.Add iteration,value
+		        End if
+
+		  Next
+	Next
+	''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+	Dim keys, items,ColNums,m,ColName,oDataDictionary
+	DataTable.GetSheet(GlobalDictionary("TestName")).SetCurrentRow(2)
+	ColNums=DataTable.GetSheet(GlobalDictionary("TestName")).GetParameterCount
+	Set oDataDictionary = CreateObject("Scripting.Dictionary")
+	 For m=1 to ColNums
+	 ColName=DataTable.GetSheet((GlobalDictionary("TestName"))).GetParameter(m).Name
+	   If IsNumeric(Right(ColName,5)) Then
+	   	   oDataDictionary.Add Right(ColName,5),Right(ColName,5)
+	   End If
+	 Next
+ 
+ If itrFlag Then
+ 	
+		 If NOT ubound(itrArray) = oDataDictionary.Count Then
+		
+	 		keys = oDataDictionary.Keys
+				  items = oDataDictionary.Items
+				For i = 0 To oDataDictionary.Count-1
+					
+					DataTable.GetSheet(sheetName).SetCurrentRow(i+1)
+					sVariable = Trim(keys(i))
+					sValue = Trim(items(i))
+					If GlobalDictionary.Exists(sVariable) Then
+						GlobalDictionary(sVariable) = sValue
+					Else
+						GlobalDictionary.Add sVariable, sValue
+				   End If
+				   
+					   DataTable.GetSheet(sheetName).GetParameter("BusinessUnit").Value = sVariable
+					   DataTable.GetSheet(sheetName).GetParameter("Value").Value = "YES"
+					  DataTable.GetSheet(sheetName).SetCurrentRow i+2
+					
+				 Next
+		else
+              keys = oDataDictionary.Keys
+				  items = oDataDictionary.Items
+				For i = 0 To oDataDictionary.Count-1
+					
+					DataTable.GetSheet(sheetName).SetCurrentRow(i+1)
+					sVariable = Trim(keys(i))
+					sValue = Trim(items(i))
+					If GlobalDictionary.Exists(sVariable) Then
+						GlobalDictionary(sVariable) = sValue
+					Else
+						GlobalDictionary.Add sVariable, sValue
+				   End If
+				   
+					   DataTable.GetSheet(sheetName).GetParameter("BusinessUnit").Value = sVariable
+					   DataTable.GetSheet(sheetName).GetParameter("Value").Value = "YES"
+					  DataTable.GetSheet(sheetName).SetCurrentRow i+2
+					
+				 Next		
+	 	End If
+	 	
+ Else
+     
+      If oIterationsDictionary.Count = oDataDictionary.Count Then
+	 		keys = oDataDictionary.Keys
+		   items = oDataDictionary.Items
+			For i = 0 To oDataDictionary.Count-1
+				
+				DataTable.GetSheet(sheetName).SetCurrentRow(i+1)
+				sVariable = Trim(keys(i))
+				sValue = Trim(items(i))
+				If GlobalDictionary.Exists(sVariable) Then
+					GlobalDictionary(sVariable) = sValue
+				Else
+					GlobalDictionary.Add sVariable, sValue
+			   End If
+			   
+				   DataTable.GetSheet(sheetName).GetParameter("BusinessUnit").Value = sVariable
+				   DataTable.GetSheet(sheetName).GetParameter("Value").Value = "YES"
+				  DataTable.GetSheet(sheetName).SetCurrentRow i+2
+				
+			 Next
+		else
+         		keys = oDataDictionary.Keys
+		   items = oDataDictionary.Items
+			For i = 0 To oDataDictionary.Count-1
+				
+				DataTable.GetSheet(sheetName).SetCurrentRow(i+1)
+				sVariable = Trim(keys(i))
+				sValue = Trim(items(i))
+				If GlobalDictionary.Exists(sVariable) Then
+					GlobalDictionary(sVariable) = sValue
+				Else
+					GlobalDictionary.Add sVariable, sValue
+			   End If
+			   
+				   DataTable.GetSheet(sheetName).GetParameter("BusinessUnit").Value = sVariable
+				   DataTable.GetSheet(sheetName).GetParameter("Value").Value = "YES"
+				  DataTable.GetSheet(sheetName).SetCurrentRow i+2
+				
+			 Next	
+	 	End If     
+ 	
+ End If
+
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' loadActions Function is to load actions for the given businessunit
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <param name="businessUnit" type="string">business unit 00001,00002 etc</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"> True if found and clicked</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+' 01/27/2016        Venu Arigela  modified to accommodate data available for business units
+' 03/09/2018		Eric Trout	  Took out Accomodate data available for business units due to Windows 10 issues		
+'**************************************************************************************************************
+Public Function loadActions(businessUnit)
+    Dim dicMetaDescription,intContext
+    Dim arrTestFlowList, arrFunctionList, sFunction
+    Dim nRow, iCount, nDataSet, nContext
+    Dim oReport,arr,itr,itrGroup,rows
+    
+	If Len(trim(businessUnit)) > 1 Then
+		Call loadDataForIterations(businessUnit)
+
+		'Set the datatable row counter
+		nRow = 1
+		arrTestFlowList = Split(GlobalDictionary("sTestFlow"), "|")
+
+		'Process each function in the test flow list
+		For iCount = 0 to uBound(arrTestFlowList)
+		
+			'Verify user input , parse function name and number of iterations.
+			If arrTestFlowList(iCount) <> "" Then		
+				arrFunctionList = Split(arrTestFlowList(iCount), "_")
+				sFunction = arrFunctionList(0)
+				nDataSet = 1
+
+				'Set Reporter group and run the function
+				If (iCount = 0) Then
+					Set oReport = CreateObject("Scripting.Dictionary")
+					oReport("NodeName") = "Running for BusinessUnit " & businessUnit
+					'            Reporter.UnSetContext
+					'''''''''''''''''''''' commenting for UFT12.53
+					'            nContext = Reporter.LogEvent ("Replay", oReport, Reporter.GetContext()-1)
+					'            Reporter.SetContext nContext
+					''''''''''''''''''''''''''''''''
+					'Reporter.UnSetContext
+				End If
+
+				GlobalDictionary("TestOutputValues") = ""
+				Call WriteToReport(micdone, "Start of Function-" & sFunction, "", False)
+				Execute "Call " & sFunction & "()"
+				Call WriteToReport(micdone, "End of Function-" & sFunction, "", False)
+				
+				'Update function output in testoutput datatable 
+				DataTable.SetCurrentRow(nRow)
+				DataTable.GetSheet("TestOutput").GetParameter(1).Value = sFunction
+				DataTable.GetSheet("TestOutput").GetParameter(3).Value =  Reporter.RunStatus 
+				If GlobalDictionary("TestOutputValues") <> "" Then
+					DataTable.GetSheet("TestOutput").GetParameter(4).Value =  GlobalDictionary("TestOutputValues")        
+				End If            
+
+				'proceed to work with next row 
+				nRow = nRow + 1
+			Else
+				Call WriteToReport(micdone, "Skipped blank function in TestFlow - " &arrTestFlowList(iCount),"",False)        
+			End If
+		Next
+	End If
+
+	' Reporter.UnSetContext  ' commented for uft 12.53	
+	'Clean-up for test failure
+	If Reporter.RunStatus = "Fail" Then
+		Wait 2
+		SystemUtil.CloseProcessByName("IExplore.exe") 
+	End If
+
+	Set oReport = Nothing
+End Function
+
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' getNodeValue Function is to get the given node value from the given xml file
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <param name="xmlFile" type="string">xml file</param>
+''' <param name="tagName" type="string">tag name</param>
+''' <param name="Name" type="string">element Name</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"> True if found and clicked</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+
+Public Function getNodeValue(xmlFile,tagName,Name)
+Dim colNodes , bTagFound,xmlDoc
+    On Error Resume Next
+	Err.Clear
+	
+	Set xmlDoc = CreateObject("Microsoft.XMLDOM")
+	
+	If fileExist(xmlFile) Then
+		
+			xmlDoc.load(xmlFile)
+		    
+             if	 xmlDoc.parseError.errorCode = 0 Then	    
+		    
+				Set colNodes = xmlDoc.selectNodes("/BIIterations/Iteration/"&tagName&"[../BusinessUnit='"&Name&"']/text()")
+				bTagFound = true
+				
+				If colNodes.length >0 Then
+				 getNodeValue = colNodes(0).NodeValue
+				 End if
+				 else
+               Reporter.ReportEvent micFail,"OR file format","OR file is not well formatted"
+            End if 
+	Else
+       	
+	  Reporter.ReportEvent micFail, "OR file "," OR file "&xmlFile&" not found"
+	End If
+	
+	On error goto 0
+	Set colNodes = Nothing
+	Set xmlDoc = Nothing
+				 
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' updateBUdataAvailable Function is to update value for business units that have data for test
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Jan-2015</datecreated>
+''' <param name="excelPath" type="string">Excel file</param>
+''' <param name="sheetName" type="string">sheet name where to update</param>
+''' <param name="tcName" type="string">Test Case Name</param>
+''' <param name="businessUnit" type="string">Business Unit</param>
+''' <param name="isDataAvailable" type="Boolean">True or False</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"> updates the value in Excel</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function updateBUdataAvailable(excelPath,sheetName,tcName,businessUnit,isDataAvailable)
+	Dim oExcel, oWB, oSheet,rows,fso,objSht,colNumber,rowNumber,row,objWrkSht
+	Err.clear
+	On Error Resume Next
+	Set fso = CreateObject("Scripting.FileSystemObject")
+	Set oExcel=CreateObject("Excel.Application")
+	oExcel.DisplayAlerts = false
+	Set oWB=oExcel.Workbooks.Open(excelPath)
+	oExcel.Visible=FALSE
+		
+		If NOT verifySheetExists(oWB,trim(sheetName)) Then
+		  Set objSht = oWB.Worksheets(sheetName)
+			rows = objSht.UsedRange.Rows.Count
+			rowNumber = getTCRowNumber(oWB,sheetName,rows)
+			If isNumeric(rowNumber) Then
+				row = rowNumber
+			else
+		        row =  	rows+1
+			End If
+			colNumber = getColumnNumberFromName(oWB,sheetName,businessUnit)
+		    objSht.Cells(row,colNumber) = isDataAvailable
+			objSht.Cells(row,1) = tcName
+			If isDataAvailable = FALSE Then
+		        objSht.cells(row,colNumber).Font.Color = vbRed
+		      else
+		        objSht.cells(row,colNumber).Font.Color = vbGreen       
+		    End If
+		
+		 else
+		    Set objWrkSht = oWB.Sheets.Add(oWB.Sheets(oWB.Sheets.Count))
+		    objWrkSht.Activate
+		     objWrkSht.Name = sheetName
+			objWrkSht.Cells(1,1) = "TC NAME"
+			objWrkSht.Cells(1,2) = "'"&"00001"
+			objWrkSht.Cells(1,3) = "'"&"00002"
+			objWrkSht.Cells(1,4) = "'"&"00017"
+			objWrkSht.Cells(1,5) = "'"&"00003"
+			If  instr(1,sheetName,"BI")<>0  Then
+				objWrkSht.Cells(1,6) = "'"&"00012"
+			End If
+			rows = objWrkSht.UsedRange.Rows.Count
+			rowNumber = getTCRowNumber(oWB,sheetName,rows)
+			colNumber = getColumnNumberFromName(oWB,sheetName,businessUnit)
+			If isNumeric(rowNumber) Then
+				row = rowNumber
+			else
+		        row =  	rows+1
+			End If
+			objWrkSht.Cells(row,colNumber) = isDataAvailable
+			objWrkSht.Cells(row,1) = tcName
+			If isDataAvailable = FALSE Then
+		        objSht.cells(row,colNumber).Font.Color = vbRed
+		      else
+		        objSht.cells(row,colNumber).Font.Color = vbGreen       
+		    End If
+					
+		End If
+		
+		oWB.Save
+		oWB.Close
+		Set oSheet = nothing
+		Set objSht = nothing
+		Set objWrkSht = nothing
+		Set oWB = nothing
+		Set oExcel = nothing
+		Set fso = nothing
+		
+	On Error goto 0
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' verifySheetExists Function is to verify if the given sheet exists 
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Jan-2015</datecreated>
+''' <param name="objWorkBook" type="Object">workbook object</param>
+''' <param name="sheetName" type="string">sheet name </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="Boolean">True or False</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function verifySheetExists(objWorkBook,sheetName)
+	Dim flag,objSheet
+	
+	On error resume next
+	set objSheet = objWorkBook.Sheets.Item(sheetName)
+	verifySheetExists = Err.Number<>0
+	On error goto 0
+	
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' getColumnNumberFromName Function is to get the column number for the given column name
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>26-Jan-2015</datecreated>
+''' <param name="objWorkBook" type="Object">workbook object</param>
+''' <param name="sheetName" type="string">sheet name </param>
+''' <param name="fieldName" type="string">column name </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="numeric">column number value</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function getColumnNumberFromName(objWorkBook,sheetName,fieldName)
+	
+	On Error Resume Next
+	Dim CurCol,CurColNum,CurCellVal,objSheet
+	Set objSheet = objWorkBook.Worksheets(sheetName)
+	'***  Get column number based on field name  ***
+	CurCol = 1
+	CurColNum = 0
+	Do While Trim(objSheet.Cells(1, CurCol).Value) <> Empty
+	CurCellVal = Trim(objSheet.Cells(1, CurCol).Value)
+	If CurCellVal = fieldName Then
+	    getColumnNumberFromName = CurCol
+	   Exit Do
+	End If
+	CurCol = CurCol + 1
+	Loop
+    On error goto 0
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' getBUSheetName Function is to get the sheet name 
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>26-Jan-2015</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="String">returns sheet name</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function getBUSheetName()
+	
+	Dim currDate,year1,month1,day1,dateArr
+	Err.clear
+	On Error Resume Next
+    currDate = FormatDateTime(Date, 2) 
+    dateArr = split(currDate,"/")
+		If len(dateArr(0)) = 1 Then
+			month1 = "0"&dateArr(0)
+		 else
+		    month1 = dateArr(0)  
+		End If
+		If len(dateArr(1)) = 1 Then
+			day1 = "0"&dateArr(1)
+		 else
+		    day1 = dateArr(1)  
+		End If
+		
+		If instr(1,GlobalDictionary("TestName"),"AR") <> 0 Then
+			getBUSheetName = month1&"-"&day1&"-"&dateArr(2)&"_AR"
+		else
+		    getBUSheetName = month1&"-"&day1&"-"&dateArr(2)&"_BI"   
+		End If
+
+	On error goto 0
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' getTCRowNumber Function is to get the Row number for the given sheet
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>26-Jan-2015</datecreated>
+''' <param name="objWorkBook" type="Object">workbook object</param>
+''' <param name="sheetName" type="string">sheet name </param>
+''' <param name="rows" type="numeric">rows in that sheet </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="numeric">row number value</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function getTCRowNumber(objWorkBook,sheetName,rows)
+	Dim i,rowNum,curRow,rowFlag,objSheet
+	Err.clear
+	On Error Resume Next
+	Set objSheet = objWorkBook.Worksheets(sheetName)
+'***  Get column number based on field name  ***
+'rows = objSheet.UsedRange.Rows.Count
+curRow = 1
+
+   For i = 1 To rows Step 1
+ 
+          If Trim(objSheet.Cells(i, 1).Value)= Trim(GlobalDictionary("TestName")) Then
+             rowFlag = true
+             
+          	  Exit for
+          End If 
+    	curRow = curRow+1
+   Next
+   
+   If rowFlag = true Then
+   	  getTCRowNumber = curRow 
+   	else
+      getTCRowNumber = "NO"     	
+   End If
+   On error goto 0
+End Function
+	
+'**************************************************************************************************************
+''' <summary> 
+''' addTCObjective Function is to add the test case objetive for report purpose
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>26-Feb-2015</datecreated>
+''' <param name="excelPath" type="String">workbook object</param>
+''' <param name="sheetName" type="string">sheet name </param>
+''' <param name="tcName" type="String">rows in that sheet </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">Nothing</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function addTCObjective(excelPath,sheetName,tcName)
+  Dim fso,oExcel,oWB,objSht,rows,i
+On Error Resume Next
+Set fso = CreateObject("Scripting.FileSystemObject")
+Set oExcel=CreateObject("Excel.Application")
+oExcel.DisplayAlerts = false
+Set oWB=oExcel.Workbooks.Open(excelPath)
+oExcel.Visible=false
+	
+	If  NOT verifySheetExists(oWB,trim(sheetName)) Then
+	  Set objSht = oWB.Worksheets(1)
+		rows = objSht.UsedRange.Rows.Count
+		For i = 1 To rows Step 1
+			
+			If StrComp(trim(objSht.cells(i,1).Value), trim(tcName)) = 0 Then
+				
+				objSht.cells(i,2).Value = GlobalDictionary("TestObjective")
+				 Exit for
+			End If
+			
+		Next
+	End if
+	
+oWB.Save
+oWB.Close
+
+Set objSht = nothing
+Set oWB = nothing
+Set oExcel = nothing
+Set fso = nothing
+
+On Error goto 0
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' addTCObjectiveForReport Function is to add the test case objetive for java report purpose
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>29-Feb-2015</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">Nothing</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+public Function addTCObjectiveForReport()
+ 
+	 Dim fso,oExcel,oWB,objSht,rows,i,fileName
+	 fileName = "K:\AutoRegressionResults\PSF\PSF Fin Regression\Regr_Runs_By_BusinessUnits_DoNotDelete\TestCases\"&Environment.Value("TestName")&".xlsx"
+	On Error Resume Next
+	Set fso = CreateObject("Scripting.FileSystemObject")
+	Set oExcel=CreateObject("Excel.Application")
+	oExcel.DisplayAlerts = false
+	oExcel.Workbooks.Open(fileName)
+	oExcel.Visible=false
+		If fso.FileExists(fileName) Then
+			
+			If  verifySheetExists(oWB,trim("TestCaseObjective")) Then
+			 Set objSht = oExcel.Sheets.Add
+			  objSht.Name = "TestCaseObjective"
+			  objSht.cells(1,1).Value = "testcase spec ID :" &GlobalDictionary("combinedTCSpecs")&" testcase objective is "&GlobalDictionary("TestObjective")
+		
+		     End if
+		End If	
+		
+oExcel.ActiveWorkbook.Save	
+
+	Set objSht = nothing
+	Set oWB = nothing
+	Set oExcel = nothing
+	Set fso = nothing
+	
+	On Error goto 0
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' updateTCinExcel Function is to add the test case name for report purpose
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>26-Feb-2015</datecreated>
+''' <param name="excelPath" type="String">workbook object</param>
+''' <param name="sheetName" type="string">sheet name </param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">Nothing</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function updateTCinExcel(excelPath,sheetName)
+	  Dim fso,oExcel,oWB,objSht,rows,i,bFlag
+On Error Resume Next
+Set fso = CreateObject("Scripting.FileSystemObject")
+Set oExcel=CreateObject("Excel.Application")
+oExcel.DisplayAlerts = false
+Set oWB=oExcel.Workbooks.Open(excelPath)
+oExcel.Visible=false
+
+	If  NOT verifySheetExists(oWB,trim(sheetName)) Then
+	  Set objSht = oWB.Worksheets(1)
+		rows = objSht.UsedRange.Rows.Count
+		bFlag = false
+		For i = 1 To rows Step 1
+			
+			If StrComp(trim(objSht.cells(i,1).Value), Environment.Value("TestName")) = 0 Then
+				bFlag = true
+				
+				 Exit for
+			End If
+			
+		Next
+	 End if
+	
+	If NOT bFlag Then
+		objSht.cells(rows+1,1).Value = Environment.Value("TestName")
+	End If
+	
+oWB.Save
+oWB.Close
+
+Set objSht = nothing
+Set oWB = nothing
+Set oExcel = nothing
+Set fso = nothing
+
+On Error goto 0
+	
+End Function
+			
+
+'**************************************************************************************************************
+''' <summary> 
+''' verifyTCExcelandSheet Function is to verify report excel and sheet 
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>16-Feb-2016</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function verifyTCExcelandSheet()
+	Dim xlObj,objSht,fileName,fso,oExcel,oWB,sReportPath
+		Err.clear
+	On Error Resume Next
+Set fso = CreateObject("Scripting.FileSystemObject")
+sReportPath = "K:\AutoRegressionResults\PSF\PSF Fin Regression\Regr_Runs_By_BusinessUnits_DoNotDelete\TestCases\"&Replace(date,"/","")
+ If Not fso.FolderExists(sReportPath) Then
+			fso.CreateFolder sReportPath
+ End If 
+fileName = sReportPath&"\"&environment.Value("TestName")&".xlsx"
+
+	If fso.FileExists(fileName) Then
+		fso.DeleteFile(fileName)
+	    Set fso = nothing
+	End IF 
+	'Create a new Microsoft Excel object
+    Set xlObj = createobject("excel.application")
+    xlObj.Workbooks.Add
+    xlObj.ActiveWorkbook.SaveAs sReportPath&"\"&Environment.Value("TestName")&".xlsx"
+    xlObj.Application.Quit
+    set xlObj = nothing
+     Set xlObj = createobject("excel.application")
+     xlObj.Workbooks.Open sReportPath&"\"&Environment.Value("TestName")&".xlsx"
+     xlObj.DisplayAlerts = false
+    Set objSht = xlObj.Sheets.Add
+	objSht.Name = Environment.Value("TestName")
+    objSht.Cells(1,1).value = "StepResult"
+	objSht.Cells(1,2).value = "StepDescription"
+	objSht.Cells(1,3).value = "StepDetails"
+	objSht.Cells(1,4).value = "ScreenShotPath"
+	xlObj.ActiveWorkbook.Save
+	xlObj.Application.Quit
+	Set objSht = nothing
+    Set xlObj = nothing
+  On Error goto 0  
+End Function			
+
+
+
+
+strAppUrl="https://psfnqa.corp.cdw.com"
+Set IE = CreateObject("InternetExplorer.Application")
+IE.Visible = true
+IE.Navigate strAppUrl
+While IE.Busy
+Wend
+
+
+
+
+
+
+
+
+
+
+JILLGRI
+BECKWAT
