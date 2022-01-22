@@ -1,0 +1,536 @@
+'==========================================================
+'PSF Common Function Library
+'Contains commonly used functions for Accounts PAyable in the PSF application.
+'Changelog: 
+'Date			Author					Description
+
+'______________________________________________________ 
+
+Option Explicit
+
+
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' AddVoucher() will add voucher  				
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "sVoucherID, sBusinessUnit, GrossInvoiceAmount, DistributionAccount"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/1/2014</datecreated>
+''' <startstate>Logged in as user that has right to post vouchers</startstate>
+''' <endstate>Voucher saved and on that screen</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'   10/7/2015				jOLLY					Updated for OR changes in Peoplesoft92
+Public Function AddVoucher (sInvPrefix)
+
+Dim dtBusinessUnit, dtVendorID
+Dim sInvoiceDate, sInvoiceNo
+Dim dtGrossAmt, dtDistAcct, dtDistDept
+Dim sVoucherID, dtDiscountAmt
+Dim sApprovalVoucherText
+
+	WriteToReport micDone, "AddVoucher", "Starting add invoice  = [ " & sInvPrefix &"]", false
+	dtBusinessUnit = GlobalDictionary("BusinessUnit")
+	dtVendorID = GlobalDictionary("VendorID")
+	sInvoiceNo = sInvPrefix  & TimeStampString()
+	sInvoiceDate = Date()
+	dtGrossAmt = GlobalDictionary("GrossInvoiceAmount")
+	dtDistAcct = GlobalDictionary("DistributionAccount")
+	dtDistDept = GlobalDictionary("DistributionDept")
+	
+		'Step 2 - Select from Main Menu Accounts Payable Vouchers Add/Update Regular Entry
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_APVoucherUpd")
+	SelectMainMenu (GetDataFrmAllVars("$Navigation_SubVoucher"))
+
+		'Step - Select tab 'Add a New Value'
+	'- Enter value in Business Unit
+	' - Enter value in VENDOR ID 
+	' - Enter value in Invoice No
+	' - Enter Invoice Date
+	' - Enter Gross Invoice Amount
+	' - Click on Add button
+	With Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContent")
+	
+		.WebElement("Add a New Value").Click
+		
+		WriteToReport micDone, "Voucher Entry", "Add new value selected", false
+		
+		.WebEdit("Add_BUSINESS_UNIT").Set dtBusinessUnit
+		
+		.WebEdit("Add_VENDOR_ID").Set dtVendorID
+		
+		.WebEdit("Add_INVOICE_Number").Set sInvoiceNo 
+		
+		.WebEdit("Add_INVOICE_Date").Set sInvoiceDate
+		
+		.WebEdit("Add_GROSS_AMT").Set dtGrossAmt
+
+		WriteToReport micDone, "Add Voucher Entry", "Add value done for Business = [ " & dtBusinessUnit &"]  Vendor ID = [ " & dtVendorID &"] ", false
+		WriteToReport micDone, "Add Voucher Entry", "Add value done for Invoice No = [ " & sInvoiceNo &"] Invoice Date = [ " & sInvoiceDate &"] Gross Amt = [ " & dtGrossAmt &"]", false	
+		
+		.WebButton("Add").Click
+		WriteToReport micDone, "Voucher Entry", "Click Add button", false
+
+	End with
+	
+	 WaitForWebElementExists Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail"), "VoucherID", 30
+
+	' - Enter the Distribution Lines
+	' - Enter Account 
+	' - Enter Dept.
+	' Step - Click Save and grab Voucher ID
+	With Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail")
+	
+		If dtDistAcct <> "" and .WebEdit("DistributionLines_ACCOUNT0").Exist(60) Then
+			.WebEdit("DistributionLines_ACCOUNT0").Set dtDistAcct
+		
+			.WebEdit("DistributionLines_DEPTID0").Set dtDistDept
+		
+			.WebEdit("DistributionLines_MERCHANDISE_AMT0").Set dtGrossAmt
+			
+			WriteToReport micDone, "Voucher Entry", "Completed - Add line for Distribution Account = [ " & dtDistAcct &"] Dept = [ " & dtDistDept &"] Merchandise Amt = [ " & dtGrossAmt &"]", false	
+			
+		End If
+			
+		.WebButton("InvoiceInformation_Save").Click
+				
+		'wait for voucher to be saved to get the Voucher ID	
+		WaitUnTillFieldInnerText Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail"), "VoucherID", "NEXT"
+
+		sVoucherID = trim (.WebElement("VoucherID").GetROProperty ("innertext"))
+		
+	End with
+	If sVoucherID <> "" and sVoucherID <> "NEXT" Then
+		WriteToReport micDone, "AddVoucher", "Completed add voucher for  = [ " & sVoucherID &"]", false		
+		
+		if (Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail").WebElement("Regular Voucher").Exist and dtBusinessUnit = "00010" ) then
+			Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail").WebButton("Submit Approval").Click
+			
+			'Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("Approval Comments").WebEdit("Description").Set "test " & sInvoiceNo
+
+			sApprovalVoucherText = Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("Approval Comments").WebElement("VoucherID").GetROProperty ("innertext")
+
+			Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("Approval Comments").WebButton("OK").Click
+			if sApprovalVoucherText = sVoucherID then
+				WriteToReport micDone, "Voucher approval", "Voucher submitted for approval.", false
+			else
+				WriteToReport micWarning, "Voucher approval", "Voucher to be submitted for approval ["& sApprovalVoucherText &"] does not match main screen voucher [ " & sVoucherID & " ].", false
+			End If
+			WaitForWebElementExists Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail"), "Regular Voucher", 30
+		else
+			WriteToReport micDone, "Voucher approval", "Voucher approval pending; check input data.", false	
+		End if
+				
+		AddVoucher = sVoucherID	
+	else
+		WriteToReport micFail, "AddVoucher", "Voucher number not found for  = [ " & sInvPrefix &"]", false
+		AddVoucher = "FAIL" 
+	End If
+	
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' PostVoucher() will do voucher psoting 				
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "sVoucherID, sBusinessUnit"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/1/2014</datecreated>
+''' <startstate>Logged in as user that has right to post vouchers</startstate>
+''' <endstate>Voucher posting process completed and screen is on vocuher posting request screen</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'  11/2/2015				Jolly					Updated for PEopleSoft 9.2
+' 03/30/2016				Jolly 					Changes in OR 
+'04/25/2016					Jolly					changes post refresh user defined controlID
+'01/24/2018					Jolly					change in user 
+Function PostVoucher (sVoucherID, sBusinessUnit)
+
+Dim nCount, nProcessInstance
+
+	WriteToReport micDone, "PostVoucher", "Starting post voucher for  = [ " & sVoucherID &"]", false
+ 
+	'"select from Main Menu / Accounts Payable /Batch Processes/ Vouchers/ Voucher Posting"
+	SelectSubMenus (GetDataFrmAllVars("$Navigation_SubVoucherPosting"))
+
+	'Select Run Control ID
+	'In Post Voucher List , enter Voucher ID
+	With Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("TargetContent")
+
+      	.WebElement("Find an Existing Value").Click
+
+      	.WebButton("Clear").Click
+
+      '	.WebEdit("PRCSRUNCNTL_RUN_CNTL_ID").Set "voucher_posting"
+       	.WebEdit("PRCSRUNCNTL_RUN_CNTL_ID").Set "POSTING"
+      	.WebButton("Search").Click
+      	
+      	WriteToReport micDone, "Find existing value", "Searching for Run control = voucher_posting", false
+      	
+    End with 
+	With Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("VoucherPostingRequest")    
+		.WebList("PostVoucherOption").Select "Post Voucher"
+			
+		.WebEdit("BusinessUnit").Set sBusinessUnit 
+		
+		.WebEdit("VoucherID").Set sVoucherID
+	
+		.WebButton("Run").Click
+		wait(nMINWAIT)
+		WriteToReport micDone, "Run process", "With values BusinessUnit = [" & sBusinessUnit & "] and VoucherID = ["& sVoucherID &"]", false
+	End with
+	
+	'with Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("Process Scheduler Request")
+	with Browser("PeopleSoft Browser").Page("ProcessMonitorGeneric").PSFrame("Process Scheduler Request")  'JT udpated OR change
+		'Select CDWPVCHR with default of none for both type and format and click OK
+		.WebButton("Reset to Current Date/Time").Click
+		
+		if NOT (.WebElement("CDWPVCHR").Exist(5)) then
+			WriteToReport micFail, "Post Voucher issue", "Unable to locate process CDWPVCHR required to post voucher.", true
+		
+		else
+			.WebCheckBox("SelectFlag1").Set "ON"	
+			.WebList("Type0").Select "Web"
+			.WebList("Format0").Select "TXT"
+			.WebButton("OK").Click
+			wait(nMINWAIT)
+		End if 
+	End with 
+
+	If Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("VoucherPostingRequest").Exist (nMAXWAIT) Then
+		WriteToReport micDone, "Process settings CDWPVCHR ", "Selection values for first row [ Web ] and = [ TXT ]", false	
+
+		If Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("VoucherPostingRequest").Link("Process Monitor").Exist (nMAXWAIT) Then
+			
+			With Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("VoucherPostingRequest")
+				.Link("Process Monitor").Click
+				wait(nMINWAIT)
+				WriteToReport micDone, "Process Monitor", "Select Process Monitor link", false
+			End with
+
+			' Click on Process Monitor Link verify Run Status for job is Success
+			CheckProcessMontiorStatus ("CDWPVCHR")
+	
+			'Go back to previous page
+			with Browser("PeopleSoft Browser").Page("ProcessMonitorGeneric").PSFrame("Process Monitor")
+				If .WebElement("Runstatus").GetROProperty("innertext") = "Success" Then
+					WriteToReport micPass, "PostVoucher", "Completed post voucher for Voucher= [ " & sVoucherID &"]", false	
+				Else
+					WriteToReport micFail, "PostVoucher", "Issue with post voucher for Voucher= [ " & sVoucherID &"]", true
+				End If
+				.Link("Go back to Voucher Posting").Click
+		
+			End With
+		else
+			WriteToReport micFail, "Process monitor", "Unable to click Process Monitor", false	
+		End if
+	else
+		WriteToReport micFail, "Process settings CDWPVCHR ", "Uanble to set selection values for first row [ Web ] and = [ TXT ]", false	
+	End If
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' LaunchExpressCreatePayment() function to slect the functional area in application.
+''' <para>
+''' <note>LaunchExpressCreatePayment -string represents the functional area lowest sub menu item</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>8/30/2014</datecreated>
+''' <startstate>PSF is logged in and Home and MainMenu are displayed</startstate>
+''' <endstate> Page selected  in PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+' 11/25/2014				Jolly 				added WaitForWebElementExists
+' 11/10/2015				Jolly				udpated for PeopleSoft 9.2
+'__________
+private Function LaunchExpressCreatePayment (sVoucherID)
+	Dim nCount, nResult
+	
+	'Step - Select from Main Menu Accounts Payable Vouchers Add/Update Regular Entry
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_APVoucherUpd")
+	SelectMainMenu (GetDataFrmAllVars("$Navigation_SubVoucher"))
+ 
+	 If NOT Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContent").WebElement("Find an Existing Value").Exist (nMAXWAIT) Then
+	 	WriteToReport micFail, "VoucherRegularEntry", "Page not launched  for voucher = " & sVoucherID, false
+	 	LaunchExpressCreatePayment = false
+	 	Exit Function
+	 End If
+	 
+'Select the tab ' Find and Existing Value'
+'Enter Voucher ID
+'Click Search button 	
+
+	With Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContent")
+		
+		.WebElement("Find an Existing Value").Click 
+
+		.WebEdit("Search_VOUCHER_ID").Set sVoucherID
+ 		
+		.WebButton("Search").Click
+		
+		WriteToReport micDone, "Find existing value", "Searching for voucher = " & sVoucherID, false
+	 End with 
+	 
+	 If NOT Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail").WebElement("Invoice_Date").Exist (nMAXWAIT) Then
+	 	WriteToReport micFail, "VoucherRegularEntry : Invoice_Date", "Voucher page not loaded for voucher = " & sVoucherID, false
+	 	LaunchExpressCreatePayment = false
+	 	Exit Function
+	 End If	 
+'Select the Payments tab
+'Click on Express Payment link
+	 'WaitForWebElementExists Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail"), "Invoice_Date", 10
+	 
+	 With Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail")
+ 	
+ 	    .WebElement("tabPayments").Click
+
+		.Link("Payment_ExpressPayment").Click
+		wait(nMINWAIT)
+		WriteToReport micDone, "Voucher found", "Under 'Payments' tab, clicked link Express Payments", false
+	End With
+
+'In Express Payment screen click on Create Payment button	
+	Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("Express Payment").WebList("SERVERNAME").Select "PSNT1"
+	Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("Express Payment").WebEdit("FILE_NAME").Set ""
+	Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("Express Payment").WebButton("Create Payment").Click
+	WriteToReport micDone, "Express Payment", "Servername = [ PSNT1 ] and Click Create Payment button", false
+	
+	LaunchExpressCreatePayment = true
+End Function
+
+
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' ExpressPayACHVoucher() Will process payment of a Voucher					
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "sVoucherID, sBusinessUnit"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/15/2014</datecreated>
+''' <startstate>Logged in as user that has right to pay vouchers</startstate>
+''' <endstate>Voucher payment process completed and on payment posting request screen</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'  11/24/2014				Jolly					Updated to use WaitForObjectStatus
+'  11/10/2015				Jolly					Updated for Peoplesoft 9.2
+Function ExpressPayACHVoucher (sVoucherID)
+
+Dim nCount
+
+	if LaunchExpressCreatePayment (sVoucherID ) then
+	  	WriteToReport micDone, "LaunchExpressCreatePayment", "Starting create payment for voucher = " & sVoucherID, false
+  	Else
+	 	WriteToReport micFail, "LaunchExpressCreatePayment", "Cannot create payment for voucher = " & sVoucherID, false 
+  	End if
+
+	with Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("Pay Cycle - Express Payments")
+		 If NOT .WebButton("Refresh").Exist (nMAXWAIT) Then
+		 	WriteToReport micFail, "Pay Cycle - Express Pay: Refresh", "Page not loaded yet", false
+		 	Exit Function
+		 End If
+	 
+ 		'Wait for status of Approve for the Pay Cycle	
+ 	    WaitForObjectStatus Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("Pay Cycle - Express Payments"), "Status", "Approved"
+	
+		'In Pay Cycle Results select the Output Type to Web 
+		'Click on Process button for first row
+		 
+		 If NOT .WebList("PYCYCL_WRK_OVRD_SERVERNAME$0").Exist (nMAXWAIT) Then
+		 	WriteToReport micFail, "Pay Cycle - Express Pay: First Row", "Page not loaded with new row objects at bottom", false
+		 	Exit Function
+		 End If
+	 
+		.WebList("PYCYCL_WRK_OVRD_SERVERNAME$0").Select "PSNT1"
+		'.WebButton("Process1").Click
+		'Confirm status results in Approved	
+ 		 WaitForObjectStatus Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("Pay Cycle - Express Payments"), "Status", "Approved"	
+		 If NOT .WebList("PYCYCL_WRK_OVRD_SERVERNAME$1").Exist (nMAXWAIT) Then
+		 	WriteToReport micFail, "Pay Cycle - Express Pay: Second Row", "Page not loaded new objects for second row", false
+		 	Exit Function
+		 End If
+
+		.WebList("PYCYCL_WRK_OVRD_SERVERNAME$1").Select "PSNT1"
+		'.WebList("PYCYCL_STATRPT_OUTDESTTYPE$1").Select "Web"
+		
+		If .WebButton("Process2").GetROProperty("disabled") = "0" Then
+			.WebButton("Process2").Click
+		ElseIf .WebButton("Process1").GetROProperty("disabled") = "0" Then
+			.WebButton("Process1").Click
+			
+			If Browser("PeopleSoft Browser").Page("Voucher Posting").WebButton("OK").Exist(5) Then
+				Browser("PeopleSoft Browser").Page("Voucher Posting").WebButton("OK").Click
+			End If
+			
+		End If
+
+
+		'Confirm status of Pay Status = Completed	
+ 		 WaitForObjectStatus Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("Pay Cycle - Express Payments"), "Status", "Completed"	
+		
+		.WebButton("Return to Search").Click
+
+	End with 
+	
+	WriteToReport micDone, "ExpressPayACHVoucher", "Payment processed for voucher = " & sVoucherID, false
+
+End Function
+
+
+
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' PostPAyment () Will process payment of a Voucher					
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "sVoucherID, sBusinessUnit"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/15/2014</datecreated>
+''' <startstate>Logged in as user that has right to post vouchers</startstate>
+''' <endstate>Payment posting process completed and on payment posting request screen</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'   11/10/2015				Jolly					Updated for PeopleSoft9.2
+'   03/30/2016				Jolly 					Changes in OR 
+Function PostPayment (sVoucherID)
+
+Dim nCount, arrPostValues, sPaymentPostValues
+Dim nProcessInstance
+	
+	sPaymentPostValues = GetValuesforPaymentPost (sVoucherID)	
+	arrPostValues = split (sPaymentPostValues, ";")
+
+	WriteToReport micDone, "PostPayment", "Execution started for voucher = " & sVoucherID, false
+	SelectSubMenus (GetDataFrmAllVars("$Navigation_SubPaymentPosting"))
+
+
+	With Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("TargetContent")
+	
+		.WebEdit("PRCSRUNCNTL_RUN_CNTL_ID").Set "PaymentPOST"
+		.WebButton("Search").Click
+		WriteToReport micDone, "Run control selection", "Enter PaymentPOST and click Search button", false
+		
+		.WebEdit("SetId").Set "SHARE"
+		.WebEdit("BankCd").Set arrPostValues (0)
+		.WebEdit("BankAccountKey").Set arrPostValues (1)
+		.WebEdit("PaymentMethod").Set arrPostValues (2)
+		.WebEdit("PaymentIDRef").Set arrPostValues (3)
+
+		.WebButton("Run").Click
+		wait(nMINWAIT)
+		WriteToReport micDone, "Payment details entered", "SetID = SHARE and set Bank, Method, Reference and click Run", false
+	End with 
+	
+	With Browser("PeopleSoft Browser").Page("ProcessMonitorGeneric").PSFrame("Process Scheduler Request")
+		'Select Payment with default of Web and Text for both type and format and click OK
+		.WebCheckBox("SelectFlag0").Set "ON"
+		.WebList("Format0").Select "TXT"
+		.WebList("Type0").Select "Web"
+
+		.WebButton("OK").Click
+		WriteToReport micDone, "Process Selections", "Flag = ON, Format = TXT, Type=Web and click OK", false
+	End with 
+	
+	With Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("StatusBar")
+		If .Link("Process Monitor").Exist (nMINWAIT) Then
+			.Link("Process Monitor").Click
+			wait(nMINWAIT)
+			WriteToReport micDone, "Process Monitor", "Select Process Monitor link", false
+			
+			CheckProcessMontiorStatus ("AP_PSTPYMNT")
+			
+			'Go back to previous page
+			with Browser("PeopleSoft Browser").Page("ProcessMonitorGeneric").PSFrame("Process Monitor")
+		
+				If .WebElement("Runstatus").GetROProperty("innertext") = "Success" Then
+					WriteToReport micPass, "Post payment", "Completed post payment sucessfully for Voucher= [ " & sVoucherID &"]", false	
+				Else
+					WriteToReport micFail, "Post payment", "Unable to successfully complete post payment for Voucher= [ " & sVoucherID &"]", true
+				End If
+			
+				.Link("Go back to Payment Posting").Click
+			End With
+		else
+			WriteToReport micFail, "Process monitor", "Unable to find link to process monitor", true
+					
+		End If
+
+	End with
+	
+	
+
+End Function
+
+
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' GetValuesforPaymentPost () Will process payment of a Voucher					
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "sVoucherID, sBusinessUnit"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/15/2014</datecreated>
+''' <startstate>Logged in as user that has right to post vouchers</startstate>
+''' <endstate>Voucher posting process completed nad on vocuher posting request screen</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'   11/2/2015				Jolly					Updated for PeopleSoft 9.2
+private Function GetValuesforPaymentPost (sVoucherID)
+
+Dim nCount, sPaymentPostSTringValue
+	
+	'Step 2 - Select from Main Menu Accounts Payable Vouchers Add/Update Regular Entry
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_APVoucherUpd")
+	SelectMainMenu (GetDataFrmAllVars("$Navigation_SubVoucher"))
+	
+'Select the tab ' Find and Existing Value'
+'Enter Voucher ID
+'Click Search button 	
+	With Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContent")
+		
+		.WebElement("Find an Existing Value").Click 
+
+		.WebEdit("Search_VOUCHER_ID").Set sVoucherID
+ 		
+		.WebButton("Search").Click
+		
+		WriteToReport micDone, "Find existing value", "Searching for voucher = " & sVoucherID, false
+	 End with 
+	 
+'Select the Payments tab
+'Go to payment tab and store Bank code Payment Ref 
+ 	WaitForWebElementExists Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail"), "Invoice_Date", 10
+ 	
+
+	 With Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail")
+ 	
+ 	    .WebElement("tabPayments").Click
+ 	
+		sPaymentPostSTringValue =  .WebEdit("Payment_Bank").GetROProperty("value")
+	
+		sPaymentPostSTringValue =  sPaymentPostSTringValue & ";" &.WebEdit("Payment_Account").GetROProperty("value")
+	
+		sPaymentPostSTringValue =   sPaymentPostSTringValue & ";" &.WebEdit("Payment_Method").GetROProperty("value")
+	
+		sPaymentPostSTringValue =   sPaymentPostSTringValue & ";" &.WebEdit("Payment_Reference").GetROProperty("value")
+	End With
+	
+	WriteToReport micDone, "GetValuesforPaymentPost", "Completed got values = " & sPaymentPostSTringValue, false
+	
+	GetValuesforPaymentPost = sPaymentPostSTringValue' = "00001;AP10;ACH;86242336"
+End Function 
+	
+	

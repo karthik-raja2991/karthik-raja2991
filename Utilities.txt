@@ -1,0 +1,2433 @@
+Option explicit
+'#####################################################################################################
+'Script Name: Utilities.txt
+'Description:	This contains web functions/subroutines which apply to any application (web, AS400,.net client/server)
+'Included Functions/Subroutines:
+'		AddNewFolder
+'		CopyFSO
+'		CopyQCAttachmentToLocal
+'		DeleteFile
+'		EscapeString - pass a string, it will return the new string with escaping"\" all special characters
+'		ExcelWorkbookCreate
+'       ExcelWorksheetRename
+'		ExportActionResults
+'		FindPDFText
+'		GetFileBase
+'		GetLongFileName
+'		GetParentPath
+'        GetRandString-this function will return characters for the number given
+'		IsLaunchedFromQC
+'		IsFileExists - to verify whether a file exists in the defined path
+'		pdfSearch - Used to search an object for the existence of an ActiveX control which contains a PDF
+'		Prefix0 -  Prefixs a zero to a digit, i.e. "9" to "09"
+'       ReadExcelFile -  Reads any excel file via filename and work sheet name, searches any column for a specific value and returns the value in specified column
+'       ReadLocalFile - Similar to ReadExcelFile, this reads any local data table file, searches any column for a specific value and returns the value in specified column
+'       RemovePrefix0 -  Removes the 0 prefix for a two digit number, i.e. "09" to "9".
+'		ReportResult - User to report results
+'		SaveTestData - Sets an input value in a web edit box
+'		SetDefault - This function is to set the string to sDefault if it's empty or NULL
+'		TimeStampString
+'		UseStoredValue -  Retrieves any stored value in the Global Data Sheet via a Data Identifier in the ‘DataKey’ Column.  This function is dependant upon the ‘StoreText’ Function
+'		ValidateStageMail - This function is used to check against folder : public folder > favorites > Stage E-mail, against strFrom(sender's name), strExpectedSubject, strExpectedBody
+'		VerifyKeyExist - this helper funciton is used to detect if one key exists in the 'DataKey' in a specific datasheet
+'       ExportCopyOrderNumber	- This is used to export the local table into a temp excel.  It will then copy the temp excel into the test data file
+
+'#####################################################################################################
+'Modification Log:
+'Name			             	Date					Description
+'Emma Yao			Dec.5,2007				Created this file based on func_lib.txt
+'Rada Fey			  Dec 12 2007			 Added ReadExcelFile function
+'Jim Kovathana    Dec 14 2007           Updated ReadExcelFile function to close excel
+'Jim Kovathana     Dec 26 2007           Updated ReadExcelFile to accept an additional parameter (KeyColumn)
+'Emma Yao	         Jan 3 2008              Modified SaveTestData to allow the user select which datatable to output
+'Jim Kovathana    Jan 17 2008            Modified ReadExcelFile to use Instr matching
+'Emma Yao	         Feb 6 2008             Modified ReadExcelFile so the value got form the excel sheet will be trimmed to avoid the value containing space
+'Jim Kovathana     Feb 8 2008            Modified ReadExcelFile to trim right leading spacing for the returned value
+'Jim Kovathana    Feb 25 2008          Added RemovePrefix0.  Updated description list and put functions in alphabetical order
+'Emma Yao	        Feb 26 2008          Added VerifyKeyExist, which is a helper function for VerifyOrderUpload
+'Jim Kovathana   Apr 09 2008            Added ReadLocalFile function
+'Jim Kovathana  Jun 17 2008             Added 'Option Explicit' statement
+'Jim Kovathana  Aug 25 2008           Updated SaveTestData to also save on the shared drive.  Also replace hard coded "c:\" path with environment var
+'Jim Kovathana  Sep 08 2008          Updaetd ExcelWorksheetRename
+'Shiny mohan     Oct 23 2008           Added GetRandString function
+'Karthikeyan P	Dec  17 2008		Added the function "IsFileExists"
+'Jim Kovathana Jan 07 2009        Updated ReadLocalFile
+'Karthikeyan P	Feb 19 2009			Added validation for file extension before concatenation to improve error handling
+'Pavan P		Mar 06 2009			Added IsInArray to check for the passed string present in a one dimensional array
+'John White 	October 24 2011		Added "RemoveArrayDuplicate"
+'-------------------------------------------------------------------------------------------------------------------------------------------------
+'Option Explicit 
+'#####################################################################################################	
+'                                                                                                    Subroutines
+'#####################################################################################################	
+
+
+'----------------------------------------------------------------------'
+
+'Subroutine Name: DeleteFile
+'Creation Date: 
+'Author: 
+'Parameter Input: filespec
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author		Desc
+'_______________________________________________
+'
+'----------------------------------------------------------------------------------
+''' <summary>
+''' DeleteFile
+''' </summary>
+''' <param name="filespec" type="String">File to delete</param>
+''' <returns type=""></returns>
+Sub DeleteFile(filespec)
+
+   Dim fso
+   Set fso = CreateObject("Scripting.FileSystemObject")
+   fso.DeleteFile(filespec)
+
+End Sub
+
+
+'----------------------------------------------------------------------'
+'Subroutine Name: WriteToResults
+'Creation Date: October 15, 2007
+'Author: Utopia Solutions, Inc
+'Parameter Input: ResultCode, StepName, AddDescription
+'Environment variable Dependencies: ResultsCodeFilePath
+'Description: Writes the appropriate results to the QTP Report and selects
+'	the appropriate status and description based on the code passed in.
+'
+'Change Control:
+'	Date of Change		Author		Desc
+'_______________________________________________________
+'	10/18/07	USI	Added CInt mismatch handling for missing codes
+'------------------------------------------------------------------------------------------------
+''' <summary>
+''' Writes the appropriate results to the QTP Report and selects the appropriate status and description based on the code passed in.
+''' </summary>
+''' <param name="ResultCode" type="String"></param>
+''' <param name="StepName" type="String"></param>
+''' <param name="AddDescription" type="String"></param>
+''' <returns type=""></returns>
+'Change Control: 
+'   Date of Change		Author							Description of change
+'	2014-03-20				Damien Storm				updated to take a screenshot if the report status is micFail
+'________________________________________________________ 
+Sub WriteToResults(ResultCode, StepName, AddDescription)
+
+	Dim ExcelObj
+	Dim NewSheet
+	Dim Row
+	Dim StatusType
+	Dim Desc
+	Dim FullDescription
+	
+	'Sets the current row to the correct results code
+	DataTable.GetSheet("Results").SetCurrentRow(ResultCode + 1)
+	
+	StatusType = DataTable.Value("Status", "Results")
+	If StatusType <> "" Then
+		StatusType = CInt(StatusType)
+		Desc = DataTable.Value("Description", "Results")
+		FullDescription = Desc + vbCr + AddDescription
+		
+		'Use this section to take screenshots for every report
+		REM Reporter.ReportEvent StatusType, StepName, FullDescription, TakeScreenShot
+		
+		'Use this section  to take screenshots only on reports that are micFail status:
+		If StatusType = micFail Then
+			Reporter.ReportEvent StatusType, StepName, FullDescription, TakeScreenShot
+		Else
+		Reporter.ReportEvent StatusType, StepName, FullDescription
+		End If
+		
+		'Use this section to take no screenshots
+		REM Reporter.ReportEvent StatusType, StepName, FullDescription
+	Else
+		Reporter.ReportEvent 1, StepName, "Unknown Error: no entry found for Result Code "& ResultCode
+		Exit Sub
+	End If
+
+End Sub
+'**********************************************************************************************************************************************************
+''' <summary>This is used to export the local table into a temp excel.  It will then copy the temp excel into the test data file</summary>
+''' <author>Jim Kovathana</author>
+''' <param name=""></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+'Change Control: 
+'   Date of Change          Author             Description of change
+'     Oct 8th, 2010       Jim Kovathana    Added oExcel.Quit to close excel from the desktop     
+'   June 8th, 2012    Jim Kovathana     Changed the specified sheet from index of 3 to use the actual 'CDWAction' name; this function is specific for the iSeries framewwork
+'________________________________________________________ 
+Public Sub ExportCopyOrderNumber()
+
+	Dim oExcel, objWorkbook1, objWorkbook2
+	Dim siSeriesFilePath, sDataTablePath, sTempFile 
+
+	siSeriesFilePath = Environment.Value("iSeriesDataPath")
+ 	sDataTablePath = Environment.Value("DataTablePath") 
+	sTempFile = "TempDataFile.xls"
+
+	'DataTable.ExportSheet sDataTablePath&sTempFile, 3
+    DataTable.ExportSheet sDataTablePath&sTempFile, "CDWAction [CDWAction]"  
+
+	Set oExcel = CreateObject("Excel.Application")
+	oExcel.Visible = True
+	fModifyFileAttribute siSeriesFilePath, "ReadWrite"  'change the excel file from Read-Only to ReadWrite
+	Set objWorkbook1= oExcel.Workbooks.Open(sDataTablePath&sTempFile)
+	Set objWorkbook2= oExcel.Workbooks.Open(siSeriesFilePath)
+	objWorkbook1.Worksheets(1).UsedRange.Copy
+	objWorkbook2.Worksheets(1).Range("A1").PasteSpecial 
+	objWorkbook1.Save
+	objWorkbook2.Save
+	objWorkbook1.Close
+	objWorkbook2.Close
+	oExcel.Quit
+	Set oExcel= Nothing
+
+End Sub
+
+'#####################################################################################################	
+'                                                                                                             Functions
+'#####################################################################################################	
+'**********************************************************************************************************************************************************
+''' <summary>AdjustTolerance is a generic verification function that validates whether the acutal and expected values lie within a specified tolerance. this is mainly to avoid failures due to calculation
+''' by rounding off double values. If the values are within the tolerance then the function synchronizes the actual and expected values</summary>
+''' <author>Karthikeyan</author>
+''' <param name="sActualValue" type="String">Actual value</param>
+''' <param name="sExpectedValue" type="String"> Expected value</param>
+''' <param name="nToleranceLimit" type="String"> Tolerance limit</param>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <returns type="Boolean">0 for any case</returns>
+''' <seealso cref="VerifyTaxUS41"/>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'	03/08/2011					Vikram Kiren	Replaced CDbl with ConvertDbl
+'	11/23/2011					Harish Chandran	Moved the function to Utilities.qfl 
+'________________________________________________________
+
+Private Function AdjustTolerance(sActualValue, sExpectedValue, nToleranceLimit)
+   Dim nTolerance
+	nTolerance =   ConvertDbl(sExpectedValue) - ConvertDbl(sActualValue)
+   	'Verifying tolerance less than 0.05
+	If (nTolerance< nToleranceLimit) And (nTolerance >( -1* nToleranceLimit ))Then
+		sActualValue =  CStr(sExpectedValue) ' so the validation passes
+    End If
+	AdjustTolerance = 0
+End Function
+
+'----------------------------------------------------------------------'
+'Function Name: AddNewFolder
+'Creation Date: 
+'Author: 
+'Parameter Input: FullPath, FolderName
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author		Desc
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+''' <summary>
+''' AddNewFolder
+''' </summary>
+''' <param name="FullPath" type="String"></param>
+''' <param name="FolderName" type="String"></param>
+''' <returns type=""></returns>
+Function AddNewFolder(FullPath, FolderName)
+   'creates a subfolder under the specified path
+   Dim fso, f, fc, nf
+   If  FolderName = ""  Then
+	   FolderName = "New Folder"
+   End If
+   Set fso = CreateObject("Scripting.FileSystemObject")
+    If (fso.FolderExists(FullPath)) Then  
+		Set f = fso.GetFolder(FullPath)
+		Set fc = f.SubFolders
+	Else
+		AddNewFolder = "Path " & FullPath & " not found!"
+		Exit Function
+	End If
+	
+	If (fso.FolderExists(FullPath & "\" & FolderName)) Then
+		AddNewFolder = "Folder " & FolderName & " exists"
+		Exit Function
+	Else
+		Set nf = fc.Add(FolderName)
+		AddNewFolder = 0  ' "Folder " & FolderName & " added"
+	End If
+End Function
+
+'----------------------------------------------------------------------'
+'Function Name: CopyFSO
+'Creation Date: Version 2.0 - 31st Oct 2007
+'Author: Utopia Solutions - GJA
+'Parameter Input: 
+' 	 strFilePath:  full path to source file
+'  	strFileName:  name of source file
+' 	 strDestPath:  full destination path 
+'  	strDestFile:  name of destination file; if null, defaults to source file name
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author		Desc
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+''' <summary>
+''' CopyFSO
+''' </summary>
+''' <param name="strFilePath" type="String">full path to source file</param>
+''' <param name="strFileName" type="String">name of source file</param>
+''' <param name="strDestPath" type="String">full destination path </param>
+''' <param name="strDestFile" type="String">name of destination file; if null, defaults to source file name </param>
+''' <returns type=""></returns>
+Function CopyFSO(strFilePath,strFileName,strDestPath,strDestFile)
+	 Const ForAppending = 8
+	 Const ForWriting = 2
+	 Const ForReading = 1
+	 Dim objArgs,objNet,sCompName
+	 Dim objFSO, objFileCopy
+	 Dim outMessage
+	 ' check input paths for trailing backslashes and fix if necessary
+	 If  Right(strFilePath,1) <> "\"  Then
+		 strFilePath = strFilePath & "\"
+	 End If
+	 If  Right(strDestPath,1) <> "\"  Then
+		 strDestPath = strDestPath & "\"
+	 End If
+	' if input file name is null, default to source file name
+	 If strDestFile = ""  Then
+		 strDestFile = strFileName
+	 End If
+	 Set objFSO = CreateObject("Scripting.FileSystemObject")
+	 If Not objFSO.FolderExists(strDestPath) Then 
+		objFSO.CreateFolder(strDestPath)
+	 End If
+	'' Copy Source File to Destination
+    Set objFileCopy = objFSO.GetFile(strFilePath & strFileName)
+	 objFileCopy.Copy (strDestPath & strDestFile)
+	 outMessage = "Source copied to " & strDestPath & strDestFile 
+
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary>The component is used to convert a numeric value to a Double format</summary>
+''' <author>Vikram Kiren</author>
+''' <param name="nVal" type="String">Value to be converted</param>
+'''' <startstate>Numeric value</startstate>
+''' <endstate>Value in Dbl format</endstate>
+''' <returns type="Value">Dbl format of nVal if Pass, nVal if fails</returns>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Function ConvertDbl(nVal)
+
+If IsNumeric(nVal) Then
+	ConvertDbl = CDbl(nVal)
+Else
+	WriteToReport micFail, "Value Conversion to CDbl Failed", "Non numeric value detected while converting value: "&nVal 
+	ConvertDbl =  nVal
+	WriteToReport micWarning, "Value Conversion to CDbl Failed", "Calling  function may pass because both compared values may be non-numeric"
+End If
+
+End Function
+
+'_________________________________________ 
+''' <summary>
+'''This function compares the text of two text files to see if the files are the same.  If the file text is different, function will report 'the 
+'''difference but continue on with reading the rest of the file.  If any lines were different it will return that the test failed.  The user can 'specify a string 
+'''that the comparison can choose to ignore if it fails.  For example, if a time stamp is specified in the line, parameters: Name of files (file1,file2) and 
+'''the path they are located at (path)
+'''</summary>
+''' <author>Jessica Marshall</author>
+''' <datecreated>2/1/2010</datecreated>
+''' <param name="File1" type="String"></param>
+''' <param name="File2" type="String"></param>
+''' <param name="sPath" type="String"></param>
+''' <returns type="Numeric">Failed =1 and Pass = 0 </returns>
+Function CompareFiles(File1, File2, sPath)
+	'Variables declared
+	Const ForReading = 1
+	Const ForWriting = 2
+	Const Compare = 0
+	Dim fso, MyFile1, MyFile2, comp, ln1, ln2, flag, CheckFlag, i
+	Dim arrLn1
+	Dim arrLn2
+	Flag=True
+	CheckFlag=False
+	'variables assigned
+	Set fso = CreateObject("Scripting.FileSystemObject")
+	
+	'First verify the files exist before doing any comparison
+	if not fso.fileExists(spath & file1) then
+		CompareFiles = 1
+		writetoresults 1, "File Exists",  file1 & " does not exist at this path: " & sPath
+		Set fso = Nothing
+		Exit Function
+	End if
+	
+	if not fso.fileExists(spath & file2) then
+		CompareFiles = 1
+		writetoresults 1, "File Exists", file2 & " does not exist at this path: " & sPath
+		Set fso = Nothing
+		Exit Function
+	end if
+	
+	'open files for reading data
+	Set MyFile1 = fso.openTextFile(sPath & File1, forReading, true)
+	Set MyFile2 = fso.openTextFile(sPath & File2, forReading, true)
+
+	'loops through data until the end of either file is reached	
+	Do While ((MyFile1.AtEndOfStream <> True) AND (MyFile2.AtEndOfStream <> True))
+		'remove all spaces and make the string in uppercase for comparison
+		ln1 = MyFile1.ReadLine
+		ln2 = MyFile2.ReadLine
+		
+		'Does file comparison of Hidden Fields section, which do not include XML
+		If ln1 <> ln2 Then
+			writetoresults 1, "File comparison", "This line in " & file1 & " : " & ln1 & " does not match the line: " & ln2 & " in " & file2
+			Flag = False
+		End If
+	Loop
+
+	MyFile1.Close
+	MyFile2.Close
+	set fso = nothing
+	set MyFile1 = nothing
+	set MyFile2 = nothing
+	
+	If Flag = False then
+		CompareFiles = 1
+	Else
+		writetoresults 0, "File Comparison", "Both Files matched: " & File1 & " and " & File2
+		CompareFiles = 0
+	End if
+End Function
+
+'----------------------------------------------------------------------'
+'Function Name: CopyQCAttachmentToLocal
+'Creation Date: 
+'Author: 
+'Parameter Input: FolderName, FileName, OutPath
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author		Desc
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+''' <summary>
+''' CopyQCAttachmentToLocal
+''' </summary>
+''' <param name="FolderName" type="String"></param>
+''' <param name="FileName" type="String"></param>
+''' <param name="OutPath" type="String"></param>
+''' <returns type="NewFile"></returns>
+Function CopyQCAttachmentToLocal(FolderName, FileName, OutPath)
+	Dim TDConnection
+	Dim TreeManager
+	Dim Node
+	Dim Attachment
+	Dim AttachmentFactory
+	Dim AttachmentList
+	Dim Pos
+	Dim ServerPath
+	Dim ExtendedStorage
+	Dim FiletoMove
+	Dim NewFile
+	Dim FSO
+	Dim LongFileName
+
+	Set TDConnection = QCUtil.TDConnection
+	Set TreeManager =  TDConnection.TreeManager
+	Set Node = treeManager.nodebypath(FolderName)  
+
+	Set AttachmentFactory = node.Attachments
+	Set AttachmentList = AttachmentFactory.NewList("")
+
+	For Each Attachment In AttachmentList
+		If StrComp(Attachment.Name(1), FileName, 1) = False Then ' Equal
+			LongFileName = Attachment.Name			
+			Pos = InStr(1, Attachment.ServerFileName, Attachment.Name, 1)
+			ServerPath = Left(Attachment.ServerFileName, Pos - 1)
+		End If
+	Next
+
+	If StrComp(ServerPath, "") = 0 Then
+		QCAttachmentToLocal = ""
+		Exit Function
+	End If
+
+   If Right(OutPath, 1) <> "\" Then
+		OutPath = OutPath & "\"
+	End If
+
+	' Load the attachment using the extended storage object
+	Set ExtendedStorage = TDConnection.ExtendedStorage
+	ExtendedStorage.ServerPath = ServerPath
+	ExtendedStorage.ClientPath = OutPath
+	ExtendedStorage.Load LongFileName, True
+	Set FSO = CreateObject("Scripting.FileSystemObject")
+	FiletoMove = OutPath & LongFileName
+	NewFile = OutPath & FileName
+	If FSO.FileExists(NewFile) Then
+		FSO.DeleteFile NewFile, True
+	End If
+	FSO.MoveFile FiletoMove, NewFile
+	CopyQCAttachmentToLocal = NewFile
+
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> CreateComparisonReport is the component that compares the attribute values from the SPS order with the Baselined order numbers stored in the ComparisonResult sheet</summary>
+''' <author>Vikram Kiren</author>
+''' <returns type="Boolean">0 if Pass, 1 if fails</returns>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <seealso cref="SetCellData"/>
+''' <seealso cref="ReadCellData"/>
+''' <seealso cref="GetUsedRowsCount"/>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Function CreateComparisonReport()
+
+	Dim nResult, nUsedRangeCount, i
+	Dim sPath, sSheet, sValidationCriteria, sAttributeName, sBaseLinedOrdValue, sSPSValue, sOrderNo
+
+	nResult = micPass
+    sPath =  GetGlobalDictionaryValue("sDataTableDir")
+    sOrderNo = GetGlobalDictionaryValue("OrderNumber")
+    sSheet = "ComparisonResult"
+    nUsedRangeCount = GetUsedRowsCount(sPath, sSheet)
+	For i = 2 to nUsedRangeCount
+		sValidationCriteria = ReadCellData(sPath, sSheet, i, 4)
+		Select Case Trim(UCase(sValidationCriteria))
+			Case "EQUAL"
+				sAttributeName = ReadCellData(sPath, sSheet, i, 1)
+				sBaseLinedOrdValue = ReadCellData(sPath, sSheet, i, 2)
+				sSPSValue = ReadCellData(sPath, sSheet, i, 3)
+				If Trim(sBaseLinedOrdValue) = Trim(sSPSValue) Then
+					WriteToReport micPass, "Compare "&sAttributeName &" between baselined order and SPS order" , "The values for the baselined are " &sValidationCriteria &" as expected and the value is: " &sBaseLinedOrdValue
+					SetCellData sPath, sSheet, i, 5, "Pass"
+				Else
+					WriteToReport micFail, "Compare "&sAttributeName &" between baselined order and SPS order" , "The values for the baselined are not same. The baselined value is: " &sBaseLinedOrdValue &". The SPS order value is: "&sSPSValue
+					SetCellData sPath, sSheet, i, 5, "Fail"
+					nResult = micFail
+				End If
+
+			Case "NONBLANK"
+				sAttributeName = ReadCellData(sPath, sSheet, i, 1)
+				sBaseLinedOrdValue = ReadCellData(sPath, sSheet, i, 2)
+				sSPSValue = ReadCellData(sPath, sSheet, i, 3)
+				If Trim(sBaseLinedOrdValue) <> "" And Trim(sSPSValue) <> "" Then
+					WriteToReport micPass, "Compare "&sAttributeName &" between baselined order and SPS order" , "The values for the baselined are " &sValidationCriteria &" as expected.  The baselined value is: " &sBaseLinedOrdValue &". The SPS order value is: "&sSPSValue
+					SetCellData sPath, sSheet, i, 5, "Pass"
+				Else
+					WriteToReport micFail, "Compare "&sAttributeName &" between baselined order and SPS order" , "The values for the baselined are not " &sValidationCriteria &". The baselined value is: " &sBaseLinedOrdValue &". The SPS order value is: "&sSPSValue
+					SetCellData sPath, sSheet, i, 5, "Fail"
+					nResult = micFail
+				End If
+
+			Case Else
+					WriteToReport micWarning, "Compare "&sAttributeName &" between baselined order and SPS order" , "The validation criteria mentioned is not handled for comparison"
+					nResult = micFail
+		End Select
+	Next
+
+	If nResult <> micFail Then
+		WriteToReport micPass, "Comparison of SPS orders with the baselined order number", "The attribute values of the SPS order: "&sOrderNo &" is as expected"
+		nResult = micPass
+	Else
+		WriteToReport micFail, "Comparison of SPS orders with the baselined order number", "The attribute values of the SPS order: "&sOrderNo &" is not as expected"
+		nResult = micFail
+	End If
+
+	CreateComparisonReport = nResult
+	
+End Function
+
+'----------------------------------------------------------------------' 
+'Function Name:  EscapeString
+'Creation Date: Nov.28, 2007 
+'Author: Emma Yao
+'Parameter Input: String
+'Environment variable Dependencies:  None
+'Description: 
+'this function is built to escape all the special characters if the string you pass in has anything
+'the speacial characters: $()*+.[?\^{|
+' 
+'Change Control: 
+'       Date of Change          Author          Desc 
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+''' <summary>
+''' This function is built to escape all the special characters if the string you pass in has anything the speacial characters: $()*+.[?\^{|
+''' </summary>
+''' <param name="sString" type="String"></param>
+''' <returns type="NewString"></returns>
+Function EscapeString(sString)
+
+   Dim arrSepcialChars, str
+   'those are the special characters in the string to be escpated using escape character "\"
+   arrSepcialChars = Array("\","$","(",")","*","+",".","[","?","^","{","|")
+
+   'if empty, return empty
+   If sString ="" Then
+	   EscapeString = sString
+	   Exit Function
+   End If
+
+   'go through all the sepcial characters and escpape them, then finally return the escaped string
+   For Each str In arrSepcialChars
+		sString = Replace(sString,str,"\"&str)
+   Next
+
+   EscapeString = sString
+   
+End Function
+
+'----------------------------------------------------------------------'
+'Function Name: ExcelWorkbookCreate
+'Creation Date: 
+'Author: 
+'Parameter Input: strDestPath,strDestFile
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author		Desc
+'__________________________________________
+' 22-Jun-2013			Preston W.	Added logic to account for saving Excel sheets based on the Excel version.
+'									Saving a workbook as an ".xls" in Excel 2007 or later (version 12 or later) requires an extra parameter to prevent data corruption.
+'-------------------------------------------------------------------------
+Function ExcelWorkbookCreate (strDestPath, strDestFile)
+	' Value 56 creates workbook as.xls file.
+	Const nSAVETYPE = 56
+	
+	'Value 12 specified as an Excel Version of 2007 (first release of saving Excel sheets as .xlsx)
+	Const nEXCELVERSION = 12
+	Dim oExcel,oFileSystem
+	
+	'Check input path for trailing backslashes and add if necessary
+	If  Right(strDestPath,1) <> "\"  Then
+		strDestPath = strDestPath & "\"
+	End If
+	
+	'If input file name is null, do nothing
+	If strDestFile = ""  Then
+		ExcelWorkbookCreate = 1
+		Exit Function
+	End If
+	
+	'Check input file name for Excel extension and add if required
+	If Right(strDestFile,4) <> ".xls" Then
+		strDestFile = strDestFile & ".xls"
+	End If
+	
+	'Check if target folder exists; if not, create it
+	Set oFileSystem = CreateObject("Scripting.FileSystemObject")
+	If Not oFileSystem.FolderExists(strDestPath) Then 
+		oFileSystem.CreateFolder(strDestPath)
+	End If
+	
+	' if file exists, return a 1, else create it
+   	If (oFileSystem.FileExists(strDestPath&strDestFile)) Then ' workbook already exists
+   		ExcelWorkbookCreate = 1
+   		Exit Function
+   	Else
+		Set oExcel = CreateObject("Excel.Application")
+		oExcel.Visible = False
+		oExcel.Workbooks.Add
+		
+		'Check to see which version of Excel is running to specify the save type.
+		If StrComp ( Right ( strDestFile, 4 ), ".xls", vbTextCompare ) = 0 AND oExcel.Version >= nEXCELVERSION Then
+			oExcel.ActiveWorkbook.SaveAs( strDestPath&strDestFile), nSAVETYPE 
+		Else
+			oExcel.ActiveWorkbook.SaveAs( strDestPath&strDestFile)
+		End If
+		
+		oExcel.ActiveWorkbook.Close
+		oExcel.Quit
+		ExcelWorkbookCreate = 0
+	End If
+
+	'Clear system resources.
+	If IsObject ( oExcel ) Then Set oExcel = Nothing
+	If IsObject ( oFileSystem ) Then Set oFileSystem = Nothing
+End Function
+
+'----------------------------------------------------------------------'
+'Function Name: ExcelWorksheetRename
+'Creation Date: 
+'Author: 
+'Parameter Input: strDestPath,strDestFile,CurrentName,NewName, bDeleteExisting
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author	                     	Desc
+'      Sept 09 2008       Jim Kovathana       Concatenated ".xls" to the filePath
+'	Feb 11 09			Karthikeyan					Modified the function to Validate whether ".Xls" already exists in file path
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+Function ExcelWorksheetRename (strDestPath,strDestFile,CurrentName,NewName, bDeleteExisting)
+
+	Dim filePath, oExcel, oSheet, oSheet1
+	Dim AppendOnDup
+
+   If  bDeleteExisting ="" Then
+	   bDeleteExisting = False
+   Else
+		bDeleteExisting = CBool(bDeleteExisting)
+   End If
+	
+	' check input path for trailing backslashes and add if necessary
+	If  Right(strDestPath,1) <> "\"  Then
+		strDestPath = strDestPath & "\"
+	End If
+	' if input file name is null, do nothing
+	If strDestFile = ""  Then
+		ExcelWorksheetRename = 1
+		Exit Function
+	End If
+   ' filePath = strDestPath & strDestFile & ".xls"
+   'Validating the filepath has already the extension ".xls"
+	If InStr(strDestFile, ".xls")=0 Then
+		filePath = strDestPath & strDestFile & ".xls"
+	Else
+		filePath = strDestPath & strDestFile
+	End If
+	Set oExcel = CreateObject("Excel.Application") 
+     oExcel.Workbooks.Open(filepath)
+	On Error Resume Next
+
+    If bDeleteExisting Then
+		For Each oSheet1 In oExcel.ActiveWorkbook.Worksheets
+			If oSheet1.Name = NewName Then
+				'oSheet1.Activate
+				oExcel.DisplayAlerts = False
+				oSheet1.Delete
+				oExcel.DisplayAlerts = True
+				'oExcel.ActiveWorkbook.Worksheets.Delete NewName
+				Exit For
+			End If
+			Next
+		Set oSheet1 = Nothing
+	End If
+		
+	Set oSheet = oExcel.ActiveWorkbook.Worksheets(CurrentName) 
+
+	oSheet.Name = NewName
+	If Err.Number =1004 Then  ' worksheet exists: try again with a timestamp suffix
+		AppendOnDup = TimeStampString()
+		NewName = NewName & "_" & AppendOnDup
+		oSheet.Name = NewName
+	End If
+	oExcel.ActiveWorkbook.Save 
+	oExcel.ActiveWorkbook.Close 
+	If Err.Number > 0  Then
+		ExcelWorksheetRename = 1
+		Exit Function
+	End If
+	Set oSheet = Nothing 
+	Set oExcel = Nothing 
+
+End Function
+
+'----------------------------------------------------------------------'
+'Function Name: ExportActionResults
+'Creation Date: 
+'Author: 
+'Parameter Input: LocalTableName
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author		Desc
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+Function ExportActionResults(LocalTableName)
+
+	If Environment.Value("WriteExcelResults") = "Yes"  Then
+		DataTable.ExportSheet Environment.Value("WorkingFolderPath")&Environment.Value("CurrLFileName"), LocalTableName
+		ExportActionResults = ExcelWorksheetRename(Environment.Value("WorkingFolderPath"), Environment.Value("CurrLFileName"), LocalTableName, Environment.Value("BPName"),True)
+	End If
+
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> ExtractSPSOrderNumber is the component used to retrieve the order number created using the OE Checkout test cases in SPS from the XML stored in the shared location </summary>
+''' <author>Vikram Kiren</author>
+''' <param name="sTestCaseName" type="String">SPS Test Case</param>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <returns type="Boolean">True if Pass, False if fails</returns>
+''' <seealso cref="gGetOrderNumberFromSPSXML"/>
+''' <seealso cref="gGetDateAS400Format"/>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Function ExtractSPSOrderNumber(sTestCaseName)
+
+	Dim sDateString
+	Dim nResult
+	Dim iCount
+	Dim bFound
+
+    If Trim(sTestCaseName) = ""  Then
+		WriteToReport micWarning, "Extract SPS Order Number from XML in shared location", "Blank SPS Test case param passed! Please verify test data file!"
+		ExtractSPSOrderNumber = False
+	End If
+
+    'To check for the order number inside the XML's in shared location, first in those created today and if not present, check in XML's created the previous day.
+    For iCount = 1 to 2			
+		If iCount = 1 Then
+			sDateString = gGetDateAS400Format("")
+			nResult = gGetOrderNumberFromSPSXML(sTestCaseName, sDateString)
+			If nResult Then
+				 WriteToReport micDone, "Extract SPS Order Number for test case: "&sTestCaseName, "The order number retrieved from shared location for the test case is: " &CStr(GetGlobalDictionaryValue("OrderNumber"))
+				 bFound = True
+                 Exit For
+			End If
+		ElseIf iCount = 2 Then
+			sDateString = gGetDateAS400Format("-1")
+			nResult = gGetOrderNumberFromSPSXML(sTestCaseName, sDateString)
+			If nResult Then
+				 WriteToReport micDone, "Extract SPS Order Number for test case: "&sTestCaseName, "The order number retrieved from shared location for the test case is: " &CStr(GetGlobalDictionaryValue("OrderNumber"))
+				 bFound = True
+                 Exit For
+			End If
+		End If
+	Next
+
+    If bFound Then
+        WriteToReport micDone, "Extract SPS Order Number from shared location", "Extraction successful"
+		ExtractSPSOrderNumber = True
+	Else
+		WriteToReport micWarning, "Extract SPS Order Number from XML in shared location", "The specified test case did not exist in XML files created today and yesterday"
+		ExtractSPSOrderNumber = False
+	End If
+
+End Function
+
+'----------------------------------------------------------------------------------------
+''' <summary>
+'''  This function cleans out a text file to leave only the XML portion remaining
+''' </summary>
+''' <author>Megan Williamson</author>
+''' <datecreated>2/11/2010</datecreated>
+''' <param name="sPath" type="String">Path the file is located inside</param>
+''' <param name="FileName" type="String">Name of the file</param>
+''' <returns type="Numeric">Failed =1 and Pass = 0 </returns>
+Function FileEditor(sPath, FileName, AlterType)
+   Dim oFSO, MyFile, strReadText, BeginXML, EndXML, BeginFile, NewFile, EndFile, regExp, patrn, Matches, rc, regEx, BeginHidden, EndHidden 
+   Set oFSO=CreateObject("Scripting.FileSystemObject")
+	Const ForReading = 1
+	Const ForWriting = 2
+
+	'Verifies the file exists
+	if not oFSO.fileExists(sPath & FileName) then
+		FileEditor = 1
+		writetoresults 1, "File Does Not Exist",  FileName & " does not exist at this path: " & sPath
+		Set oFSO = Nothing
+		Exit Function
+	End if
+
+	'opens the file to pull the text for manipulation
+	Set MyFile = oFSO.openTextFile(sPath & FileName, ForReading, true)
+
+	'reads the file in
+	strReadText=MyFile.ReadAll
+
+	'closes the file, having stored the data
+	MyFile.close
+	Select Case AlterType
+
+	Case "XML", ""
+		'the XML values we are searching for that dictate where the XML portion begins and ends
+		BeginXML="<!DOCTYPE cXML"
+		EndXML = "</cXML>"
+	
+		'Opens the file for writing
+		Set MyFile = oFSO.openTextFile(sPath & FileName, ForWriting, true)
+	
+		'Pulls out only the XML chunk
+		BeginFile = instr(strReadText, BeginXML)
+
+		If BeginFile = 0 Then
+			FileEditor = 1
+			writetoresults 1, "XML Beginning Value",  "The expected beginning value: " & BeginXML & " was not found"
+			Set oFSO = Nothing
+			Exit Function
+		End If
+		
+		NewFile = mid(strReadText, BeginFile)
+		EndFile = instr(NewFile, EndXML)
+
+		If EndFile = 0 Then
+			FileEditor = 1
+		   writetoresults 1, "XML Beginning Value",  "The expected ending value: " & EndXML & " was not found"
+			Set oFSO = Nothing
+			Exit Function
+		End If
+		
+		NewFile = left(NewFile, EndFile+len(EndXML)-1)
+	
+		'Searches and deletes date/time strings that match the following format, numbers matching either 1 or 2 characters: 
+		'00/00/0000 00:00:00 XX"
+		Set regEx = New RegExp
+		patrn= "[0-9]{1,2}/[0-9]{1,2}/[0-9]{1,4}\s[0-9]{1,2}:[0-9]{1,2}:[0-9]{1,4}\s\w\w"
+		regEx.Pattern = patrn
+		Set Matches = regEx.Execute(NewFile)
+		rc=Matches.count
+	
+		'If date/time strings are found, clears the values out to prevent future failures
+		Do until rc=0
+			Set Matches = regEx.Execute(NewFile)
+			rc=Matches.count
+			NewFile = regEx.replace(NewFile, "")
+		Loop
+
+	Case "Hidden"
+		'The hidden values we are searching for to dictate where the Hidden portion begins and ends
+		BeginHidden = "<input type='hidden'name="
+		EndHidden = "<input type='hidden' name='CMRC-CART_RELINK_ID' value='"
+		'"<span id=" & chr(34) & "HiddenLabel" & chr(34) & ">"
+
+		'Opens the file for writing
+		Set MyFile = oFSO.openTextFile(sPath & FileName, ForWriting, true)
+	
+		'Pulls out only the XML chunk
+		BeginFile = instr(strReadText, BeginHidden)
+
+		If EndFile = 0 Then
+			FileEditor = 1
+		   writetoresults 1, "XML Beginning Value",  "The expected ending value: " & BeginHidden & " was not found"
+			Set oFSO = Nothing
+			Exit Function
+		End If
+		
+		NewFile = mid(strReadText, BeginFile)
+		EndFile = instr(NewFile, EndHidden)
+
+		If EndFile = 0 Then
+			FileEditor = 1
+		   writetoresults 1, "XML Beginning Value",  "The expected ending value: " & EndHidden & " was not found"
+			Set oFSO = Nothing
+			Exit Function
+		End If
+		
+		NewFile = left(NewFile, EndFile+(len(EndHidden)-1)-len(EndHidden))
+		NewFile = Trim(NewFile)
+	End Select	
+	
+	'Writes the manipulated information back into the file
+	MyFile.Write NewFile
+
+	'Closes the file
+	MyFile.close
+	FileEditor = 0
+End Function
+
+'---------------------------------------------------------------------------------
+'Function Name: FindPDFText
+'Creation Date: 
+'Author: 
+' Parameters Input:  SearchText - the string to find on PDF page(s)
+'Environment variable Dependencies: 
+'Description: Uses pdfSearch  function to locate text string on one or multiple pages of a PDF file displayed in child browser
+'Change Control:
+'	Date of Change		Author		Desc
+'	11/28/2005                 GJA	     Modified to work with Adobe Acrobat v7.x objects
+'	11/30/2005	               GJA	     Added Child/Main browser detection
+'__________________________________________________________________
+' 
+'-------------------------------------------------------------------------------------------------------------------
+Function FindPDFText (SearchText)
+
+	Dim TargetObject, IndexNumber,CaseSensitive,StringSeparator
+	Dim PageText,TotalPages,LastPage,CurrPage,Result,ObjectFound,maxWait
+	'variables for accessing various Acrobat toolbars by location, and coordinates to click on bar:
+	Dim AVToolLocation,AVTool_x,AVTool_y			
+
+	IndexNumber = 1 ' can be used for multiple PDFs on page (not implemented here)
+	'determine number of pages for forward search if required
+	' DETECT MAIN or CHILD BROWSER based on PDF ActiveX control 
+	On Error Resume Next ' turn off error handling during detection; .Sync and .Exist fail
+	Set TargetObject = Browser("ChildBrowser") ' try the Child Browser first
+	Result = TargetObject.Exist
+	TargetObject.Sync
+	Result = TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").Exist
+	If Result = False And (Err.Number<>0) Then ' try the Main CDW Browser
+		Set TargetObject = Browser("CDW")
+		TargetObject.Sync
+		Result = TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").Exist
+		If Result = False And (Err.Number<>0) Then
+			FindPDFText = 1
+			Exit Function
+		End If
+	End If
+	On Error GoTo 0 ' Reset error handling
+
+	'   wait for CDW loading progress bar
+	maxWait = 60
+	While  TargetObject.WebElement("innertext:=Please wait\w*").Exist(5) And maxWait > 0
+		wait(1)
+		maxWait = maxWait-1  ' counts down
+	Wend
+
+	PageText = TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").WinObject("text:=\d of \w*","nativeclass:=Edit","object class:=Edit","location:=0").GetVisibleText
+	If PageText <> "" Then
+		TotalPages = Split(PageText,"of ")
+		LastPage = CInt(TotalPages(1))
+	End If
+	If LastPage < 1 Then
+		LastPage = 100
+	End If
+	CurrPage = 0
+	CaseSensitive = True  ' potential parameter
+	StringSeparator = Null ' potential parameter
+	Result = micFail ' assume text not found, Fail
+	FindPDFText = micFail ' assume text not found, Fail
+	'use right-bottom toolbar to set CONTINUOUS PAGE DISPLAY
+	AVToolLocation = 11  '9 is for v5/6 single/continuous/multi-page display control
+	AVTool_x = 50 ' 42  for v5/6  ' these are coordinates within the control, not relative to browser window size
+	AVTool_y = 13 ' 11  for v5/6   '
+	ObjectFound = TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").WinObject("window id:=0","text:=AVToolBarView","regexpwndclass:=AVL_AVView","object class:=AVL_AVView","nativeclass:=AVL_AVView","location:="&AVToolLocation).Exist
+	TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").WinObject("window id:=0","text:=AVToolBarView","regexpwndclass:=AVL_AVView","object class:=AVL_AVView","nativeclass:=AVL_AVView","location:="&AVToolLocation).Click  AVTool_x, AVTool_y
+		'PAGING ROUTINE NO LONGER REQUIRED SINCE 'CONTINUOUS DISPLAY' BUTTON WAS CLICKED
+			'page through document
+			'AVToolLocation = 5  '5 is page jumping control
+			'AVTool_x = 178
+			'AVTool_y = 11
+	'find the text string
+			'PAGING ROUTINE NOT REQUIRED SINCE 'CONTINUOUS DISPLAY' BUTTON WAS CLICKED
+			'While CurrPage <= LastPage and Result = micFail  ' continue flipping through pages if text not found on current page
+				'CurrPage = CurrPage+1
+	Result = pdfSearch(TargetObject,IndexNumber,CaseSensitive,SearchText,StringSeparator)
+				'Click NextPage control
+				'If Result = micFail Then
+					'TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d","location:="&IndexNumber).WinObject("window id:=0","text:=AVToolBarView","regexpwndclass:=AVL_AVView","object class:=AVL_AVView","nativeclass:=AVL_AVView","location:="&AVToolLocation).Click AVTool_x,AVTool_y
+				'End If
+			'Wend
+	If Result = True Or Result = micPass Then
+		FindPDFText = micPass
+	End If
+End Function
+
+
+
+'**********************************************************************************************************************************************************
+''' <summary> GetFileCount  is a utility function to count number of files with mentioned extension in the defined path</summary>
+''' <author>Karthikeyan</author>
+''' <date>18 Mar 2010 </date>
+''' <param name="sPath" type="String">Folder Path where the files needs to be counted</param>
+''' <param name="sExtension" type="String">File Extension </param>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <returns type="Number">File count if Pass, 0 if fails</returns>
+''' <seealso cref="SoxValidateSnapShots"/>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'_________________________________________________________ 
+Public Function GetFileCount(sPath, sExtension)
+   Dim nCount, oFile, oFolder, f, oFileCollection, sName
+	nCount = 0
+	Set oFile = CreateObject("Scripting.FileSystemObject")
+	Set oFolder = oFile.GetFolder(sPath)
+	Set oFileCollection = oFolder.Files
+	For Each f In oFileCollection
+		sName = f.Name
+		If InStr(sName, ("."&sExtension)) Then
+			nCount = nCount+1
+		End If
+	Next   
+	GetFileCount = nCount
+End Function
+
+'**************************************************************************************************************
+''' <summary>
+''' This  is used to  get details of the file size
+''' </summary>
+''' <author>Pavan Patchava</author>
+''' <datecreated>June 26, 2009 </datecreated>
+''' <param name="FilenamewithPath" type="String"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="nSize">Size in bytes></returns>
+''' <seealso cref="IsFileExists"/>
+'Change Control: 
+'       Date of Change          Author                  Desc 
+'	July 14 2009				Jolly						renamed function to be appropriate, resolved issue with fail statements reported, cleanup unused variables
+'______________________________________________________
+Public Function GetFileSize(sFileNameWithPath)
+   Dim fso,sFileDetails,nSize
+	Set fso= CreateObject("Scripting.FileSystemObject")			
+			If IsFileExists(sFileNameWithPath) = 0 Then
+					Set sFileDetails = fso.GetFile(sFileNameWithPath)
+					nSize = sFileDetails.Size
+					WriteToReport micDone, "Got the File size" ,"Got the file size and the size is "& nSize &"."
+				Else
+					WriteToReport micWarning, "File not found" ,"File not in the location provided - " &sFileNameWithPath
+				End If
+				
+				GetFileSize= nSize
+End Function
+
+''' <summary>
+''' GetRandString is used to add an Individual authorizer detail in EPP page
+''' Parameter Input:  len-number for which alphabets needs to be generated
+''' </summary>
+''' <author>Shiny Monhan</author>
+''' <datecreated>29/9/2008</datecreated>
+''' <param name="len" type="Numeric"></param>
+''' <startstate>Nil</startstate>
+''' <endstate> Nil</endstate>
+''' <returns type="String"></returns>
+Function GetRandString(Len)   
+ Dim i, s,a   
+ Const startChr ="a", range = 25   
+   Randomize   
+   s = ""  
+   For i = 0 To Len-1     
+     s = s + Chr(Asc(startChr) + Rnd() * range )  
+     Next 
+	 a=Left(s,1) 
+	 a=UCase(a) 
+	 s=a+Right(s, Len-1)  
+     GetRandString = s   
+ End Function    
+
+' ==================================================
+' FILE AND DATE HANDLING FUNCTIONS FOR RESULTS
+' ==================================================
+'----------------------------------------------------------------------'
+'Function Name: GetFileBase
+'Creation Date: 
+'Author: 
+'Parameter Input: filespec
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author		Desc
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+Function GetFileBase(filespec)
+   'returns file name without extension from full path
+   'assuming last element is file name
+   Dim fso
+
+   Set fso = CreateObject("Scripting.FileSystemObject")
+   GetFileBase = fso.GetBaseName(filespec)
+
+End Function
+
+'----------------------------------------------------------------------'
+'Function Name: GetLongFileName
+'Creation Date: 
+'Author: 
+'Parameter Input: FullSpec
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author		Desc
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+Function GetLongFileName(FullSpec)
+   'returns file name with the extension from full path
+   'assuming last element is file name
+   Dim fso
+
+   Set fso = CreateObject("Scripting.FileSystemObject")
+   GetLongFileName = fso.GetFileName(FullSpec)
+
+End Function
+
+'----------------------------------------------------------------------'
+'Function Name: GetParentPath
+'Creation Date: 
+'Author: 
+'Parameter Input: FullSpec
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author		Desc
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+Function GetParentPath(FullSpec)
+   'returns just the path portion of string 
+   'assuming last element is file name
+   '  Note: function parses out trailing backslash
+   Dim fso
+
+   Set fso = CreateObject("Scripting.FileSystemObject")
+   GetParentPath = fso.GetParentFolderName(FullSpec)
+
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> GetUsedRowsCount is a low level utility function used to retrieve the used cell range from the excel worksheet in the sheet</summary>
+''' <author>Vikram Kiren</author>
+''' <param name="sFileName" type="String">File name of the excel worksheet with the entire path</param>
+''' <param name="WrkSheet" type="String">Sheet Name in which the used count needs to be retrieved</param>
+''' <returns type="Boolean">Count if Pass, Blank if fails</returns>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <seealso cref="SetCellData"/>
+''' <seealso cref="ReadCellData"/>
+''' <seealso cref="CreateComparisonReport"/>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Function GetUsedRowsCount(sFileName, sSheetName)
+
+	Dim objExcel,objWorkbook,objSheet
+	
+	Set objExcel = CreateObject("Excel.Application")
+	objExcel.Visible = False
+	Set objWorkbook = objExcel.Workbooks.Open(sFileName)
+	Set objSheet = objExcel.ActiveWorkbook.worksheets(sSheetName)
+	
+    GetUsedRowsCount= objSheet.UsedRange.Rows.Count                               'Get the used range count
+	
+	objExcel.Workbooks.Close
+	objExcel.Quit
+                
+End Function
+
+'----------------------------------------------------------------------' 
+'Function Name: GetDatafromExcelFile 
+'Creation Date: May 09, 2013 
+'Author: Jolly Thomas
+'Parameter Input:  
+	'StrFileName -  Excel File to read including path
+	'WrkSheet - Excel Worksheet Name or Number
+	'CheckValue - Value to check for in first row column 
+		' ColumnToRead - Column # to read a value from
+	' RowtoRead - Row # to read a value from
+'Environment variable Dependencies: none 
+'Description: Reads any excel file via filename and work sheet name, 
+'						validates the column header matches expected given value and returns the value in specified column ' 
+'Change Control: 
+'       Date of Change          Author                          Desc 
+'________________________________________________________________________________________________
+' 
+'------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Function GetDatafromExcelFile (StrFileName, WrkSheet, CheckValue, ColumnToRead, RowtoRead)
+               Dim objExcel, i
+               Dim sColHeader              
+			   Dim objWorkBook
+			   Dim	objSheet
+			   Dim rowCount
+                
+               Set objExcel = CreateObject("Excel.Application")
+               objExcel.Visible = False
+               objExcel.displayalerts = False
+
+               Set objWorkBook = objExcel.Workbooks.Open(strFileName)
+               Set objSheet = objExcel.ActiveWorkbook.Worksheets(wrkSheet)
+                   'get the number of rows and  ensure row to Read  does not exceed
+                        rowCount  = objSheet.UsedRange.Rows.Count
+                       objExcel.Worksheets(wrkSheet).Activate 
+                       sColHeader = objExcel.ActiveSheet.Cells(1, ColumnToRead).Value 
+   					   If (InStr ( Trim(sColHeader), CheckValue) <> 0 and   RowtoRead < rowCount+1 ) Then     'added in
+                                GetDatafromExcelFile = RTrim(objExcel.ActiveSheet.Cells(RowtoRead, ColumnToRead).Value)   
+								objExcel.Workbooks.Close
+								objExcel = Null       
+                                Exit Function
+                        End If
+					
+			GetDatafromExcelFile = micFail
+		  	objExcel.Workbooks.Close
+	     	objExcel = Null       
+			
+End Function
+
+'----------------------------------------------------------------------'
+'Function Name: IsLaunchedFromQC
+'Creation Date: 
+'Author: 
+'Parameter Input: 
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author		Desc
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+Function IsLaunchedFromQC()
+' suppress stopping of script if error occurs
+   On Error Resume Next 
+   ' refreshes the test set
+   ' if not called from QC, this will fail
+   QCUtil.CurrentTestSet.Refresh 
+     
+   ' no error indicates launched from QC
+   If (Err.Number=0) Then 
+       On Error GoTo 0 ' Reset error handling
+       IsLaunchedFromQC = True
+    '"error" occurred, means launched from QTP
+   Else 
+       On Error GoTo 0 ' Reset error handling
+       IsLaunchedFromQC = False
+   End If
+
+End Function
+
+',----------------------------------------------------------------------' 
+'Environment variable Dependencies: Page 
+'Change Control: 
+'       Date of Change          Author                   Desc 
+'_________________________________________ 
+''' <summary>
+''' FileExists is utility function that is used to verify whether a particular file exists in a path
+''' </summary>
+''' <author>Karthikeyan</author>
+''' <datecreated>12/09/2008</datecreated>
+'''	<param name = "sPath" type = "String"></param>
+''' <startstate>NA</startstate>
+''' <endstate>na</endstate>
+''' <seealso cref=" AssetMgt_ClearReport"/>
+''' <returns type="Boolean">return 0 if pass, return 1 if fail</returns>
+Private Function IsFileExists(sPath)
+   Dim nResults, oFso
+   'Setting the File object
+   Set oFso = CreateObject("Scripting.FileSystemObject")
+   If oFso.FileExists(sPath) Then
+	   IsFileExists = 0
+	Else
+		IsFileExists = 1
+   End If
+End Function
+
+''**************************************************************************************************************
+''' <summary>
+''' KillProcess is a generic component to kill a process in the task maanger
+''' </summary>
+''' <author></author>
+''' <datecreated>Jan. 21, 2010</datecreated>
+''' <param name="ProcessName" type="String">the whole name of the process</param>
+''' <startstate>None</startstate>
+''' <endstate>None</endstate>
+''' <returns type="booleant">True if passed  False if failed</returns>
+'Change Control: 
+'       Date of Change          Author          Desc 
+'______________________________________________________ 
+Public Function KillProcess(ProcessName)
+
+    Dim intTerminationCode
+
+        intTerminationCode = 0
+
+    Dim ObjService,ObjInstance,Process
+
+    Dim strProPath,intStatus
+
+    
+
+    'Set Function to False
+
+    KillProcess = False
+
+    Set ObjService = GetObject("winmgmts:")
+
+    For Each Process In ObjService.InstancesOf("Win32_process")
+
+        If UCase(Process.Name) = UCase(ProcessName) Then
+
+            strProPath = "Win32_Process.Handle=" & Process.ProcessID
+
+            Set ObjInstance = ObjService.Get(strProPath)
+
+            intStatus = ObjInstance.Terminate(intTerminationCode)
+
+            If intStatus = 0 Then
+
+                KillProcess = True
+
+            End If
+
+        End If
+
+    Next
+
+End Function
+
+'-----------------------------------------------------------------------'
+'Function Name:  pdfSearch
+'Creation Date: July 22, 2007
+'Author: Bob Pfingsten (pfingsten.bob@con-way.com)   
+'Parameter Input: 
+'                                obj -  object which points to the parent of the ActiveX control (browser, page)
+'                                index - 1 based index for the desired PDF (i.e. more than one PDF on the page)
+'	                             matchCase -  boolean to perform a search using case sensitivity.
+'                               searchString - single string or delimited set of strings to use for the search.
+'                              searchStringDelimiter - delimiter used in the searchString parameter, or 'null'
+'Environment variable Dependencies:
+'Function Description:   Used to search an object for the existence of an ActiveX control
+'                                           which contains a PDF.  This PDF is searched for the provided string(s) by
+'			                                capturing all text  and dumping clipboard to Windows NotePad.
+'                                           If the provided string(s) are ALL found this function will return True,
+'                                           otherwise it will return False.
+'
+'  Issues: only works with Acrobat Reader 5 (if  'progid:=PDF.PdfCtrl.5') or Acrobat Reader 6 (if 'progid:=PDF.PdfCtrl.\d')
+' Usage Examples:
+'  -Search the given page for an ActiveX control that is the first occurrence and look for the ****
+'    text "foobar", case sensitive. 
+'    if pdfSearch( Browser("Browser").Page("Page"), 1, true, "foobar",null) then
+'        ...code...
+'    end if	
+'  -Search the given page for an ActiveX control that is the second occurrence and look for the text "foobar" and "hello", 
+'    case insensitive.
+'    if pdfSearch( Browser("Browser").Page("Page"),2, false, "foobar;hello",";") then
+'        ...code...
+'    end if	
+'  -Search the given page in a frame for an ActiveX control that is the first occurrence and look for the text "foobar" and 
+'    "hello", case insensitive.
+'    if pdfSearch( Browser("Browser").Page("Page").Frame("Frame"),1,  false, "foobar|hello","|") then
+'        ...code...
+'    end if
+'
+'Change Control:
+'	Date of Change		Author		Desc
+'   11/09/2005                GJA         Version 2.0 - Speeded up search routines; added Acrobat descriptive controls
+'	11/28/2005	              GJA	     Modified to work with Acrobat Reader v7.x
+'___________________________________________________________________________________________
+' 
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+Function pdfSearch (TargetObject, index,  matchCase, searchString, searchStringDelimiter)
+	
+	Dim maxWait, notepadPath, workingDir, notepadOperation, sanity, current, i
+	Dim searchStringArray
+	Dim ObjectVisible,PageText,TotalPages,LastPage,LoadWait,Result
+
+	pdfSearch = micFail
+	notepadPath = "C:\WINNT\system32\notepad.exe"
+	workingDir = "C:\"
+	notepadOperation = "open"
+
+	' wait for Acrobat browser plugins to load (if any)
+	maxWait = 60
+	While  Not TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").Exist(5) And maxWait > 0
+		wait(1)
+		maxWait = maxWait-1  ' counts down
+	Wend
+
+	If searchStringDelimiter <> "" Then
+		searchStringArray = Split(searchString,searchStringDelimiter,-1,1)
+	Else
+		searchStringArray = Array(searchString)
+	End If
+ 
+	If TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").Exist(5)  Then
+	
+		If Not TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").getROProperty("visible") Then
+			TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").MakeVisible
+		End If
+		'determine number of pages for loading lag
+		ObjectVisible=TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").WinObject("text:=\d of \w*","regexpwndclass:=Edit","nativeclass:=Edit").Exist(5)
+		'determine number of pages for forward search if required
+		Result = TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").Exist
+		PageText = TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").WinObject("text:=\d of \w*","nativeclass:=Edit","object class:=Edit","location:=0").GetVisibleText
+		If PageText <> "" Then
+			TotalPages = Split(PageText,"of ")
+			LastPage = CInt(TotalPages(1))
+		End If
+		If LastPage < 1 Then
+			LastPage = 100
+		End If
+		LoadWait = CInt(LastPage/4) ' this based on observation
+
+		TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").Click 1,1
+		TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").WinObject("text:=AVPageView","regexpwndclass:=AVL_AVView").Type "+"
+		'select all
+		TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").WinObject("text:=AVPageView","regexpwndclass:=AVL_AVView").Type micCtrlDwn + "a" + micCtrlUp '  for v5/6: micLCtrlDwn+"a"+micLCtrlUp 
+		'copy to Windows clipboard
+		TargetObject.ActiveX("progid:=\w*PDF.P\w*.\d").WinObject("text:=AVPageView","regexpwndclass:=AVL_AVView").Type micCtrlDwn + "c" + micCtrlUp '  for v5/6:  micLCtrlDwn+"c"+micLCtrlUp
+		TargetObject.Sync
+		wait(LoadWait) ' wait for long doc to load into clipboard
+
+		'close any open Notepad windows
+		sanity = 200
+		current = 0
+		While Window("regexpwndtitle:=Notepad","location:=0").Exist(5) And current < sanity
+			Window("regexpwndtitle:=Notepad","location:=0").Maximize
+			Window("regexpwndtitle:=Notepad","location:=0").Close
+			If Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Notepad").Exist(2) Then
+				Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Notepad").WinButton("text:=&No").Click
+			End If
+			current = current + 1
+		Wend
+	
+		'open a new Notepad instance
+		SystemUtil.Run notepadPath,"",workingDir,notepadOperation
+		Window("regexpwndtitle:=Notepad","location:=0").Type micLCtrlDwn+"v"+micLCtrlUp
+		For i = LBound(searchStringArray) To UBound(searchStringArray)
+			Window("regexpwndtitle:=Notepad","location:=0").Type micLCtrlDwn+micEnd+micLCtrlUp
+			Window("regexpwndtitle:=Notepad","location:=0").Type micLCtrlDwn+"f"+micLCtrlUp
+			If matchCase = True Then
+				Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Find").WinCheckBox("text:=Match &case").Click
+			End If
+			Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Find").WinEdit("attached text:=Fi&nd what:").Set searchStringArray(i)
+			Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Find").WinRadioButton("text:=&Up").Set 
+			Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Find").WinButton("text:=&Find Next").Click 
+			If Not Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Find").Dialog("text:=Notepad").WinButton("text:=OK").Exist(0) Then
+				pdfSearch = micPass
+			Else
+				Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Find").Dialog("text:=Notepad").WinButton("text:=OK").Click
+				pdfSearch = micFail
+				Exit For
+			End If
+			If Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Find").Exist(0) Then
+				Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Find").Close 
+			End If
+ 		Next
+		If Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Find").Exist(0) Then
+			Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Find").Close 
+		End If
+		Window("regexpwndtitle:=Notepad","location:=0").Close 
+		If Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Notepad").Exist(0)  Then
+			Window("regexpwndtitle:=Notepad","location:=0").Dialog("text:=Notepad").WinButton("text:=&No").Click
+		End If
+	Else
+		pdfSearch = micFail
+		Reporter.ReportEvent micFail,"pdfSearch","ActiveX document not found"
+    End If
+End Function
+
+'----------------------------------------------------------------------'
+'Function Name: Prefix0
+'Creation Date: 
+'Author: 
+'Parameter Input: NumberString
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author		Desc
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+Function Prefix0(NumberString)
+
+   If (Len(NumberString) = 1) Then
+		NumberString = "0" & NumberString
+   End If
+
+   Prefix0 = NumberString
+
+End Function
+
+'----------------------------------------------------------------------' 
+'Function Name: ReadExcelFile 
+'Creation Date: Decmber 5, 2007 
+'Author: Rick Tiedt
+'Parameter Input:  
+	'StrFileName -  Excel File to read including path
+	'WrkSheet - Excel Worksheet Name or Number
+	'SearchValue - Value to search for in column one
+	' ColumnToRead - Column # to read a value from
+'Environment variable Dependencies: none 
+'Description: Reads any excel file via filename and work sheet name, 
+'						searches any column for a specific value and returns the value in specified column ' 
+'Change Control: 
+'       Date of Change          Author                          Desc 
+'           Dec 14 2007          Jim Kovathana        Added statements to close objExcel
+'Dec 26 2007				Jim Kovathana			Added ColumnToRead parameter
+'         Jan 17 2008           Jim Kovathana        Replaced sValue = SearchValue with Instr match
+'         Feb 8 2008            Jim Kovathana        Modified ReadExcelFile to trim right leading spacing for the returned value
+'       Mar 31 2008           Jim Kovathana         Add a rc =1 if the sValue does not match the search value
+'2014-03-19				Damien Storm			Changed variable 'KeyColumn' to 'ColumnToRead' for clarity
+'________________________________________________________________________________________________
+Function ReadExcelFile (StrFileName, WrkSheet, SearchValue, ColumnToRead, ColumnToSearch)
+               Dim objExcel, i
+               Dim sValue              
+			   Dim objWorkBook
+			   Dim	objSheet
+			   Dim rowCount
+                
+                Set objExcel = CreateObject("Excel.Application")
+                       objExcel.Visible = False
+						objExcel.displayalerts = False
+
+                       Set objWorkBook = objExcel.Workbooks.Open(strFileName)
+                       Set objSheet = objExcel.ActiveWorkbook.Worksheets(wrkSheet)
+	
+                   'get the number of rows and use as the marker for the last row
+                        rowCount  = objSheet.UsedRange.Rows.Count
+                   'Select sheet 
+                       objExcel.Worksheets(wrkSheet).Activate 
+
+			   For i = 1 To rowCount 
+		sValue = objExcel.ActiveSheet.Cells(i, ColumnToSearch).Value 
+                          'If sValue = SearchValue Then                    'commented out 
+						  If (InStr ( Trim(sValue), SearchValue) <> 0) Then     'added in
+                                    ReadExcelFile = RTrim(objExcel.ActiveSheet.Cells(i, ColumnToRead).Value)   
+									objExcel.Workbooks.Close
+									objExcel = Null       
+                                    Exit Function
+                         End If
+                    Next
+					
+			ReadExcelFile = micFail
+		  	objExcel.Workbooks.Close
+	     	objExcel = Null       
+			
+End Function
+
+'----------------------------------------------------------------------' 
+'Function Name: ReadLocalFile
+'Creation Date: April 9, 2007 
+'Author: Jim Kovathana
+'Parameter Input:  
+	'sLocalSheet -  Name of the Local data sheet
+	'sSearchValue - The value to search
+	'ColumnToRead - Column # to read a value from
+	'KeyColumn -  Column # where the value is keyed off from
+'Environment variable Dependencies: none 
+'Description: Reads any local data file, searches any column for a specific value and returns the value in specified column ' 
+'Change Control: 
+'       Date of Change          Author                          Desc 
+'         01/07/09                 Jim Kovathana             rowcount should be nRowCount
+'________________________________________________________________________________________________
+' 
+'------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Function ReadLocalFile (sLocalSheet, sSearchValue, ColumnToRead, KeyColumn)
+
+	Dim i, nRowCount
+	Dim sValue          
+
+	nRowCount = DataTable.GetSheet(sLocalSheet).GetRowCount
+	DataTable.GetSheet(sLocalSheet).SetCurrentRow(1)
+			
+	For i = 1 To nRowCount 
+
+		sValue = DataTable.GetSheet(sLocalSheet).GetParameter(KeyColumn)
+	   
+			If (InStr ( Trim(sValue), sSearchValue) <> 0) Then    
+				ReadLocalFile = RTrim(DataTable.GetSheet(sLocalSheet).GetParameter(ColumnToRead))
+				Exit Function
+			End If
+		 DataTable.GetSheet(sLocalSheet).SetNextRow	
+
+    Next
+					
+	ReadLocalFile = micFail
+
+End Function
+
+'**************************************************************************************************************
+''' <summary>
+''' This utility function removes duplicate values from 1D arrays.  It will leave the first instance of a duplicate value and remove all others beyond the first.
+''' Pass in a one dimension array from which you want to remove duplicate values.
+''' If the function receives an array value which is supposed to be an empty string ("") it will remove this.
+''' </summary>
+''' <author>John White</author>
+''' <datecreated>10/7/2011</datecreated>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <param name ="aArray" type="Array">1D array which is to have duplicate values removed</param>
+''' <returns type=""></returns>
+''' <seealso cref=""/>
+'----------------------------------------------------------------------' 
+'Change Control: RemoveArrayDuplicate
+'       Date of Change          Author                 Desc 
+'_________________________________________
+'===============================================================
+Public Function RemoveArrayDuplicate(aArray)
+
+	Dim i, j
+	Dim nDCount
+	Dim aTemp
+	
+	'1 Determine if array
+	If not(IsArray(aArray)) Then
+		WriteToResults micWarning, "Array Duplicate Removal","Variable is not an array."
+		RemoveArrayDuplicate = 1
+		Exit Function
+	End If
+	'/1
+	
+	aTemp = aArray
+		
+	'2 Iterate through dimensions, looking for duplicates within the dimension
+	For i=0 to ubound(aTemp)
+		For j=0 to ubound(aTemp)
+			If aTemp(i) = aTemp(j) and i <> j Then
+				aTemp(j) = ""
+			End If
+		Next
+	Next
+	'/2
+	
+	nDCount = 0
+	
+	'3 re-bound the array to exclude duplicates
+	For i = 0 to ubound(aTemp)
+		If aTemp(i) = "" Then
+			nDCount = nDCount + 1
+		End If
+	Next
+	
+	ReDim aArray(ubound(aTemp) - nDCount)
+	nDCount = 0
+	
+	For i=0 to ubound(aTemp)
+		If aTemp(i) <> "" Then
+			aArray(i-nDCount) = aTemp(i)
+		Else
+			nDCount = nDCount + 1
+		End If
+	Next
+	'/3
+	
+	'4 Write out
+	WriteToResults micDone, "Array Duplicate Removal","Array Duplicate Removal process has executed."
+	RemoveArrayDuplicate = 0
+	'/4
+
+End Function
+
+'----------------------------------------------------------------------'
+'Function Name: RemovePrefix0
+'Creation Date:  Feb 25, 2008
+'Author:  Jim Kovathana
+'Parameter Input: NumberString - A two digit number with a zero prefix
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author		Desc
+'________________________________________________________
+'________________________________________________________
+Function RemovePrefix0(NumberString)
+
+   Dim MyArray
+   
+   If (Len(NumberString) = 2) And (InStr(NumberString, 0) <> 0) Then
+	  MyArray = Split(NumberString, "0")
+	  NumberString = MyArray(1)
+   End If
+
+   RemovePrefix0 = NumberString
+
+End Function
+
+'--------------------------------------------------------------------------
+'Function Name:  ReportResult
+'Creation Date: Nov.28, 2007 
+'Author: Emma Yao
+'Parameter Input: 
+'								nResult, will be result of the test case, for example, nResult = SelectPaymentMethod
+'								nFailCode, one of the numbers  in CDW.xls 0-36
+'								nSuccessCode, one of the numbers  in CDW.xls  0- 36
+'								sFunctionName
+'								sAddDescription
+'Environment variable Dependencies:  None
+'Description: 
+'this function is used to replace the block of the code in CDWAction
+'Example:
+' If Result = micFail Then
+'						Call WriteToResults(1, "SelectPaymentMethod", Param1)
+'					Else
+'						Call WriteToResults(2, "SelectPaymentMethod", Param1)
+'					End I
+'Change Control: 
+'       Date of Change          Author          Desc 
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+Function ReportResult(nResult, nFailCode, nSuccessCode, sFunctionName, sAddDescription_Fail, sAddDescription_Success)
+
+   'guards for all the test cases
+   If (nFailCode < 0) Or (nFailCode>36) Then
+	   WriteToResults micFail,"Report Result", "Failure code should be in the range of 0-36"
+   End If
+
+   If (nSuccessCode < 0) Or (nSuccessCode>36) Then
+	   WriteToResults micFail,"Report Result", "Sucess code should be in the range of 0-36"
+   End If
+   
+   If sAddDescription_Success="" Then
+		sAddDescription_Success = sAddDescription_Fail
+   End If
+   
+   If nResult = micFail Then
+		WriteToResults nFailCode, sFunctionName, sAddDescription_Fail
+   Else
+		WriteToResults nSuccessCode, sFunctionName, sAddDescription_Success
+   End If
+  
+End Function
+
+'----------------------------------------------------------------------' 
+'Function Name: SaveTestData 
+'Creation Date: November 20, 2007 
+'Author: Utopia Solutions, Inc 
+'Parameter Input: DataFileName
+'Environment variable Dependencies: none 
+'Description: Sets an input value in a webedit box. 
+' 
+'Change Control: 
+'       Date of Change          Author          Desc 
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+Function SaveTestData(DataFileName, sDataTableName)
+
+	Dim NewDataFileName, SharedDataFileName, NewSharedDataFileName
+	Dim SPSSharedDataFileName, SPSNewSharedDataFileName
+	'Dim Result, ResultCode, NewDataFileName, TimeStamp, LaunchedFromQC
+
+   If sDataTableName = "" Then
+	   'then export all the datatable, otherwise
+	   sDataTableName = "Global"
+   End If
+
+   	  'TimeStamp = TimeStampString()
+
+	 'LaunchedFromQC = IsLaunchedFromQC 
+	 
+'	 If  LaunchedFromQC	Then
+'
+'	 NewDataFileName = "Subject\QTP_Framework_Web\autolocal\" & GetLongFileName(DataFileName) & "_" & TimeStamp & ".xls"
+'
+'	else 
+'	 NewDataFileName = "C:\AutoSource_Prod\WebQTP\autolocal" & GetLongFileName(DataFileName) & "_" & TimeStamp & ".xls"	
+'   end if
+             
+	 NewDataFileName =  (Environment.Value("WorkingFolderPath"))  & GetLongFileName(DataFileName) & ".xls" 
+	 DataTable.ExportSheet NewDataFileName, sDataTableName
+
+	SharedDataFileName = DataFileName & "_" & Environment.Value("LocalHostName") 'grab the local computer name
+	
+	'Added 7/27 for SPS ET
+	If Instr(DataFileName,"SPS") > 1 Then
+		SPSSharedDataFileName = DataFileName
+		 'write to Nework also
+		 SPSNewSharedDataFileName = (Environment.Value("WorkingFolderSharedPath")) & GetLongFileName(SPSSharedDataFileName) & ".xls"	
+		 DataTable.ExportSheet SPSNewSharedDataFileName, sDataTableName
+	End If	 
+
+	'write to Nework also
+     NewSharedDataFileName = (Environment.Value("WorkingFolderSharedPath")) & GetLongFileName(SharedDataFileName) & ".xls"	
+	 DataTable.ExportSheet NewSharedDataFileName, sDataTableName
+ 
+End Function
+
+'----------------------------------------------------------------------' 
+'Function Name:  SetDefault
+'Creation Date: Nov.28, 2007 
+'Author:
+'Parameter Input:  sVar: string to be set
+'								   Default: default value to be set
+'Environment variable Dependencies:  None
+'Description:  This function is to set the string to sDefault if it's empty or NULL
+'Change Control: 
+'       Date of Change          Author          Desc 
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+Public Function SetDefault( ByRef sVar, sDefault)
+
+   If (sVar="") Or (sVar = Null) Then
+	   sVar = sDefault
+   End If
+
+End Function
+
+'----------------------------------------------------------------------'
+'Function Name: TimeStampString
+'Creation Date: 
+'Author: 
+'Parameter Input:  None
+'Environment variable Dependencies: 
+'Description: 
+'Change Control:
+'	Date of Change		Author		Desc
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+Function TimeStampString()
+
+	' outputs a string from the 'Now' function in format  'YYYYMMDDhhmmss'
+	Dim YearString,MonthString,DayString,HourString,MinString,SecString
+
+	YearString = Prefix0(Year(Now))
+	MonthString = Prefix0(Month(Now))
+	DayString = Prefix0(Day(Now))
+	HourString = Prefix0(Hour(Now))
+	MinString = Prefix0(Minute(Now))
+    SecString = Prefix0(Second(Now))
+	TimeStampString = YearString & MonthString & DayString & HourString & MinString & SecString
+
+End Function
+
+'------------------------------------------------------------------------
+'Function Name: UseStoredValue
+'Creation Date: Nov 20, 2007 
+'Author: Utopia Solutions, Inc 
+'Parameter Input: DataIdentifier, sDataSheet
+'Environment variable Dependencies: none 
+'Description: – Retrieves any stored value in the Global Data Sheet via a Data Identifier in the ‘DataKey’ Column.  This function is dependant upon the ‘StoreText’ Function
+' 
+'Change Control: 
+'       Date of Change          Author          Desc 
+'__________________________________________
+' 
+'-------------------------------------------------------------------------
+Function UseStoredValue(DataIdentifier, sDataSheet)
+
+Dim i, DataKey, StoredValue, Result
+
+	If sDataSheet = "" Then
+		sDataSheet = "Global"
+	End If
+
+	For i = 1 To DataTable.GetSheet(sDataSheet).GetRowCount 
+	
+		DataTable.SetCurrentRow i
+		DataTable.GetCurrentRow
+		DataKey = DataTable.Value("DataKey")   	
+		StoredValue = DataTable.Value("StoredValue")
+
+		If DataKey = DataIdentifier Then
+			DataIdentifier = StoredValue
+			UseStoredValue = 0
+			Exit Function
+		End If
+		
+	Next
+
+	UseStoredValue = 1
+
+End Function
+
+'----------------------------------------------------------------------' 
+'Function Name:  ValidateStageMail
+'Creation Date: Nov.28, 2007 
+'Author: Emma Yao
+'Parameter Input: 
+'@strExpectedSubject, 
+'@strFrom, 
+'@strExpectedBody, 
+'@byRef strBody  , 
+'@sDateToCheckAgainst, bDelete
+'Environment variable Dependencies:  None
+'Description: 
+' This function is used to check against folder : public folder > favorites > Stage E-mail, against strFrom(sender's name), strExpectedSubject, strExpectedBody
+
+'Change Control: 
+'       Date of Change          Author          Desc 
+'________________________________________________________ 
+
+Public Function ValidateStageMail(strExpectedSubject, strFrom, strExpectedBody, ByRef strBody  , sDateToCheckAgainst, bDelete  )
+  
+        ' Create Outlook application.
+		SetDefault strFrom, ""
+		SetDefault strExpectedSubject, ""
+		SetDefault strExpectedBody, ""
+		SetDefault bDelete, False
+
+		If (strExpectedSubject = "" And  (strFrom = "") And  ( strExpectedBody = "" ))Then
+			ValidateMail = False
+			Exit Function
+		End If
+		
+        Dim oApp
+        Set oApp = CreateObject("Outlook.Application") 
+       
+        ' Get Mapi NameSpace.
+        Dim oNS
+        Set oNS = oApp.GetNamespace("MAPI")
+
+	  ' Login as user.
+	  'Result = oNS.Logon(strProfile, strPassword, vbFalse, vbTrue)
+			
+        ' Get Messages collection of Inbox.
+		Dim MyFolder1, MyFolder2, MyFolder
+		Set MyFolder1 = oNS.Folders("Public Folders")
+		Set MyFolder2 = MyFolder1.Folders("Favorites")
+		Set MyFolder = MyFolder2.Folders("Stage E-mail")
+
+		'restrict the mail to be later than the time
+		Dim oPubicItems
+		Set oPubicItems = MyFolder.items
+
+	  ' Dim DateStart
+	   Dim DateToCheck
+	   'DateStart = CDate(Now)
+
+	   'filter today's date
+	   If sDateToCheckAgainst="" Then
+		     sDateToCheckAgainst =Date
+	   End If
+	  
+	   'DateToCheck = "[LastModificationTime] >= "& "'" & DateStart & "'"
+	   DateToCheck ="[LastModificationTime] >= """ & sDateToCheckAgainst & """"
+		Set oPubicItems = oPubicItems.Restrict(DateToCheck)
+		
+        ' Loop each unread message.
+        Dim oItem
+        Dim Found
+        Dim strSubjectTemp
+		Dim strBodyTemp
+		Dim strFromTemp
+		
+	    Found = vbFalse
+		
+        For Each oItem In oPubicItems
+           ' Filter for unread e-mail messages only.
+				' Test to make sure item is a mail item and not a meeting request.
+              'If oItem.MessageClass = sClassComp Then
+				  strSubjectTemp = oItem.Subject
+				  strSubjectTemp = Trim(strSubjectTemp)
+				  strSubjectTemp = Replace(strSubjectTemp, vbCr, "")
+				  strFromTemp = oItem.SenderName
+				  strBodyTemp = oItem.Body
+				  strBodyTemp = Trim(strBodyTemp)
+				  strBodyTemp = Replace(strBodyTemp, vbCr, "")
+				  strCreationTime = oItem.LastModificationTime
+				 			  
+				  'check to see if anything match: strExpectedSubject, strFrom, strExpectedBody
+				  If  (Not strFrom = "")  Then
+					  If (Not StrComp(strFrom, strFromTemp) = 0)  Then
+						Found =False
+					  Else
+						Found1=True
+					 End If
+				   Else
+						Found1 = True
+				   End If
+
+					If  (Not strExpectedSubject = "") Then
+					  If ( InStr(1, strSubjectTemp, strExpectedSubject ) <= 0)  Then
+						Found =False
+					  Else
+						Found2=True
+					End If
+				   Else
+						Found2 =True
+				   End If
+
+				   If  (Not strExpectedBody = "") Then
+					  If ( InStr(1, strBodyTemp, strExpectedBody) <= 0 )  Then
+						Found = False
+					  Else
+						Found3=True
+					End If
+				   Else
+						Found3 = True
+				   End If
+				   
+				   If Found1 And Found2 And Found3 Then
+					  Found = True
+					  strBody = strBodyTemp
+					  Services.LogMessage "Created at: " & strCreationTime
+					  If bDelete Then
+						oItem.Delete
+					  End If
+					  Exit For
+				   End If
+			 'End if     
+        Next 
+		
+        If Found = False Then	' Subject is not OK.
+			ValidateStageMail = False
+        	Services.LogMessage "Subject Expect: " & strExpectedSubject & vbCrLf & "For: " & strProfile, 7
+            'Services.LogMessage "Subject Actual: " & strSubjectTemp & vbCrLf & "For: " & strProfile, 6
+		Else
+			 ValidateStageMail = True
+        End If
+
+End Function
+
+'this is used to do the verification if one key exist
+Function VerifyKeyExist(DataIdentifier, sDataSheet)
+
+Dim i, DataKey, StoredValue, Result
+
+	If sDataSheet = "" Then
+		sDataSheet = "Global"
+	End If
+
+	For i = 1 To DataTable.GetSheet(sDataSheet).GetRowCount 
+	
+		DataTable.SetCurrentRow i
+		DataTable.GetCurrentRow
+		DataKey = DataTable.Value("DataKey")   	
+	
+		If DataKey = DataIdentifier Then
+			VerifyKeyExist = 0
+			Exit Function
+		End If
+		
+	Next
+
+	VerifyKeyExist = 1
+
+End Function
+
+
+'----------------------------------------------------------------------' 
+'Function Name:  Check a string present in the array
+'Creation Date: Feb 26, 2009
+'Author: Pavan Patchava
+'Parameter Input: 
+'sSearchString
+'in Array 
+'Environment variable Dependencies:  None
+'Description: 
+' This function is used to check  the passed  string existance in the array. Returns True if found other wise false
+
+'Change Control: 
+'       Date of Change          Author          Desc 
+'	05-aug-2009				Karthikeyan		Added Exit Function statement to avoid repeated validation, if the string is found and implemented conversion to uni case for comparison
+'________________________________________________________ 
+Public Function IsInArray(sString,arrArray)
+   Dim iCounter
+				IsInArray = False
+
+					If IsNull(arrArray) <> True Then
+						For  iCounter = 0 To UBound(arrArray)
+							If UCase(arrArray(iCounter)) = UCase(sString) Then
+								IsInArray = True
+								Exit Function
+							End If
+						Next
+					End If
+		
+End Function
+
+'**************************************************************************************************************
+''' <summary>
+''' This  is used to  get percentage  of the value we pass in
+''' </summary>
+''' <author>Pavan Patchava</author>
+''' <datecreated>June 26, 2009 </datecreated>
+''' <param name="nValue" type="Number"></param>
+''' <param name="nPercent" type="Number"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="nNewValue">Size in bytes></returns>
+''' <seealso cref="IsFileExists"/>
+'Change Control: 
+'       Date of Change          Author                  Desc 
+'______________________________________________________
+Public Function GetPercentageOf(nValue,nPercent)
+   Dim nNewValue,nTemp
+   nTemp =(CInt(nPercent) *CInt(nValue))/100
+   nNewValue= CInt(nValue)+nTemp
+   
+  GetPercentageOf =nNewValue
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> ReadCellData is a low level utility function used to retrieve the data from the excel worksheet in the specified cell</summary>
+''' <author>Vikram Kiren</author>
+''' <param name="StrFileName" type="String">File name of the excel worksheet with the entire path</param>
+''' <param name="WrkSheet" type="String">Sheet Name</param>
+''' <param name="nRow" type="Number">Row in the sheet  in which data needs to be read</param>
+''' <param name="nColumn" type="Number">Column in the sheet  in which data needs to be read</param>
+''' <returns type="Boolean">Data retrieved if Pass, Blank if fails</returns>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <seealso cref="SetCellData"/>
+''' <seealso cref="GetUsedRowsCount"/>
+''' <seealso cref="CreateComparisonReport"/>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Function ReadCellData(StrFileName, WrkSheet, nRow, nColumn)
+
+	Dim objExcel
+	Dim sValue              
+	Dim objWorkBook
+	Dim	objSheet
+	
+	Set objExcel = CreateObject("Excel.Application")
+	objExcel.Visible = False
+	
+	Set objWorkBook = objExcel.Workbooks.Open(strFileName)
+	Set objSheet = objExcel.ActiveWorkbook.Worksheets(wrkSheet)
+	
+	'Select sheet 
+	objExcel.Worksheets(wrkSheet).Activate 
+	
+	sValue = objExcel.ActiveSheet.Cells(nRow, nColumn).Value 
+	ReadCellData = sValue
+	objExcel.Workbooks.Close
+	objExcel.Quit
+			
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> SetCellData is a low level utility procedure used to set the data on the excel worksheet in the specified cell</summary>
+''' <author>Vikram Kiren</author>
+''' <param name="StrFileName" type="String">File name of the excel worksheet with the entire path</param>
+''' <param name="WrkSheet" type="String">Sheet Name</param>
+''' <param name="nRow" type="Number">Row in the sheet  in which data needs to be set</param>
+''' <param name="nColumn" type="Number">Column in the sheet  in which data needs to be set</param>
+''' <param name="sData" type="String">Data that needs to be set</param>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <seealso cref="ReadCellData"/>
+''' <seealso cref="GetUsedRowsCount"/>
+''' <seealso cref="CreateComparisonReport"/>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Sub SetCellData(StrFileName, WrkSheet, nRow, nColumn, sData)
+
+	Dim objExcel
+	Dim objWorkBook
+	Dim	objSheet
+	
+	Set objExcel = CreateObject("Excel.Application")
+	objExcel.Visible = False
+	
+	Set objWorkBook = objExcel.Workbooks.Open(strFileName)
+	Set objSheet = objExcel.ActiveWorkbook.Worksheets(wrkSheet)
+	
+	'Select sheet 
+	objExcel.Worksheets(wrkSheet).Activate 
+	
+	objExcel.ActiveSheet.Cells(nRow, nColumn).Value = Trim(sData)
+	objExcel.ActiveWorkbook.Save
+    objExcel.Workbooks.Close
+	objExcel.Quit
+			
+End Sub
+
+''**************************************************************************************************************
+''' <summary>
+''' WriteExcelData is a generic component to save a data in the xls file
+''' </summary>
+''' <author>Karthikeyan</author>
+''' <datecreated>December,21 2009 </datecreated>
+''' <param name="sFilePath" type="String">output file name with path</param>
+''' <param name="sSheetName" type="String">Sheet Name where the data needs to filled</param>
+''' <param name="sColToSave" type="String">when specific data needs to filled, this is column name</param>
+''' <param name="sRowToFind" type="String">When specific data needs to be filled, this acts as keyword to match the specific row, else can be left as blank if new row to be inserted at the end</param>
+''' <param name="sSheetName" type="String">Sheet Name where the data needs to filled</param>
+''' <param name="sData" type="">For specific data , just the data is passed , for entire row, the value is passed with delimiter ';"</param>
+''' <startstate>None</startstate>
+''' <endstate>None</endstate>
+''' <seealso cref="gGenerateOrderExecutionReport"/>
+''' <returns type="booleant">True if passed  False if failed</returns>
+'Change Control: 
+'       Date of Change          Author          Desc 
+'______________________________________________________ 
+Public Function WriteExcelData(sFilePath, sSheetName, sColToSave, sRowToFind, sData)
+   Dim nResult, oExcel, i, nCol, nRow, nColumn, nRowNo, sColValue, sRowValue, arrData
+   WriteExcelData = True
+   'Validating the data
+   arrData = Split(sData, ";")
+   'Setting the Excel object
+   Set oExcel = CreateObject("Excel.Application")
+   oExcel.WorkBooks.Open(sFilePath)
+   oExcel.WorkSheets(sSheetName).Activate
+   nRow = oExcel.WorkSheets(sSheetName).UsedRange.Rows.Count
+   nCol = oExcel.WorkSheets(sSheetName).UsedRange.Columns.Count
+   'Following will be for saving a specific 
+   If sColToSave <>"" And sRowToFind <>"" And UBound(arrData) = 0Then
+	   nColumn = 0
+	   nRowNo = 0
+		'Following loop is to identify the column number
+	   For i = 1 To nCol
+				sColValue = oExcel.ActiveSheet.Cells(1,i).Value 
+				If Trim(sColValue) = Trim(sColToSave) Then
+					nColumn = i
+					Exit For
+				End If
+	   Next
+	   'following loop will identify the Keyword to match the row - search will happen for 1st column only
+       For i = 2 To nRow
+			sRowValue = oExcel.ActiveSheet.Cells(i,1).Value 
+			If Trim(sRowValue) = sRowToFind Then
+				nRowNo = i
+				Exit For
+			End If
+	   Next
+	   'Saving the data
+	   If nRowNo>0 And nColumn>0 Then
+			oExcel.ActiveSheet.Cells(nRowNo, nColumn).Value = arrData(0)
+		Else
+			WriteExcelData = False
+	   End If
+   Else'normal Flow where a new row will be updated for first available columns - depending on the data passed
+		nRow = nRow+1
+		For i = 1 To (UBound(arrData)+1)
+				oExcel.ActiveSheet.Cells(nRow, i).Value = arrData(i-1)
+		Next
+   End If
+   'Closing the excel
+   oExcel.ActiveWorkbook.Save
+   oExcel.ActiveWorkbook.Close
+   oExcel.Quit
+   'deallocating the memory
+  Set  oExcel = Nothing
+   Erase arrData 
+   
+End Function
+
+
+''' <summary> TakeScreenshot takes a screenshot of the entire desktop using a unique timestamp string as a name. Useful for adding to the end of reporters to ensure that results are documented and informative
+''' </summary>
+''' <author>Damien S.</author>
+''' <datecreated>2013-08-23</datecreated>
+''' <startstate>N/A</startstate>
+''' <endstate>N/A</endstate>
+''' <returns type="String">Returns the name of the file for the captured screenshot.</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'________________________________________________
+Public Function TakeScreenShot()
+   Dim sImageName
+
+	sImageName = "Screenshot_"&TIMESTAMPSTRING&".bmp"
+	Desktop.CaptureBitmap sImageName, True
+	TakeScreenshot = sImageName
+
+End Function
+
+
+'Name:			GetChildObjects
+'Description:	This function will return the collection of child objects matching the description that is passed into it.
+'Param1: 		oParentObject - the parent object that the function will search through
+'Param2:		sParams - a | delimited list of property_value combinations. If a value should be interpreted as a regular expression, add a 2nd _ to the combination. For example: "micClass_link|innertext_.*CDW.*_"
+'Changelog:
+'Date					Author							Description
+'2014-03-13		Damien Storm				Created
+'_________________________________________________________________________________
+Public Function GetChildObjects(oParentObject, sParams)
+	Dim oDescription, oResults
+	Dim aParams, aParams2
+	Dim sProperty, sValue
+	Dim i
+
+	If sParams <> "" Then
+		'Create the description object
+		Set oDescription = Description.Create
+
+		'Create an array of the descriptive parameters
+		aParams = Split(sParams, "|")
+
+		'Add each parameter to the object
+		For i = 0 to uBound(aParams)
+			aParams2 = Split(aParams(i), "_")
+
+			'Get the Property and the Value
+			sProperty = aParams2(0)
+			sValue = aParams2(1)
+
+			'Check if the value is a boolean
+			If LCase(sValue) = "true" OR LCase(sValue) = "false" Then
+				sValue = CBool(sValue)
+			End If
+
+			'add the value to the description
+			oDescription(sProperty).Value = sValue
+
+			'Check if the value should be treated as a regular expression
+			If uBound(aParams2) > 1 Then
+				oDescription(sProperty).RegularExpression = "True"
+			Else
+				oDescription(sProperty).RegularExpression = "False"
+			End If
+			
+		Next
+
+		'get the collection of objects
+		Set oResults = oParentObject.ChildObjects(oDescription)
+	Else
+	
+		'get all of the child objects
+		Set oResults = oParentObject.ChildObjects
+	
+	End If 
+	
+	'return the collection of objects
+	Set GetChildObjects = oResults
+	Set oDescription = Nothing
+	Set oResults = Nothing
+
+End Function
+
+
+'Name:			GetAllROProperties
+'Description:	This function will return the all of the properties and respective values for an object
+'Param1: 		oObject - the object that the function will retrieve properties for
+'Changelog:
+'Date					Author							Description
+'2014-03-20		Damien Storm				Created
+'_________________________________________________________________________________
+Public Function GetAllROProperties(oObject)
+	Const HKEY_LOCAL_MACHINE = &H80000002
+	Dim oReg
+	Dim aObjectProperties
+	Dim sKeyPath, sProperties
+	Dim i
+	
+	Set oReg = GetObject("winmgmts:{impersonationLevel=impersonate}!\\.\root\default:StdRegProv")
+	sKeyPath = "SOFTWARE\Mercury Interactive\QuickTest Professional\MicTest\Test Objects\" & oObject.GetROProperty("micclass") & "\Properties"
+	oReg.EnumValues HKEY_LOCAL_MACHINE, sKeyPath, aObjectProperties
+
+	If IsNull(aObjectProperties) Then
+		GetAllROProperties = "---Object RO Properties could not be found for this class ["&oObject.GetROProperty("micclass")&"]---"
+	Else
+		sProperties = oObject.ToString&vbNewLine&"micclass:" & oObject.GetROProperty("micclass")&vbNewLine
+		For i = 0 to UBound(aObjectProperties)
+			sProperties = sProperties&aObjectProperties(i) & ":" & oObject.GetROProperty(aObjectProperties(i))&vbNewLine
+		Next
+		GetAllROProperties = sProperties
+	End If
+ 
+	Set oReg = Nothing
+
+End Function
+
+'Name:			PrintChildObjectProperties
+'Description:	This function will print out  all the properties for a a collection of objects and highlight all of the objects
+'Param1: 		oParentObject - the parent object that the function will search through
+'Param1: 		sParams - a | delimited list of property_value combinations. If a value should be interpreted as a regular expression, add a 2nd _ to the combination. For example: "micClass_link|innertext_.*CDW.*_"
+'Param1: 		bHighlight - True to force the function to highlight each object in the collection, false to just print the properties
+'Changelog:
+'Date					Author							Description
+'2014-03-20		Damien Storm				Created
+'_________________________________________________________________________________
+Public Function PrintChildObjectProperties(oParentObject, sParams, bHighlight)
+	Dim oList
+	Dim sContinue, sProperties
+	Dim nCount
+	Dim oObject
+	Dim i
+
+	Set oList = GetChildObjects(oParentObject, sParams)
+	nCount = oList.Count - 1
+	Print "Found ["&nCount+1&"] objects matching the description ["&sParams&"]"
+
+	For i = 0 to nCount
+		Set oObject = oList(i)
+		sProperties = GetAllROProperties(oObject)
+		sMessage = "Object ["&i+1&"] of ["&nCount+1&"]:"&vbNewLine&"hwnd: ["&oObject.GetROProperty("hwnd")&"]"&vbNewLine&"Object Class: ["&oObject.GetROProperty("Class Name")&"]"&vbNewLine&"Object title/text: ["&oObject.GetROProperty("text")&"]"
+		Print vbNewLine&"************************************************************************"&vbNewLine&sMessage&vbNewLine&sProperties
+		If bHighlight Then
+			sContinue = InputBox(sMessage&vbNewLine&vbNewLine&sProperties&vbNewLine&vbNewLine&"Press Enter/OK to highlight the current object and continue or press Esc/Cancel to stop script.", "Highlight Child Objects", "Yes")
+			If sContinue <> "Yes" Then
+				Exit Function
+			End If
+			oObject.Highlight
+		End If
+		Set oObject = Nothing
+	Next
+	
+	Set oObject = nothing
+
+End Function

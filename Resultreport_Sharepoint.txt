@@ -1,0 +1,235 @@
+'==========================================================
+'PSFin uploading results to Sharepoint site
+'Contains commonly used functions for uploading PSFin results to sharepoint
+
+'Date			Author					Description
+'12/21/2015               Venu Arigela
+'______________________________________________________ 
+
+Option Explicit
+
+'**************************************************************************************************************
+''' <summary> 
+''' uploadResultsToSharePoint Function is to upload the results to sharepoint
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function uploadResultsToSharePoint()
+
+Dim folderName,URL
+
+     Err.Clear
+     On Error Resume Next
+URL = "http://sharepoint1/sites/intranet/IT/Operations/QualityAssuranceV2/PeopleSoft%20Fin%20Regression%20Documentation/Forms/AllItems.aspx?RootFolder=%2Fsites%2Fintranet%2FIT%2FOperations%2FQualityAssuranceV2%2FPeopleSoft%20Fin%20Regression%20Documentation%2F2015%20%2D%20Finance%2FRequirements%20%2D%20Test%20Cases&InitialTabId=Ribbon%2EDocument&VisibilityContext=WSSTabPersistence"
+ SystemUtil.Run URL
+ if Browser("creationtime:=0").page("index:=1").Link("innertext:=PeopleSoft Fin Regression DocumentationCurrently selected").Exist(20) then
+ 
+	Browser("creationtime:=0").page("index:=1").Link("innertext:=PeopleSoft Fin Regression DocumentationCurrently selected").Click
+	if Browser("creationtime:=0").page("index:=1").Image("alt:=Folder: "&year(now)&" - Finance","index:=0").Exist(20) Then
+	    Browser("creationtime:=0").page("index:=1").Image("alt:=Folder: "&year(now)&" - Finance","index:=0").click
+	    
+	      if Browser("creationtime:=0").page("index:=1").Image("alt:=Folder: "&year(now)&" Test Runs","index:=0").Exist(20) then
+	         Browser("creationtime:=0").page("index:=1").Image("alt:=Folder: "&year(now)&" Test Runs","index:=0").click
+	         
+	           If Browser("creationtime:=0").page("index:=1").Link("innertext:="&months(month(now))&"-"&year(now),"index:=0").Exist(20) Then
+	           	  Browser("creationtime:=0").page("index:=1").Link("innertext:="&months(month(now))&"-"&year(now),"index:=0").click
+	           	   
+	           	     If Browser("creationtime:=0").page("index:=1").Link("innertext:="&replace(date,"/","-")&"-Results","index:=0").Exist(30) Then
+	           	     	Browser("creationtime:=0").page("index:=1").Link("innertext:="&replace(date,"/","-")&"-Results","index:=0").click
+	           	     	folderName = split(GlobalDictionary("HtmlResultsPath"),"\")
+	           	     	createResultsFolder folderName(ubound(folderName))
+	           	     	Browser("creationtime:=0").page("index:=1").Link("innertext:="&folderName(ubound(folderName)),"index:=0").click
+	           	     	 getCountOfFilesinFolder GlobalDictionary("HtmlResultsPath")
+	           	     	
+	           	      else
+	           	        createResultsFolder replace(date,"/","-")&"-Results"
+	           	        
+	           	          If Browser("creationtime:=0").page("index:=1").Link("innertext:="&replace(date,"/","-")&"-Results","index:=0").Exist(30) Then
+			           	     	Browser("creationtime:=0").page("index:=1").Link("innertext:="&replace(date,"/","-")&"-Results","index:=0").click
+			           	     	folderName = split(GlobalDictionary("HtmlResultsPath"),"\")
+			           	     	createResultsFolder folderName(ubound(folderName))
+			           	     	Browser("creationtime:=0").page("index:=1").Link("innertext:="&folderName(ubound(folderName)),"index:=0").click
+	           	     	        getCountOfFilesinFolder GlobalDictionary("HtmlResultsPath")
+			           	      	
+	           	          else
+                      	     Call WriteToReport(micDone, "Folder"&months(month(now))&"-"&year(now),"Folder"&months(month(now))&"-"&year(now)&" is not displayed",False) 
+                             Exit Function
+                          End if 
+	           	     End If
+	           	 else
+                  Call WriteToReport(micDone, "Folder"&replace(date,"/","-")&"-Results","Folder"&replace(date,"/","-")&"-Results is not displayed",False) 
+                  Exit Function 
+	           End If
+	        else
+	         Call WriteToReport(micDone, "Folder"&year(now)&" Test Runs" ,"Folder"&year(now)&" Test Runs is not displayed",False) 
+	         Exit Function
+          End if 
+	         
+	  else
+	     Call WriteToReport(micDone, ""&year(now)&" - Finance" ,""&year(now)&" - Finance Folder is not displayed",False)
+	     Exit Function
+	 End if 
+
+	
+  Else
+     
+     Call WriteToReport(micDone, "PSFin Regression Documention Folder" ,"PSFin Regression Documention Folder is not displayed on sharepoint",False)
+    Exit Function 
+
+End if
+
+on Error goto 0
+
+End Function
+
+ 
+'**************************************************************************************************************
+''' <summary> 
+''' createResultsFolder Function is to create a results folder
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+ '<param name="folderName" type="string">object</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function createResultsFolder(folderName)
+	 Err.Clear
+     On Error Resume Next
+	If Browser("creationtime:=0").page("index:=1").WebElement("innertext:=Documents","index:=0").Exist(20) Then
+		Browser("creationtime:=0").page("index:=1").WebElement("innertext:=Documents","index:=0").Click
+		If Browser("creationtime:=0").page("index:=1").Link("innertext:=NewFolder","index:=0").Exist(20) Then
+		  Browser("creationtime:=0").page("index:=1").Link("innertext:=NewFolder","index:=0").Click
+		  If Browser("creationtime:=0").page("index:=1").WebEdit("title:=Name Required Field","index:=0").Exist(20) Then
+		  	 Browser("creationtime:=0").page("index:=1").WebEdit("title:=Name Required Field","index:=0").set folderName
+             Browser("creationtime:=0").page("index:=1").WebButton("name:=Save","index:=1").Click 
+		  End If
+		End if
+	End If
+	on Error goto 0
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' months Function is to map month number to month string value
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+ '<param name="monthNumber" type="numberi value"></param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>month name</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function months(monthNumber)
+	 Err.Clear
+     On Error Resume Next
+	Select Case monthNumber
+		Case "1"
+		   months = "January"
+		Case "2"
+		   months = "February"
+		Case "3"
+			months = "March"
+		Case "4"
+			months = "April"
+		Case "5"
+				   months = "May"
+		Case "6"
+				   months = "June"
+		Case "7"
+				   months = "July"
+		Case "8"
+				   months = "August"
+		Case "9"
+				   months = "September"
+		Case "10"
+				   months = "October"
+		Case "11"
+				   months = "November"
+		Case "12"
+		   months = "December"	
+        Case default
+          Call WriteToReport(micDone, "the month "&monthNumber&" is not in the range of 01-12" ,"",False)
+	End Select
+		on Error goto 0
+End Function
+
+
+'**************************************************************************************************************
+''' <summary> 
+''' createNewFolderonSharePoint Function is to create a new folder to create a test case name
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+ '<param name="folderName" type="String"></param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>month name</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function createNewFolderonSharePoint(folderName)
+	 Err.Clear
+     On Error Resume Next
+	If Browser("creationtime:=0").page("index:=1").Link("innertext:=NewFolder","index:=0").Exist(30) Then
+	   Browser("creationtime:=0").page("index:=1").Link("innertext:=NewFolder","index:=0").click
+       If Browser("creationtime:=0").page("index:=1").WebEdit("title:=Name Required Field","index:=0").Exist(20) Then
+       	    Browser("creationtime:=0").page("index:=1").WebEdit("title:=Name Required Field","index:=0").set folderName
+            Browser("creationtime:=0").page("index:=1").WebButton("name:=Save","index:=0","html id:=ctl.*").click 
+            getCountOfFilesinFolder GlobalDictionary("HtmlResultsPath")
+        else
+              Call WriteToReport(micDone, "Craeting TC name Folder" ,"not able to Craeting TC name Folder ",False)       
+       End If	   
+	  else
+        Call WriteToReport(micDone, "New Folder option" ,"New Folder option is not displayed",False)	
+        Exit Function 
+	End If
+	
+    	on Error goto 0
+End Function
+
+'#########################################################################
+''' <summary> 
+''' getCountOfFilesinFolder Function is to upload the results in the given path
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+ '<param name="folderPath" type="String"></param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>month name</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Public Function getCountOfFilesinFolder(folderPath)
+	
+	Dim iFileCount, FolderName, vFiles, objFSO,vFile
+	 iFileCount = 0
+	 Set objFSO = CreateObject("Scripting.FileSystemObject")
+	 Set FolderName = objFSO.GetFolder(folderPath) ' Folder Path Add documen Upload Multiple Files
+	 Set vFiles =FolderName.Files
+
+	 For each vFile in vFiles
+	     Browser("creationtime:=0").page("index:=1").Link("innertext:=Add document","index:=0").click
+	     Browser("creationtime:=0").page("index:=1").Frame("title:=Upload Document").WebFile("html id:=ctl00.*").click
+	     Browser("opentitle:=Requirements - Test Cases - All Documents").Dialog("regexpwndtitle:=Choose File to Upload").WinEdit("attached text:=File &name:","index:=2").Set(vFile)
+	     Browser("opentitle:=Requirements - Test Cases - All Documents").Dialog("regexpwndtitle:=Choose File to Upload").WinObject("regexpwndtitle:=&Open").Click(3)
+	     wait 3
+     	 Browser("creationtime:=0").page("index:=1").WebButton("name:=OK").Click
+	   
+	     iFileCount = iFileCount + 1
+	 Next
+	 
+ getCountOfFilesinFolder = iFileCount
+End Function

@@ -1,0 +1,3889 @@
+'==========================================================
+'PSFIN Asset Management Function Library
+'Contains commonly used functions for Assets in the PSFin application.
+'Changelog: 
+'Date			Author					Description
+
+'______________________________________________________ 
+
+Option Explicit
+
+'**************************************************************************************************************
+''' <summary> 
+''' Defines an Asset and Relates Transactions 1.02
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function DefineAssetAndRelate
+	Dim i
+	Dim sProjects, arrResult
+	Const EXC_TYPE = "All Excluded Rows"
+	Const INC_TYPE = "All Included Rows"
+	Const ACTION_INC = "Include"
+	Const ACTION_EXC = "Exclude"
+	sProjects = ""
+
+	Call FindActivityAndProfile()
+
+	'Navigate to Define Assets from Project Costing
+	If SelectMainMenu1(GlobalDictionary("PC-DefineAssets")) Then
+		WriteToReport micPass, "Define Assets Page", "On the Define Assets page.", FALSE
+	Else
+		WriteToReport micFail, "Define Assets Page", "Navigation to Define Assets page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("DefineAssets").PSFrame("TargetContent")
+		'Click the Add a New Value tab
+		.WebElement("AddANewValue").Click
+		WriteToReport micDone, "Clicked the Tab to Add a New Value", "Tab Clicked", FALSE
+
+		'Set Business Unit
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set the Business Unit to: "&GlobalDictionary("BusinessUnit"), "Business Unit Set", FALSE
+
+		'Click the Add Button
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Clicked Add", FALSE
+
+		'Set the Profile, Description, Short Description, and Department
+		.WebEdit("Profile").Set GlobalDictionary("Profile")
+		WriteToReport micDone, "Set the Profile to: "&GlobalDictionary("Profile"), "Profile Set", FALSE
+
+		.WebEdit("Description").Set GlobalDictionary("Desc")
+		WriteToReport micDone, "Set the Description to: "&GlobalDictionary("Desc"), "Description Set", FALSE
+
+		.WebEdit("ShortDescription").Set GlobalDictionary("ShortDesc")
+		WriteToReport micDone, "Set the Short Description to: "&GlobalDictionary("ShortDesc"), "Short Description Set", FALSE
+
+		.WebEdit("Department").Set GlobalDictionary("Dept")
+		WriteToReport micDone, "Set the Department to: "&GlobalDictionary("Dept"), "Department Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Asset Saved", FALSE
+
+		'Store the Asset ID that was just created
+		Call .WebElement("AssetID").WaitProperty("innertext", micRegExpMatch("[0-9]{12}"), 20000)
+		If GlobalDictionary.Exists("AssetID") Then
+       		GlobalDictionary.Remove("AssetID")
+    	End If
+    	GlobalDictionary.Add "AssetID", .WebElement("AssetID").GetROProperty("innertext")
+    	WriteToReport micDone, "Asset Created with ID: "&GlobalDictionary("AssetID"), "Asset ID Stored", FALSE
+
+		'Click Relate by Asset link
+		.Link("RelateByAsset").Click
+		WriteToReport micDone, "Clicked Relate by Asset Link", "Link Clicked", FALSE
+
+		If NOT Browser("PeopleSoft Browser").Page("RelateByAsset").PSFrame("TargetContent").WebEdit("ProjectBU").Exist(15) Then
+			WriteToReport micFail, "Not on the Relate by Asset Page", "Failed to move to the Relate by Asset Page in 15 seconds", TRUE
+			ExitTest
+		End If
+	End With
+
+	With Browser("PeopleSoft Browser").Page("RelateByAsset")
+		'Set Project BusinessUnit
+		.PSFrame("TargetContent").WebEdit("ProjectBU").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set the Project Business Unit to: "&GlobalDictionary("BusinessUnit"), "Project BU Set", FALSE
+
+		'Get available Projects for this BU
+		.PSFrame("TargetContent").Image("ProjectLookup").Click
+		WriteToReport micDone, "Opened the Look Up Project Window", "Window Appears", FALSE
+		If .PSFrame("LookupProject").WebTable("Projects").Exist(15) Then
+			For i=0 To .PSFrame("LookupProject").WebTable("Projects").GetROProperty("rows")-2 'Subtract 2, as the first row is the header and the Ordinal index starts at 0 (not 1)
+				Call .PSFrame("LookupProject").WebTable("Projects").Link("ProjectNumber").SetTOProperty("index", i)
+				sProjects = sProjects & "'"&.PSFrame("LookupProject").WebTable("Projects").Link("ProjectNumber").GetROProperty("innertext")&"',"
+			Next
+		Else
+			WriteToReport micFail, "Could Not Locate the Table of Projects", "Table not Found", TRUE
+			ExitTest
+		End If
+
+		'Check if sProjects is empty
+		If sProjects = "" Then
+			WriteToReport micFail, "Failed to find any Projects for BU: "&GlobalDictionary("BusinessUnit"), "No Projects Found, Exiting Test", TRUE
+			ExitTest
+		Else
+			WriteToReport micDone, "Will check Projects ["&sProjects&"] for resources of Activity ["&GlobalDictionary("ActivityID")&"] to Use in Relation to created Asset ["&GlobalDictionary("AssetID")&"]", "Available Projects Acquired", FALSE
+		End If
+
+		'Remove the last comma from sProjects
+		sProjects = Left(sProjects,Len(sProjects)-1)
+
+		'Set Project, taken from available Projects for this BU with undistributed resources of a given Activity from the database
+		arrResult = dbGetProjectFromBUAndActivity(GlobalDictionary("BusinessUnit"), GlobalDictionary("ActivityID"), sProjects)
+		If NOT IsArray(arrResult) Then
+			WriteToReport micFail, "No Projects with Resources of Activity ["&ActivityID&"] Found for Business Unit ["&BusinessUnit&"]", "Cannot Continue Test", FALSE
+			ExitTest
+		End If
+		.WebElement("Close").Click
+		'The second column, index 1, holds the Project_ID
+		If GlobalDictionary.Exists("Project_ID") Then
+       		GlobalDictionary.Remove("Project_ID")
+    	End If
+    	GlobalDictionary.Add "Project_ID", arrResult(1)
+
+		.PSFrame("TargetContent").WebEdit("Project").Set arrResult(1)
+		WriteToReport micDone, "Set the Project to: "&arrResult(1), "Project Set", FALSE
+
+		'Set Activity
+		.PSFrame("TargetContent").WebEdit("Activity").Set GlobalDictionary("ActivityID")
+		WriteToReport micDone, "Set the Activity to: "&GlobalDictionary("ActivityID"), "Activity Set", FALSE
+
+		'Click Save
+		.PSFrame("TargetContent").WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Activity Related to Asset", FALSE
+
+		'Click Assign Transactions to Assets link
+		.PSFrame("TargetContent").Link("AssignTransactionsToAssets").Click
+		WriteToReport micDone, "Clicked Assign Transactions to Assets Link", "Link Clicked", FALSE
+
+		If NOT Browser("PeopleSoft Browser").Page("AssignTransactionsToAssets").PSFrame("TargetContent").WebButton("FirstRow+").Exist(15) Then
+			WriteToReport micFail, "Not on the Assign Transactions to Assets Page", "Failed to move to the Assign Transactions to Assets Page in 15 seconds", TRUE
+			ExitTest
+		End If
+	End With
+
+	With Browser("PeopleSoft Browser").Page("AssignTransactionsToAssets").PSFrame("TargetContent")
+		'Click the [+] button on the first row
+		.WebButton("FirstRow+").Click
+		WriteToReport micDone, "Clicked the [+] Button on the First Row", "Button Clicked", FALSE
+
+		'Set the Asset ID to the one created earlier
+		.WebEdit("SecondRowAssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Set the Asset ID to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Asset Ready to Have Transactions Assigned", FALSE
+
+		'Click the Assign Transactions link associated to the Asset ID added
+		Call .Link("AssignTransactions").SetTOProperty("xpath", "//span[text()='"&GlobalDictionary("AssetID")&"']/../../../td/div/span/a")
+		If .Link("AssignTransactions").Exist(15) Then
+			.Link("AssignTransactions").Click
+			WriteToReport micDone, "Clicked the Assign Transactions Link for Asset ID: "&GlobalDictionary("AssetID"), "Link Clicked", FALSE
+		Else
+			WriteToReport micFail, "Could Not Locate the Assign Transactions Link for Asset ID ["&GlobalDictionary("AssetID")&"]", "Make sure the object has been set to the correct xpath value", TRUE
+			ExitTest
+		End If
+
+		If NOT Browser("PeopleSoft Browser").Page("AssignTransactions").PSFrame("TargetContent").WebEdit("Activity").Exist(15) Then
+			WriteToReport micFail, "Not on the Assign Transactions Page", "Failed to move to the Assign Transactions Page in 15 seconds", TRUE
+			ExitTest
+		End If
+	End With
+
+	With Browser("PeopleSoft Browser").Page("AssignTransactions").PSFrame("TargetContent")
+		'Define Filter Criteria
+		.Link("DefineFilterCriteria").Click
+		Wait 3
+		
+		If Browser("PeopleSoft Browser").Page("AssignTransactions").PSFrame("SelectionCriteria").Exist(30) Then
+			WriteToReport micDone, "Opened the Selection Criteria Window", "Window Opened", FALSE
+		Else
+			WriteToReport micFail, "Could not Find the Selection Criteria Window", "Window Not Opened", TRUE
+			ExitTest
+		End If
+		
+		Browser("PeopleSoft Browser").Page("AssignTransactions").PSFrame("SelectionCriteria").WebEdit("Activity").Set GlobalDictionary("ActivityID")
+		WriteToReport micDone, "Set the Activity to: "&GlobalDictionary("ActivityID"), "Activity Set", FALSE
+
+		Browser("PeopleSoft Browser").Page("AssignTransactions").PSFrame("SelectionCriteria").WebButton("OK").Click
+		WriteToReport micDone, "Clicked OK", "Button Clicked", FALSE
+
+		Wait 3
+
+		'Set the Activity to filter by
+		.WebEdit("Activity").Set GlobalDictionary("ActivityID")
+		WriteToReport micDone, "Set Activity to: "&GlobalDictionary("ActivityID"), "Activity Set", FALSE
+
+		'Select the excluded rows
+		.WebList("IncludeType").Select EXC_TYPE
+		WriteToReport micDone, "Selected the *Include Type: "&EXC_TYPE, "*Include Type Selected", FALSE
+
+		Wait 2
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Select Include for all rows that do not have an Asset ID
+		If Trim(.WebElement("RowsMessage").GetROProperty("innertext")) <> "No Rows Found" Then
+			Do 
+				For i=0 To .WebTable("Transactions").GetROProperty("rows")-1
+					Call .WebTable("Transactions").WebElement("AssetID").SetTOProperty("index", i)
+					Call .WebTable("Transactions").WebList("Action").SetTOProperty("index", i)
+
+					If Trim(.WebTable("Transactions").WebElement("AssetID").GetROProperty("innertext")) = "" Then
+						.WebTable("Transactions").WebList("Action").Select ACTION_INC
+						WriteToReport micDone, "Set Row ["&i+1&"] to be Included", "Action 'Include' Selected", FALSE
+					End If
+				Next
+				If .WebButton("Next").Exist(5) Then
+					.WebButton("Next").Click
+				End If
+			Loop Until NOT .WebButton("Next").Exist(5)
+		End If
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Assets to be Included Chosen", FALSE
+
+		'Change the Include Type to All Included Rows
+		.WebList("IncludeType").Select INC_TYPE
+		WriteToReport micDone, "Selected the *Include Type: "&INC_TYPE, "*Include Type Selected", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+	
+		'Exclude all rows that already have an Asset ID
+		Do 
+			For i=0 To .WebTable("Transactions").GetROProperty("rows")-1
+				Call .WebTable("Transactions").WebElement("AssetID").SetTOProperty("index", i)
+				Call .WebTable("Transactions").WebList("Action").SetTOProperty("index", i)
+
+				If Trim(.WebTable("Transactions").WebElement("AssetID").GetROProperty("innertext")) <> "" Then
+					.WebTable("Transactions").WebList("Action").Select ACTION_EXC
+					WriteToReport micDone, "Set Row ["&i+1&"] to be Excluded", "Action 'Exclude' Selected", FALSE
+				End If
+			Next
+			If .WebButton("Next").Exist(5) Then
+				.WebButton("Next").Click
+			End If
+		Loop Until NOT .WebButton("Next").Exist(5)
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Assets to be Excluded Chosen", FALSE
+
+		Wait 5
+
+		' 'Click Assign Transactions
+		.WebButton("AssignTransactions").Click
+		WriteToReport micDone, "Clicked the Assign Transactions Button", "Button Clicked", FALSE
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("AssignTransactions").WebButton("OK").Click
+		WriteToReport micDone, "Transactions Assigned to New Asset: "&GlobalDictionary("AssetID"), "Transactions Assigned", FALSE
+	End With
+
+	If GlobalDictionary("SaveAssetForUSTest") Then
+		Dim oExcel, oFSO, oWorkbook, oSheet
+		Set oExcel = CreateObject("Excel.Application")
+		Set oFSO = CreateObject("Scripting.FileSystemObject")
+		'Delete the old asset file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\USassetid.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\USassetid.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\USassetid.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "AssetID"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("AssetID")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\USassetid", 56)
+		WriteToReport micPass, "Asset Saved for Later Test", "Asset Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\USassetid.xls", FALSE
+	End If
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' Copies an Existing Asset 1.05
+''' </summary>
+''' <author>Brian Buckhana</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function CopyExisitingAsset
+	Dim sBU, sOriginalDesc, sOriginalID, sNewID, sAssetType, sShortDesc, sAssetStatus, sAcquisitionCode, sProfileID, sResult, sDesc
+	Dim bDisabled
+	Dim arrResult
+	
+	sBU = GlobalDictionary("BusinessUnit")
+	
+	'Navigate to Asset Copy Search.
+	If SelectMainMenu1(GlobalDictionary("CopyExistingAsset")) Then
+		WriteToReport micPass, "Copy Assets Page", "On the Copy Assets page.", FALSE
+	Else
+		WriteToReport micFail, "Copy Assets Page", "Navigation to Copy Assets page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+	
+	With Browser("PeopleSoft Browser").PSFrame("Copy Asset")
+	'	Set Business Unit
+		.WebEdit("Business Unit").Set sBU
+
+	'	Click Search
+		.WebButton("Search").Click
+
+	'	Click the first Asset in the Table of Results
+		If .Link("1st Search Result").Exist(10) Then
+			.Link("1st Search Result").Click
+		Else
+			WriteToReport micFail, "Copy Asset Table Not Visible", "Copy Asset Table not visible after searching.", TRUE
+			ExitTest
+		End If
+
+	End With
+	
+	With Browser("PeopleSoft Browser").PSFrame("Create Asset Copy")
+	'	Copy the Original Description (to the right of the Original Asset ID)
+		If .WebElement("Original Description").Exist(10) Then
+			sOriginalDesc = .WebElement("Original Description").GetROProperty("innertext")
+		Else
+			WriteToReport micFail, "Original Description Not Visible", "Original Description not visible after clicking the first asset in table of results.", TRUE
+			ExitTest
+		End If
+		
+	'	Note the Original Asset ID
+		sOriginalID = .WebElement("Original Asset ID").GetROProperty("innertext")
+
+		'Set Transaction and Accounting Date to TODAY
+		.WebEdit("TransDate").Set DateLeadingZeros
+		.WebEdit("AcctgDate").Set DateLeadingZeros
+
+		'Copy over the Description
+		.WebEdit("Description").Set sOriginalDesc
+		
+	'	Click Save
+		.WebElement("Save").Click
+		Browser("PeopleSoft Browser").Sync
+		
+	'	Note the new Asset ID that is now populated and field is disabled.
+		sNewID = .WebEdit("Asset ID").GetROProperty("default value")
+		bDisabled = .WebEdit("Asset ID").GetROProperty("disabled")
+		
+		' Custom timeout
+		If sNewID = "NEXT" OR sNewID = "" OR bDisabled = 0 Then
+			Wait 5
+			sNewID = .WebEdit("Asset ID").GetROProperty("default value")
+			bDisabled = .WebEdit("Asset ID").GetROProperty("disabled")
+		End If
+		
+		' Compare the ID's to make sure they do not match.  A new ID should have been generated.
+		If sNewID = sOriginalID Then
+			WriteToReport micFail, "New ID Matches Original ID", "New ID [" & sNewID & "] matches original ID [" & sOriginalID & "] after clicking save.", TRUE
+			ExitTest
+		ElseIf bDisabled = 0 Then
+			WriteToReport micFail, "Asset ID Box Is Not Disabled", "Asset ID box is not disabled after clicking save.", TRUE
+			ExitTest
+		ElseIf sNewID = "NEXT" OR sNewID = "" Then
+			WriteToReport micFail, "Asset ID Box Still Says [" & sNewID & "]", "No new ID in the asset ID box after clicking save.", TRUE
+			ExitTest
+		Else
+			WriteToReport micPass, "New ID Does Not Match Original ID", "New ID [" & sNewID & "] does not match original ID [" & sOriginalID & "] after clicking save.", FALSE
+			WriteToReport micPass, "Asset ID Box is Disabled", "Asset ID box is disabled after clicking save.", FALSE
+		End If
+	End With
+	
+	' Verify the copy.
+	'Navigate to Asset Basic Add.
+	If SelectMainMenu1(GlobalDictionary("BasicAddAsset")) Then
+		WriteToReport micPass, "Basic Add Assets Page", "Navigation to Basic Add Assets Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Basic Add Assets Page", "Navigation to Basic Add Assets page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+	
+	With Browser("PeopleSoft Browser").Page("Basic Add").PSFrame("Basic Add")
+		'Click Clear
+		.WebButton("Clear").Click
+	
+		'Set Business Unit
+		.WebEdit("Business Unit").Set sBU
+	
+		'Set Asset ID from above
+		.WebEdit("Asset Identification").Set sOriginalID
+	
+		'Click Search
+		.WebButton("Search").Click
+	
+		'Verify Asset Found and details are the same.
+		' Note: these aren’t the same as the displayed values, but code names. You can visit the Basic Add page of the Original and grab these values or match up codes.
+		arrResult = dbGetCopiedAsset(sNewID)
+		If NOT IsArray(arrResult) Then
+			WriteToReport micFail, "No Results Returned for Copied Asset ID ["& sNewID &"]  On Business Unit ["& sBU &"]", "Original ID of Asset [" & sOriginalID & "]. Cannot Continue Test.", FALSE
+			ExitTest
+		End If
+		
+		' Verify Navigation
+		If .WebElement("Asset ID").Exist(10) Then			
+			WriteToReport micPass, "Navigation to Copied Asset With ID [" & sNewID & "] Successful", "Navigation successful after asset search.", FALSE
+		Else
+			WriteToReport micFail, "Navigation to Copied Asset With ID [" & sNewID & "] Failed", "Navigation failed after asset search.  Exiting test.", TRUE
+			ExitTest
+		End If
+		
+		' Description
+		sResult = arrResult(0)
+		sDesc = .WebEdit("Asset Description").GetROProperty("default value")
+		If Instr(1, sDesc, sResult, VBTextCompare) > 0 Then
+			WriteToReport micPass, "Description [" & sDesc & "] Matches Queried Description [" & sResult & "]", "Description matches copied description after query.", FALSE
+		Else
+			WriteToReport micFail, "Description [" & sDesc & "] Does Not Match Queried Description [" & sResult & "]", "Description does not match copied description after query.", TRUE
+		End If
+		
+		' Short Desc
+		sResult = arrResult(1)
+		sShortDesc = .WebEdit("Asset Short Description").GetROProperty("default value")
+		If Instr(1, sShortDesc, sResult, VBTextCompare) > 0 Then
+			WriteToReport micPass, "Original Short Description [" & sShortDesc & "] Matches Copied Description [" & sResult & "]", "Original short description matches queried short description after query.", FALSE
+		Else
+			WriteToReport micFail, "Original Short Description [" & sShortDesc & "] Does Not Match Copied Description [" & sResult & "]", "Original short description does not match queried short description after query.", TRUE
+		End If
+		
+		' Asset Type (Furniture = 080)
+		sResult = arrResult(2)
+		sAssetType = .WebList("Asset Type").GetROProperty("selection")
+		
+		' Adjust Asset Type to match query outputs.
+		Select Case sAssetType
+			Case "Furniture"
+				sAssetType = "080"
+			Case Else
+				WriteToReport micWarning, "Asset Type [" & sAssetType & "] Not Recognized", "Check cases and adjust/add one for this type.", FALSE
+		End Select
+		
+		If Instr(1, sAssetType, sResult, VBTextCompare) > 0 Then
+			WriteToReport micPass, "Asset Type [" & sAssetType & "] Matches Queried Asset Type [" & sResult & "]", "Asset type matches queried asset type after query.", FALSE
+		Else
+			WriteToReport micFail, "Asset Type [" & sAssetType & "] Does Not Match Queried Asset Type [" & sResult & "]", "Asset type does not match queried asset type after query.", TRUE
+		End If
+		
+		' Asset Status (I = In Service)
+		sResult = arrResult(3)
+		sAssetStatus = .WebList("Asset Status").GetROProperty("selection")
+		sAssetStatus = UCase(Left(Trim(sAssetStatus), 1))
+		
+		If Instr(1, sAssetStatus, sResult, VBTextCompare) > 0 Then
+			WriteToReport micPass, "Asset Status [" & sAssetStatus & "] Matches Queried Asset Status [" & sResult & "]", "Asset status matches queried asset status after query.", FALSE
+		Else
+			WriteToReport micFail, "Asset Status [" & sAssetStatus & "] Does Not Match Queried Asset Status [" & sResult & "]", "Asset status does not match queried asset status after query.", TRUE
+		End If
+		
+		' Acquisition Code (P = Purchased)
+		sResult = arrResult(4)
+		sAcquisitionCode = .WebList("Asset Acquisition Code").GetROProperty("selection")
+		sAcquisitionCode = UCase(Left(Trim(sAcquisitionCode), 1))
+		
+		If Instr(1, sAcquisitionCode, sResult, VBTextCompare) > 0 Then
+			WriteToReport micPass, "Asset Acquisition Code [" & sAcquisitionCode & "] Matches Queried Asset Acquisition Code [" & sResult & "]", "Asset acquisition code matches queried asset acquisition code after query.", FALSE
+		Else
+			WriteToReport micFail, "Asset Acquisition Code [" & sAcquisitionCode & "] Does Not Match Queried Asset Acquisition Code [" & sResult & "]", "Asset acquisition code does not match queried asset acquisition code after query.", TRUE
+		End If
+		
+		' Profile ID
+		sResult = arrResult(5)
+		sProfileID = .WebEdit("Asset Profile ID").GetROProperty("default value")
+		
+		If Instr(1, sProfileID, sResult, VBTextCompare) > 0 Then
+			WriteToReport micPass, "Asset Profile ID [" & sProfileID & "] Matches Queried Asset Profile ID [" & sResult & "]", "Asset profile ID matches queried asset profile ID after query.", FALSE
+		Else
+			WriteToReport micFail, "Asset Profile ID [" & sProfileID & "] Does Not Match Queried Asset Profile ID [" & sResult & "]", "Asset profile ID does not match queried asset profile ID after query.", TRUE
+		End If
+	End With
+	
+	' Cleanup
+	If isArray(arrResult) Then Erase arrResult
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' Runs the Send to Asset Management Process 
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'01April2019		Eric Trout	Updated so STAM has a Random Number after to keep screen from locking up.
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function SendToAssetMgmt
+	Dim sProcInst, sPageText, sTemp, sIntfID
+	Dim arrTemp
+	Dim STAM 
+	Const PROCNAME = "PC_AM"
+
+	STAM = "STAM" & RandomNumberGeneraion()
+	'Navigate to Send to Asset Management from Project Costing
+	If SelectMainMenu1(GlobalDictionary("SendToAssetManagement")) Then
+		WriteToReport micPass, "Send to Asset Management Page", "On the Send to Asset Management page.", FALSE
+	Else
+		WriteToReport micFail, "Send to Asset Management Page", "Navigation to Send to Asset Management page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("SendToAssetManagement").PSFrame("TargetContent")
+
+		'Click the Add a New Value tab
+		.WebElement("AddANewValue").Click
+		WriteToReport micDone, "Clicked the Add a New Value Tab", "Tab Clicked", FALSE
+
+		'Set Run Control ID to STAM
+		.WebEdit("RunControlID").Set STAM
+		WriteToReport micDone, "Set Run Control ID to: "&STAM, "Run Control ID Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'If it already exists, click the Link else on page to create the Run Control
+		If .Link("STAM").Exist(5) Then
+			.Link("STAM").Click
+			WriteToReport micDone, "Run Control ID with Name "&STAM&" Already Exists; Link Clicked After Add Clicked", "Link Clicked", FALSE
+		End If
+		'Verify Navigation
+		If NOT .WebList("ProcessFrequency").Exist(15) Then
+			WriteToReport micFail, "Not on the Run Control Options Page for "&STAM, "Failed to move to the Run Control Options Page in 15 seconds", TRUE
+			ExitTest
+		End If
+
+		'Set Process Frequency
+		.WebList("ProcessFrequency").Select GlobalDictionary("STAM_ProcFreq")
+		WriteToReport micDone, "Set Process Frequency to: "&GlobalDictionary("STAM_ProcFreq"), "Process Frequency Set", FALSE
+
+		'Set Run Control Option
+		.WebList("Option").Select GlobalDictionary("Option")
+		WriteToReport micDone, "Set Option to: "&GlobalDictionary("Option"), "Option Set", FALSE
+
+		'Set BusinessUnit
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Project_ID
+		.WebEdit("Project").Set GlobalDictionary("Project_ID")
+		WriteToReport micDone, "Set Project to: "&GlobalDictionary("Project_ID"), "Project Set", FALSE
+
+		'Set Asset Processing Destination
+		.WebList("AssetProcessingDestination").Select GlobalDictionary("AssetProcessingDestination")
+		WriteToReport micDone, "Set Asset Processing Destination to: "&GlobalDictionary("AssetProcessingDestination"), "Asset Processing Destination Set", FALSE
+
+		'Set Asset Option
+		.WebList("AssetOption").Select GlobalDictionary("AssetOption")
+		WriteToReport micDone, "Set Asset Option to: "&GlobalDictionary("AssetOption"), "Asset Option Set", FALSE
+
+		'Set Asset Business Unit
+		.WebEdit("AssetBU").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Asset Business Unit Set to: "& GlobalDictionary("BusinessUnit"), "Asset BU Set", FALSE
+
+		'Set Asset ID
+		.WebEdit("AssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Asset ID set to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+
+		'Click Run
+		.WebButton("Run").Click
+		WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("SendToAssetManagement").PSFrame("ProcessSchedulerRequest").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Note Process Instance
+		If .WebElement("ProcessInstance").Exist(15) Then
+			sProcInst = Split(.WebElement("ProcessInstance").GetROProperty("innertext"), ":")(1)
+			WriteToReport micPass, "Instance ["&sProcInst&"] Started", "Send to Asset Management Process Started", FALSE
+		End If
+
+		'Click Process Monitor
+		.Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+	End With
+
+	'Monitor until Success/Posted
+	Call CheckProcessMontiorStatus(PROCNAME)
+
+	'Find the Interface ID from the .AET file
+	With Browser("PeopleSoft Browser").Page("Process Monitor")
+		.PSFrame("Process Monitor").Link("Details").Click
+		WriteToReport micDone, "Clicked Details Link", "Link Clicked", FALSE
+
+		.PSFrame("Process Detail").Link("View Log/Trace").Click
+		WriteToReport micDone, "Clicked View Log/Trace Link", "Link Clicked", FALSE
+
+		.PSFrame("View Log/Trace").Link("AET").Click
+		WriteToReport micDone, "Clicked on the AET File", "AET File Clicked", FALSE
+
+		Wait 10
+		sPageText = CopyPageTextToVariable(Browser("creationtime:=1").Page("index:=0"))
+		Wait 5
+
+		'Extract the Interface ID
+		sTemp = Split(sPageText, "INTFC_ID BETWEEN")(1) 'Take the right hand side
+		sTemp = Split(sTemp, "AND")(0) 'Take the left hand side
+		sIntfID = Trim(sTemp) 'Trim the whitspace
+		WriteToReport micDone, "Found the Interface ID ["&sIntfID&"]", "Interface ID Found", FALSE
+
+		arrTemp = dbFindInterfaceIDStatus(sIntfID)
+		If arrTemp(3) = "DON" Then '3 is the index for column LOAD_STATUS
+			WriteToReport micPass, "Interface ID ["&sIntfID&"] Found in Loaded State", "Asset Sent to Asset Management", FALSE
+		Else
+			WriteToReport micFail, "Interface ID ["&sIntfID&"] Had Status: "&arrTemp(3), "Asset not Loaded into Asset Management", TRUE
+			ExitTest
+		End If
+
+		Browser("creationtime:=1").Close
+		WriteToReport micDone, "Closed the AET File", "File Closed", FALSE
+
+		.PSFrame("View Log/Trace").WebButton("Return").Click
+		WriteToReport micDone, "Clicked Return Button", "Button Clicked", FALSE
+
+		.PSFrame("Process Detail").WebButton("OK").Click
+		WriteToReport micDone, "Clicked OK Button", "Button Clicked", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Searches for an Asset 
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function SearchForAnAsset
+	'Navigate to Search For an Asset
+	If SelectMainMenu1(GlobalDictionary("SearchForAnAsset")) Then
+		WriteToReport micPass, "Search For an Asset Page", "On the Search For an Asset page.", FALSE
+	Else
+		WriteToReport micFail, "Search For an Asset Page", "Navigation to Search For an Asset page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("SearchForAnAsset").PSFrame("TargetContent")
+		'Set the BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Business Unit Set to: "& GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set the Asset ID
+		.WebEdit("AssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Asset ID set to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Verify Asset Found
+		Call .WebElement("Asset").SetTOProperty("innertext", GlobalDictionary("AssetID"))
+
+		If .WebElement("Asset").Exist(10) Then
+			WriteToReport micPass, "The Asset ["&GlobalDictionary("AssetID")&"] Was Found Successfully", "Asset Found", FALSE
+		Else
+			WriteToReport micFail, "The Asset ["&GlobalDictionary("AssetID")&"] Was Not Found ", "Asset Not Found", TRUE
+			ExitTest
+		End If
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Adds an Asset Through Basic Add 1.03
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function BasicAddAsset
+	'Navigate to Asset Basic Add.
+	If SelectMainMenu1(GlobalDictionary("BasicAddAsset")) Then
+		WriteToReport micPass, "Basic Add Assets Page", "Navigation to Basic Add Assets Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Basic Add Assets Page", "Navigation to Basic Add Assets page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("Basic Add").PSFrame("Basic Add")
+		If .WebElement("AddANewValue").Exist(30) Then
+			'Click Add a New Value Tab
+			.WebElement("AddANewValue").Click
+			WriteToReport micDone, "Clicked Add a New Value Tab", "Tab Clicked", FALSE
+		Else
+			WriteToReport micFail, "Could Not Locate Add a New Value Tab under 30 Seconds", "Tab Not Found", FALSE
+			ExitTest
+		End If
+		
+		'Set Business Unit
+		.WebEdit("Add-BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set the Business Unit to: "&GlobalDictionary("BusinessUnit"), "Business Unit Set", FALSE
+
+		'Click the Add Button
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Clicked Add", FALSE
+		
+		Browser("PeopleSoft Browser").Sync
+		
+		'Set Fields: Desc, Short Desc, Asset Type, Acquisition Date, Profile ID
+		If .WebEdit("Asset Description").Exist(30) Then
+			.WebEdit("Asset Description").Set GlobalDictionary("Desc")
+			WriteToReport micDone, "Set Description to: "&GlobalDictionary("Desc"), "Description Set", FALSE
+		Else
+			WriteToReport micFail, "Could Not Locate Description Field under 30 Seconds", "Field Not Found", FALSE
+			ExitTest
+		End If
+
+		.WebEdit("Asset Short Description").Set GlobalDictionary("ShortDesc")
+		WriteToReport micDone, "Set Short Description to: "&GlobalDictionary("ShortDesc"), "Short Description Set", FALSE
+
+		.WebList("Asset Type").Select GlobalDictionary("AssetType")
+		WriteToReport micDone, "Selected Asset Type: "&GlobalDictionary("AssetType"), "Asset Type Selected", FALSE
+
+		.WebEdit("AcquisitionDate").Set DateLeadingZeros
+		WriteToReport micDone, "Set Acquisition Date to: "&DateLeadingZeros, "Date Set", FALSE
+
+		.WebEdit("Asset Profile ID").Set GlobalDictionary("Profile")
+		WriteToReport micDone, "Profile Set to: "&GlobalDictionary("Profile"), "Profile Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Asset Saved", FALSE
+
+		'Note Asset ID, waiting for it to update to an actual ID first
+		Call .WebElement("Asset ID").WaitProperty("innertext", micRegExpMatch("[0-9]{12}"), 20000)
+		If GlobalDictionary.Exists("AssetID") Then
+       		GlobalDictionary.Remove("AssetID")
+    	End If
+    	GlobalDictionary.Add "AssetID", .WebElement("Asset ID").GetROProperty("innertext")
+    	WriteToReport micDone, "Asset Created with ID: "&GlobalDictionary("AssetID"), "Asset ID Stored", FALSE
+
+		'Click Asset Acquisition Detail Tab
+		.WebElement("AssetAcquisitionDetail").Click
+		WriteToReport micDone, "Asset Acquisition Detail Tab Clicked", "Tab Clicked", FALSE
+
+		'Set Amount
+		.WebEdit("Amount").Set GlobalDictionary("AssetAmount")
+		WriteToReport micDone, "Set Amount to: "&GlobalDictionary("AssetAmount"), "Amount Set", FALSE
+
+		'Set Transaction and Accounting Date to EOM
+    	.WebEdit("TransactionDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))
+    	.WebEdit("AccountingDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))
+    	WriteToReport micDone, "Set the Transaction and Accounting Date to: "&AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "Date Set", FALSE
+
+		'Click Capitalize
+		.WebButton("Capitalize").Click
+		WriteToReport micDone, "Clicked the Capitalize Button", "Button Clicked", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Asset Saved with Amount Capitalized", FALSE
+	End With
+	Dim oExcel, oFSO, oWorkbook, oSheet
+	If GlobalDictionary("SaveAssetFor4.0XTest") = "TRUE" Then
+		Set oExcel = CreateObject("Excel.Application")
+		Set oFSO = CreateObject("Scripting.FileSystemObject")
+		'Delete the old asset file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\assetid.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\assetid.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\assetid.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "AssetID"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("AssetID")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\assetid", 56)
+		WriteToReport micPass, "Asset Saved for Later Test", "Asset Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\assetid.xls", FALSE
+		oWorkbook.Close
+	ElseIf GlobalDictionary("SaveAssetForCANTest") = "TRUE" Then
+		Set oExcel = CreateObject("Excel.Application")
+		Set oFSO = CreateObject("Scripting.FileSystemObject")
+		'Delete the old asset file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\CANassetid.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\CANassetid.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\CANassetid.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "AssetID"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("AssetID")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\CANassetid", 56)
+		WriteToReport micPass, "Asset Saved for Later Test", "Asset Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\CANassetid.xls", FALSE
+		oWorkbook.Close
+	End If
+	GlobalDictionary.Add "ReviewBasicAdd", "TRUE"
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Calculates Depreciation for an Asset 
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function DepreciationCalculation
+	Dim sProcInst, sLink
+	Const DEPR_CALC = "DEPR_CALC"
+	Const PROCNAME = "AM_DEPR_CALC"
+	Randomize
+	sLink = DEPR_CALC&CStr(Round(100000*Rnd))
+
+	'Navigate to Calculate under Depreciation
+	If SelectMainMenu1(GlobalDictionary("DeprCalculate")) Then
+		WriteToReport micPass, "Depreciation Calculation Page", "On the Depreciation Calculation page.", FALSE
+	Else
+		WriteToReport micFail, "Depreciation Calculation Page", "Navigation to Depreciation Calculation page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("DepreciationCalculation").PSFrame("TargetContent")
+		'Click Add a New Value Tab
+		.WebElement("AddANewValue").Click
+		WriteToReport micDone, "Clicked Add a New Value Tab", "Tab Clicked", FALSE
+
+		'Set Run Control ID
+		.WebEdit("RunControlID").Set sLink
+		WriteToReport micDone, "Set Run Control ID to: "&sLink, "Run Control ID Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		Browser("PeopleSoft Browser").Sync
+
+		'If it already exists, click the Link else on page to create the Run Control
+		Call .Link("DEPR_CALC").SetTOProperty("innertext", sLink)
+		If .Link("DEPR_CALC").Exist(5) Then
+			.Link("DEPR_CALC").Click
+			WriteToReport micDone, "Run Control ID with Name "&sLink&" Already Exists; Link Clicked After Add Clicked", "Link Clicked", FALSE
+		End If
+		
+		'Set BusinessUnit
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Process Frequency
+		.WebList("ProcessFrequency").Select GlobalDictionary("Depr_ProcFreq")
+		WriteToReport micDone, "Set the Process Frequency to: "& GlobalDictionary("Depr_ProcFreq"), "Process Frequency Set", FALSE
+
+		'Set Asset ID
+		.WebEdit("FromAssetID").Set GlobalDictionary("AssetID")
+		.WebEdit("ToAssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "From/To Asset ID set to: "&GlobalDictionary("AssetID"), "From/To Asset ID Set", FALSE
+
+		'Click Run
+		.WebButton("Run").Click
+		WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("DepreciationCalculation").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Note Process Instance
+		If .WebElement("ProcessInstance").Exist(15) Then
+			sProcInst = Split(.WebElement("ProcessInstance").GetROProperty("innertext"), ":")(1)
+			WriteToReport micPass, "Instance ["&sProcInst&"] Started", PROCNAME&" Process Started", FALSE
+		End If
+
+		'Click Process Monitor
+		.Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+	End With
+
+	'Monitor until Success/Posted
+	Call CheckProcessMontiorStatus(PROCNAME)
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Reviews Depreciation for an Asset
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ReviewDepreciation
+	Dim arrBooks
+	Dim i, j
+	Dim nSum
+	Dim bCorrect, bSkip
+	bCorrect = TRUE
+	bSkip = FALSE
+	Const DEPR_AMT_COL = 2
+	Const YEAR_COL = 1
+	'Navigate to Asset Depreciation under Review Depreciation Info
+	If SelectMainMenu1(GlobalDictionary("AssetDepreciation")) Then
+		WriteToReport micPass, "Review Asset Depreciation Page", "On the Review Asset Depreciation page.", FALSE
+	Else
+		WriteToReport micFail, "Review Asset Depreciation Page", "Navigation to Review Asset Depreciation page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AssetDepreciation").PSFrame("TargetContent")
+		'Set Business Unit
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set the Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Asset ID
+		.WebEdit("AssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Asset ID set to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		Browser("PeopleSoft Browser").Sync
+
+		'Loop over Books
+		arrBooks = Split(GlobalDictionary("BooksToReview"), ",")
+		For i=0 To  UBound(arrBooks)
+			'Click book name link
+			Call .Link("Book").SetTOProperty("text", arrBooks(i))
+			If .Link("Book").Exist(15) Then
+				.Link("Book").Click
+				WriteToReport micDone, "Clicked Link for Book: "&arrBooks(i), "Link Clicked", FALSE
+			Else
+				WriteToReport micWarning, "Issue Locating Link for Book: "&arrBooks(i), "Book may not be associated to Asset", TRUE
+				bSkip = TRUE
+			End If
+			If NOT bSkip Then			
+				Browser("PeopleSoft Browser").Sync
+				
+				'Reset nSum to zero
+				nSum = 0.0
+	
+				If NOT .WebTable("YearlyDepreciation").Exist(30) Then
+					WriteToReport micFail, "Failed to Load Page for Book: "&arrBooks(i), "Page took too long", TRUE
+					ExitTest
+				End If
+	
+				'Loop through table, add values, match sum against Accumulated
+				For j=1 To .WebTable("YearlyDepreciation").GetROProperty("rows")
+					nSum = Round(nSum + CDbl(.WebTable("YearlyDepreciation").Cell(j, DEPR_AMT_COL).GetROProperty("innertext")),2)
+				Next
+	
+				'Compare to Displayed Cost
+				If nSum = CDbl(.WebElement("Cost").GetROProperty("innertext")) Then
+					WriteToReport micPass, "Calculated Total Depreciation Through Fiscal Year: "& .WebTable("YearlyDepreciation").Cell(.WebTable("YearlyDepreciation").GetROProperty("rows"),YEAR_COL).GetROProperty("innertext")&" Calculated Correctly", "Depreciation Calculated Correctly", FALSE
+					WriteToReport micDone, "Calculated Sum of Total Depreciation ["&nSum&"] Equals Cost Displayed ["&.WebElement("Cost").GetROProperty("innertext")&"]","", FALSE
+					bCorrect = bCorrect AND TRUE
+				ElseIf GlobalDictionary("ReviewDisposal") = "TRUE" Then
+					If Cdbl(nSum) = 0.0 Then
+						WriteToReport micPass, "Disposal of Asset Created During Testing Resulted in No Depreciation", "Depreciation Calculated Correctly", FALSE
+					Else
+						WriteToReport micFail, "Disposal of Asset Created During Testing Did Not Result in No Depreciation", "Depreciation Not Calculated Correctly", TRUE
+						bCorrect = FALSE
+					End If
+				ElseIf GlobalDictionary("ReviewUsefulLife") = "TRUE" and i = 0 Then
+					If Trim(.WebTable("YearlyDepreciation").Cell(.WebTable("YearlyDepreciation").GetROProperty("rows"),YEAR_COL).GetROProperty("innertext")) = CStr(GlobalDictionary("NewLastDeprYear")) Then
+						WriteToReport micPass, "The Useful Life was Extended to the Expcted Year", "Useful Life Successfully Extended", FALSE
+					Else
+						WriteToReport micFail, "The Useful Life was Not Extended to the Expected Year: "&CStr(GlobalDictionary("NewLastDeprYear")), "It was Instead: "_
+							& Trim(.WebTable("YearlyDepreciation").Cell(.WebTable("YearlyDepreciation").GetROProperty("rows"),YEAR_COL).GetROProperty("innertext")), TRUE
+						ExitTest
+					End If
+				Else	
+					WriteToReport micFail, "Total Depreciation Not Calculated Correctly", "Incorrect Total Depreciation", TRUE
+					WriteToReport micDone, "Calculated Sum of Total Depreciation ["&nSum&"] Does Not Equal Cost Displayed ["&.WebElement("Cost").GetROProperty("innertext")&"]", "", TRUE
+					bCorrect = FALSE
+				End If
+	
+				'Return to Asset Tab
+				.WebElement("AssetTab").Click
+				WriteToReport micDone, "Clicked the Asset Tab", "Tab Clicked", FALSE
+			End If
+			bSkip = FALSE
+		Next
+		
+		If bCorrect Then
+			WriteToReport micPass, "All Depreciation Calculations were Correct", "Continuing Test", FALSE
+		Else
+			WriteToReport micFail, "At least one Depreciation Calculation was Not Correct", "Stopping the Test", FALSE
+			ExitTest
+		End If
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Creates Accounting Entries for an Asset
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function CreateAccountingEntries
+	Dim sProcInst, sLink
+	Const ACTG_ENTRY_CRT = "ACTG_ENTRY_CRT"
+	Const PROCNAME = "AM_AMAEDIST"
+	Randomize
+	sLink = ACTG_ENTRY_CRT&CStr(Round(100000*Rnd))
+	'Navigate to Create Accounting Entries
+	If SelectMainMenu1(GlobalDictionary("CreateActgEntries")) Then
+		WriteToReport micPass, "Create Accounting Entries Page", "On the Create Accounting Entries page.", FALSE
+	Else
+		WriteToReport micFail, "Create Accounting Entries Page", "Navigation to Create Accounting Entries page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AccountingEntryCreation").PSFrame("TargetContent")
+		'Click Add a New Value
+		.WebElement("AddANewValue").Click
+		WriteToReport micDone, "Clicked Add a New Value Tab", "Tab Clicked", FALSE
+
+		'Set Run Control ID
+		.WebEdit("RunControlID").Set sLink
+		WriteToReport micDone, "Set Run Control ID to: "&sLink, "Run Control ID Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'If it already exists, click the Link else on page to create the Run Control
+		Call .Link("ACTG_ENTRY_CRT").SetTOProperty("innertext", sLink)
+		If .Link("ACTG_ENTRY_CRT").Exist(5) Then
+			.Link("ACTG_ENTRY_CRT").Click
+			WriteToReport micDone, "Run Control ID with Name "&sLink&" Already Exists; Link Clicked After Add Clicked", "Link Clicked", FALSE
+		End If
+		
+		'Set Process Frequency
+		.WebList("ProcessFrequency").Select GlobalDictionary("AEC_ProcFreq")
+		WriteToReport micDone, "Set the Process Frequency to: "& GlobalDictionary("AEC_ProcFreq"), "Process Frequency Set", FALSE
+
+		'Set BusinessUnit
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Book Name
+		.WebEdit("BookName").Set GlobalDictionary("AEC_Book")
+		WriteToReport micDone, "Set Book Name to: "&GlobalDictionary("AEC_Book"), "Book Name Set", FALSE
+
+		'Set Asset ID To/From
+		.WebEdit("FromAssetID").Set GlobalDictionary("AssetID")
+		.WebEdit("ToAssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "From/To Asset ID set to: "&GlobalDictionary("AssetID"), "From/To Asset ID Set", FALSE
+
+		'Click Run
+		.WebButton("Run").Click
+		WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("AccountingEntryCreation").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Note Process Instance
+		If .WebElement("ProcessInstance").Exist(15) Then
+			sProcInst = Split(.WebElement("ProcessInstance").GetROProperty("innertext"), ":")(1)
+			WriteToReport micPass, "Instance ["&sProcInst&"] Started", PROCNAME&" Process Started", FALSE
+		End If
+
+		'Click Process Monitor
+		.Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+	End With
+
+	'Monitor until Success/Posted
+	Call CheckProcessMontiorStatus(PROCNAME)
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Reviews Financial Entries for an Asset
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'	13FEB19		Brian B.		Added missing Then to ElseIf.
+'	21FEB19		Zach A. 		Change some boolean checks to numerical value checks, removed unnecessary micFail statements, no longer looking at last 2 rows for some entries
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ReviewFinancialEntries
+	Dim i, bFoundDate, nTransfersFound, nRecatsFound, nAdjsFound
+	Dim sCellDate, sCellAmt
+	Const ACTG_DATE_COL = 2
+	Const AMOUNT_COL = 2
+	Const TRANSTYPE_COL = 3
+	nAdjsFound = 0
+	bFoundDate = TRUE
+	nRecatsFound = 0
+	nTransfersFound = 0
+	'Navigate to Review Financial Entries
+	If SelectMainMenu1(GlobalDictionary("ReviewFinEntries")) Then
+		WriteToReport micPass, "Review Financial Entries Page", "On the Review Financial Entries page.", FALSE
+	Else
+		WriteToReport micFail, "Review Financial Entries Page", "Navigation to Review Financial Entries page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AssetAccountingEntries").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Asset ID
+		.WebEdit("AssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Asset ID set to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Click View All, if applicable
+		If .Link("ViewAll-ActngEntries").Exist(5) Then
+			.Link("ViewAll-ActngEntries").Click
+			WriteToReport micDone, "Clicked the View All Link for Accounting Entries Table", "Link Clicked", FALSE
+		End If
+
+		'Parse the Table, looking for the recent change/addition. NOTE: there are two tables, a left and a right.
+		For i=1 To .WebTable("LeftActgEntries").GetROProperty("rows")
+			sCellDate = .WebTable("LeftActgEntries").Cell(i, ACTG_DATE_COL).GetROProperty("innertext")
+			sCellAmt = .WebTable("RightActgEntries").Cell(i, AMOUNT_COL).GetROProperty("innertext")
+
+			If GlobalDictionary("ReviewTransfer") = "TRUE" Then
+				If (Trim(sCellDate) = Trim(AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)))) Then 'Last Day of the Month
+					If Trim(.WebTable("LeftActgEntries").Cell(i, TRANSTYPE_COL).GetROProperty("innertext")) = "TRF" AND Abs(CDbl(sCellAmt))=Abs(CDbl(GlobalDictionary("AssetAmount"))) Then
+						nTransfersFound = nTransfersFound + 1
+						WriteToReport micPass, "Found a Valid Transfer Entry for Asset: "&GlobalDictionary("AssetID"), "Asset Transfer Entry Found", FALSE
+					End If
+				End If
+			ElseIf GlobalDictionary("ReviewRecat") = "TRUE" Then
+				If (Trim(sCellDate) = Trim(AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)))) Then 'Last Day of the Month
+					If Trim(.WebTable("LeftActgEntries").Cell(i, TRANSTYPE_COL).GetROProperty("innertext")) = "RCT" AND Abs(CDbl(sCellAmt))=Abs(CDbl(GlobalDictionary("AssetAmount"))) Then
+						nRecatsFound = nRecatsFound + 1
+						WriteToReport micPass, "Found a Valid Recategorization Entry for Asset: "&GlobalDictionary("AssetID"), "Asset Recategorization Entry Found", FALSE
+					End If
+				End If
+			ElseIf GlobalDictionary("ReviewAdj") = "TRUE" Then
+				If (Trim(sCellDate) = Trim(AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)))) Then 'Last Day of the Month
+					If Trim(.WebTable("LeftActgEntries").Cell(i, TRANSTYPE_COL).GetROProperty("innertext")) = "ADJ" Then
+						nAdjsFound = nAdjsFound + 1
+						WriteToReport micPass, "Found a Valid Adjustment Entry for Asset: "&GlobalDictionary("AssetID"), "Asset Adjustment Entry Found", FALSE
+					End If
+				End If
+			Else
+				If GlobalDictionary("ReviewBasicAdd") = "TRUE" Then
+					If Trim(sCellDate) = Trim(AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))) Then
+						If Trim(.WebTable("LeftActgEntries").Cell(i, TRANSTYPE_COL).GetROProperty("innertext")) = "ADD" AND Abs(CDbl(sCellAmt)) = Abs(CDbl(GlobalDictionary("AssetAmount"))) Then
+							WriteToReport micPass, "Found a Valid Entry Amount for Asset: "&GlobalDictionary("AssetID"), "Amount Was: "&sCellAmt, FALSE
+							bFoundDate = bFoundDate AND TRUE
+						Else
+							WriteToReport micInfo, "Did Not Find Expected Entry Amount for Asset: "&GlobalDictionary("AssetID"), "Amount Expected: [+/-"&GlobalDictionary("AssetAmount")&"]; Amount Found ["&sCellAmt&"]", TRUE
+						End If
+					End If
+				ElseIf GlobalDictionary("ReviewME") = "TRUE" Then 
+					If Trim(sCellDate) = Trim(AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))) Then
+						If Trim(.WebTable("LeftActgEntries").Cell(i, TRANSTYPE_COL).GetROProperty("innertext")) = "ADD" AND Abs(CDbl(sCellAmt)) = Abs(CDbl(GlobalDictionary("AssetAmount"))) Then
+							WriteToReport micPass, "Found a Valid Entry Amount for Asset: "&GlobalDictionary("AssetID"), "Amount Was: "&sCellAmt, FALSE
+							bFoundDate = bFoundDate AND TRUE
+						ElseIf Trim(.WebTable("LeftActgEntries").Cell(i, TRANSTYPE_COL).GetROProperty("innertext")) = "DPR" Then
+							WriteToReport micPass, "Found a Valid Depreciation Entry Amount for Asset: "&GlobalDictionary("AssetID"), "Amount Was: "&sCellAmt, FALSE
+							bFoundDate = bFoundDate AND TRUE
+						Else
+							WriteToReport micInfo, "Did Not Find Expected Entry Amount for Asset: "&GlobalDictionary("AssetID"), "Amount Expected: [+/-"&GlobalDictionary("AssetAmount")&"]; Amount Found ["&sCellAmt&"]", TRUE
+						End If
+					End If
+				ElseIf Trim(sCellDate) = Trim(CStr(DateLeadingZeros)) Then
+					If Trim(.WebTable("LeftActgEntries").Cell(i, TRANSTYPE_COL).GetROProperty("innertext")) = "ADD" AND Abs(CDbl(sCellAmt)) = Abs(CDbl(GlobalDictionary("AssetAmount"))) Then
+						WriteToReport micPass, "Found a Valid Entry Amount for Asset: "&GlobalDictionary("AssetID"), "Amount Was: "&sCellAmt, FALSE
+						bFoundDate = bFoundDate AND TRUE
+					Else
+						WriteToReport micInfo, "Did Not Find Expected Entry Amount for Asset: "&GlobalDictionary("AssetID"), "Amount Expected: [+/-"&GlobalDictionary("AssetAmount")&"]; Amount Found ["&sCellAmt&"]", TRUE
+					End If
+				End If
+			End If
+		Next
+
+		If GlobalDictionary("ReviewTransfer") = "TRUE" Then
+			If NOT nTransfersFound = 2 Then
+				WriteToReport micFail, "Never Found the Expected Transfer in the Table", "Transfer not Found or Incorrect", TRUE
+			Else
+				WriteToReport micPass, "Found Expected Transfer Date and Amount Entries", "Entries Correct", FALSE
+			End If
+		ElseIf GlobalDictionary("ReviewRecat") = "TRUE" Then
+			If NOT nRecatsFound = 2 Then
+				WriteToReport micFail, "Never Found the Expected Recategorization in the Table", "Recategorization not Found", TRUE
+			Else
+				WriteToReport micPass, "Found Expected Recategorization Date and Amount Entries", "Entries Correct", FALSE
+			End If
+		ElseIf GlobalDictionary("ReviewAdj") = "TRUE" Then
+			If NOT nAdjsFound = 2 Then
+				WriteToReport micFail, "Never Found the Expected Adjustment in the Table", "Adjustment not Found", TRUE
+			Else
+				WriteToReport micPass, "Found Expected Adjustment Date and Amount Entries", "Entries Correct", FALSE
+			End If
+		Else
+			If NOT bFoundDate Then
+				If NOT GlobalDictionary.Exists("ReviewBasicAdd") OR NOT GlobalDictionary.Exists("ReviewME") Then
+					WriteToReport micFail, "Never Found the Expected Date in the Table", "Expected Date: "& CStr(DateLeadingZeros), TRUE
+				Else
+					WriteToReport micFail, "Never Found the Expected Date in the Table", "Expected Date: "& CStr(AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))), TRUE
+				End If
+			Else
+				WriteToReport micPass, "Found Expected Date and Amount Entries", "Entries Correct", FALSE
+			End If
+		End If
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Reviews Financial Entries for an Asset 1.04
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ExpressAddAsset
+	'Navigate to Asset ExpressAdd
+	If SelectMainMenu1(GlobalDictionary("ExpressAddAsset")) Then
+		WriteToReport micPass, "Asset ExpressAdd Page", "On the Asset ExpressAdd page.", FALSE
+	Else
+		WriteToReport micFail, "Asset ExpressAdd Page", "Navigation to Asset ExpressAdd page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AssetExpressAdd").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set Profile, Description, Cost
+		.WebEdit("ProfileID").Set GlobalDictionary("Profile")
+		WriteToReport micDone, "Set Profile ID to: "&GlobalDictionary("Profile"), "Profile ID Set", FALSE
+
+		.WebEdit("Description").Set GlobalDictionary("Desc")
+		WriteToReport micDone, "Set Description to: "&GlobalDictionary("Desc"), "Description Set", FALSE
+
+		.WebEdit("Cost").Set GlobalDictionary("AssetCost")
+		WriteToReport micDone, "Set Cost to: "&GlobalDictionary("AssetCost"), "Cost Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Asset Added", FALSE
+
+		'Store the Asset ID that was just created
+		Call .WebElement("AssetID").WaitProperty("innertext", micRegExpMatch("[0-9]{12}"), 20000)
+		If GlobalDictionary.Exists("AssetID") Then
+       		GlobalDictionary.Remove("AssetID")
+    	End If
+    	GlobalDictionary.Add "AssetID", .WebElement("AssetID").GetROProperty("innertext")
+    	WriteToReport micDone, "Asset Created with ID: "&GlobalDictionary("AssetID"), "Asset ID Stored", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Run the Manual Capitalization Process for any Assets Under the Provided Load Type 2.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'	12FEB19		Brian B.		Added Asset ID and a few other changes for handling it.
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ManualCapReviewAdj 
+	Const PROCNAME = "PC_EXPRSS_AM"
+	'Navigate to Manual Capitalization Review
+	If SelectMainMenu1(GlobalDictionary("ManualCapReview")) Then
+		WriteToReport micPass, "Manual Capitalization Review Page", "On the Manual Capitalization Review page.", FALSE
+	Else
+		WriteToReport micFail, "Manual Capitalization Review Page", "Navigation to Manual Capitalization Review page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+	
+	With Browser("PeopleSoft Browser").Page("ManualCapitalizationReview").PSFrame("TargetContent")
+		'Set Project BU
+		.WebEdit("ProjectBusinessUnit").Set GlobalDictionary("ProjectBusinessUnit")
+		WriteToReport micDone, "Set Project Business Unit to: "& GlobalDictionary("ProjectBusinessUnit"), "BU Set", FALSE
+		
+		' Set Asset BU
+		If GlobalDictionary.Exists("AssetBusinessUnit") Then
+			.WebEdit("Asset Business Unit").Set GlobalDictionary("AssetBusinessUnit")
+			WriteToReport micDone, "Set Asset Business Unit to: "& GlobalDictionary("AssetBusinessUnit"), "BU Set", FALSE
+		End If
+		
+		' Set Project
+		If GlobalDictionary.Exists("ProjectID") Then
+			.WebEdit("Project ID").Set GlobalDictionary("ProjectID")
+			WriteToReport micDone, "Set Project ID: " & GlobalDictionary("ProjectID"), "Project ID Set", FALSE
+		End If
+		
+		'Set Load Type
+		If GlobalDictionary.Exists("LoadType") Then
+			.WebList("LoadType").Select GlobalDictionary("LoadType")
+			WriteToReport micDone, "Selected Load Type: "&GlobalDictionary("LoadType"), "Load Type Selected", FALSE
+		End If
+		
+		' Set Asset ID
+		If GlobalDictionary.Exists("AssetID") Then
+			.WebEdit("Asset ID").Set GlobalDictionary("AssetID")
+			WriteToReport micDone, "Set Asset ID: " & GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+		End If
+		
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked Search Button", "Button Clicked", FALSE
+		
+		'Scroll to last page using >| button
+		If .WebElement(">|").Exist(5) Then
+			.WebElement(">|").Click
+			WriteToReport micDone, "Clicked the >| Button to Go to the Last Page of Assets", "Button Clicked", FALSE
+		Else
+			WriteToReport micDone, ">| Button Not Visible", "Button not clicked.", TRUE 'NOTE: micDone is on purpose.  Multiple tests use this If statement.
+		End If
+		
+		'Check Capitalize on the any (first) entry on the table
+		.WebCheckBox("CapitalizeFirstRow").Click
+		WriteToReport micDone, "Checked the Capitalize Box for the First Entry on the Displayed Table", "Checkbox Marked", FALSE
+
+		'Note the Asset ID
+		If GlobalDictionary.Exists("AssetID") Then
+       	GlobalDictionary.Remove("AssetID")
+    	End If
+    	GlobalDictionary.Add "AssetID", .WebElement("AssetFirstRow").GetROProperty("innertext")
+    	WriteToReport micDone, "Grabbed the Asset ID from the First Row with ID: "&GlobalDictionary("AssetID"), "Asset ID Stored", TRUE
+		
+		'Select Asset Processing Destination: Sum, Run and Load Transactions
+		.WebList("AssetProcessingDestination").Select GlobalDictionary("AssetProcessingDestination")
+		WriteToReport micDone, "Selected Asset Processing Destination Option: "&GlobalDictionary("AssetProcessingDestination"), "Asset Processing Destination Option Selected", FALSE
+
+		'Click Send to Asset Management
+		.WebButton("SendToAssetManagement").Click
+		WriteToReport micDone, "Clicked the Send to Asset Management Button", "Button Clicked", FALSE
+
+		'Click Process Monitor
+		.Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+	End With
+
+	'Monitor until Success/Posted
+	If GlobalDictionary("NotAM") = "" Then
+		GlobalDictionary.Add "ReviewAdj", "TRUE"
+	End If
+	Call CheckProcessMontiorStatus(PROCNAME)
+	
+	If GlobalDictionary("AddSecondTransaction") = "TRUE" Then
+		GlobalDictionary("PCContinued") = "TRUE"
+		GlobalDictionary("DateLastMonth") = "FALSE"
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Adjusts the Cost for an Asset 2.02
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function CostAdjustment
+	Dim nOrigAmt, nUpdAmt
+	Const ADJ = "Adjustment"
+	'Navigate to Cost Adjust/Transfer Asset
+	If SelectMainMenu1(GlobalDictionary("CostAdjust-TransferAsset")) Then
+		WriteToReport micPass, "Cost Adjust/Transfer Asset Page", "On the Cost Adjust/Transfer Asset page.", FALSE
+	Else
+		WriteToReport micFail, "Cost Adjust/Transfer Asset Page", "Navigation to Cost Adjust/Transfer Asset page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AssetCostAdjustTransfers").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set AssetID
+		.WebEdit("AssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Set the AssetID to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+
+		'Set Status
+		.WebList("AssetStatus").Select GlobalDictionary("Status")
+		WriteToReport micDone, "Selected Asset Status: "&GlobalDictionary("Status"), "Asset Status Selected", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked Search Button", "Button Clicked", FALSE
+
+		'Click First Row, if Asset did not auto-navigate after search
+		If .Link("FirstRow").Exist(15) Then
+			.Link("FirstRow").Click
+			WriteToReport micDone, "Asset in First Row Clicked", "Link Clicked", FALSE
+		ElseIf NOT (.WebElement("AssetID").Exist(30)) Then 
+			WriteToReport micFail, "No Results Shown for BU ["&GlobalDictionary("BusinessUnit")&"], AssetID ["&GlobalDictionary("AssetID")&"], and Status ["&GlobalDictionary("Status")&"]", "Table is Empty", TRUE
+			ExitTest
+		End If
+
+		'Select Action Adjustment
+		.WebList("Action").Select ADJ
+		WriteToReport micDone, "Selected Action "&ADJ, "Action Selected", FALSE
+
+		'Set Transaction and Accounting Date to EOM
+    	.WebEdit("TransactionDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))
+    	.WebEdit("AccountingDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))
+    	WriteToReport micDone, "Set the Transaction and Accounting Date to: "&AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "Date Set", FALSE
+
+		'Click GO!
+		.WebButton("GO!").Click
+		WriteToReport micDone, "Clicked the GO! Button", "Button Clicked", FALSE
+
+		Browser("PeopleSoft Browser").Sync
+
+		If NOT .WebEdit("AdjustCurrentRowBy").Exist(30) Then
+			WriteToReport micFail, "Could Not Load Page Under 30 Seconds", "Page took too long to load", TRUE
+		End If
+
+		'Get the Original Cost
+		nOrigAmt = CDbl(.WebEdit("Cost").GetROProperty("value"))
+		WriteToReport micDone, "Obtained the Original Cost of: "&nOrigAmt, "Original Cost Stored", FALSE
+
+		'Set Adjust by amount
+		.WebEdit("AdjustCurrentRowBy").Set GlobalDictionary("AssetAmount")
+		WriteToReport micDone, "Set Adjust Current Row By to: "&GlobalDictionary("AssetAmount"), "Adjust Current Row By field Set", FALSE
+
+		'Click Apply
+		.WebButton("Apply").Click
+		WriteToReport micDone, "Clicked the Apply Button", "Button Clicked", FALSE
+
+		'Get the Adjusted Cost
+		nUpdAmt = CDbl(.WebEdit("Cost").GetROProperty("value"))
+		WriteToReport micDone, "Obtained the Adjusted Cost of: "&nUpdAmt, "Updated Cost Stored", FALSE
+
+		'Compare Adjustment to the sum of the Original and the AssetAmount value
+		If nUpdAmt <> nOrigAmt+CDbl(GlobalDictionary("AssetAmount")) Then
+			WriteToReport micFail, "The Adjusted Cost ["&nUpdAmt&"] Does not Match Expected New Value ["&nOrigAmt+CDbl(GlobalDictionary("AssetAmount"))&"]", "Check Inputs and Calculation", TRUE
+			ExitTest
+		Else
+			WriteToReport micPass, "The Adjusted Cost Matched Expected New Value", "Adjustment Calculation is Correct", FALSE
+		End If
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Transfers an Asset to Another Department 2.03/2.04
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function DeptTransferAsset
+	Const TRF = "Transfer"
+	Const PERCENT = "Percent"
+	'Navigate to Cost Adjust/Transfer Asset
+	If SelectMainMenu1(GlobalDictionary("CostAdjust-TransferAsset")) Then
+		WriteToReport micPass, "Cost Adjust/Transfer Asset Page", "On the Cost Adjust/Transfer Asset page.", FALSE
+	Else
+		WriteToReport micFail, "Cost Adjust/Transfer Asset Page", "Navigation to Cost Adjust/Transfer Asset page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AssetCostAdjustTransfers").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set AssetID
+		.WebEdit("AssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Set the AssetID to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+
+		'Set Status
+		.WebList("AssetStatus").Select GlobalDictionary("Status")
+		WriteToReport micDone, "Selected Asset Status: "&GlobalDictionary("Status"), "Asset Status Selected", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked Search Button", "Button Clicked", FALSE
+
+		'Click First Row, if Asset did not auto-navigate after search
+		If .Link("FirstRow").Exist(15) Then
+			.Link("FirstRow").Click
+			WriteToReport micDone, "Asset in First Row Clicked", "Link Clicked", FALSE
+		ElseIf NOT .WebElement("AssetID").Exist(30) Then
+			WriteToReport micFail, "No Results Shown for BU ["&GlobalDictionary("BusinessUnit")&"], AssetID ["&GlobalDictionary("AssetID")&"], and Status ["&GlobalDictionary("Status")&"]", "Table is Empty", TRUE
+			ExitTest
+		End If
+
+    	'The system recommends transfering by Percent, not Amount
+    	'Select to transfer and adjust other books by Percent
+    	.WebList("TransferOtherBooks").Select PERCENT
+    	.WebList("AdjustOtherBooks").Select PERCENT
+    	WriteToReport micDone, "Selected to Transfer and Adjust Other Books by Percent", "Option Percent Selected", FALSE
+
+    	'Set Transaction and Accounting Date to EOM
+    	.WebEdit("TransactionDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))
+    	.WebEdit("AccountingDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))
+    	WriteToReport micDone, "Set the Transaction and Accounting Date to: "&AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "Date Set", FALSE
+
+		'Select Action
+		.WebList("Action").Select TRF
+		WriteToReport micDone, "Selected Action "&TRF, "Action Selected", FALSE
+
+		'Click GO!
+		.WebButton("GO!").Click
+		WriteToReport micDone, "Clicked the GO! Button", "Button Clicked", FALSE
+
+		If NOT .WebEdit("Dept").Exist(30) Then
+			WriteToReport micFail, "Failed to Load Page After GO! was Clicked", "Page Failed to Load under 30 Seconds", TRUE
+			ExitTest
+		End If
+
+		'Set New Dept ID
+		'If the ID is already set to the GlobalDictionary value, there is a backup Dept
+		If .WebEdit("Dept").GetROProperty("value") <> GlobalDictionary("Dept") Then
+			.WebEdit("Dept").Set GlobalDictionary("Dept")
+			WriteToReport micDone, "Changed the Department to: "&GlobalDictionary("Dept"), "Department Changed", FALSE
+		Else
+			.WebEdit("Dept").Set GlobalDictionary("BackupDept")
+			WriteToReport micDone, "Changed the Department to: "&GlobalDictionary("BackupDept"), "Department Changed", FALSE
+		End If
+
+		'Note the Cost to look for later
+		If GlobalDictionary.Exists("AssetAmount") Then
+			GlobalDictionary.Remove("AssetAmount")
+		End If
+		GlobalDictionary.Add "AssetAmount", .WebEdit("Cost").GetROProperty("value")
+		WriteToReport micDone, "Asset Cost Stored for Later Use: "&GlobalDictionary("AssetAmount"), "Asset Cost Stored", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With	
+	GlobalDictionary.Add "ReviewTransfer", "TRUE"
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Transfers an Asset to Another Unit 2.05
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function UnitTransferAsset
+	Dim oDeviceReplay
+	Const INT_UNIT_TRF = "InterUnit Transfer"
+	Const ENTER = 28
+	'Navigate to Cost Adjust/Transfer Asset
+	If SelectMainMenu1(GlobalDictionary("CostAdjust-TransferAsset")) Then
+		WriteToReport micPass, "Cost Adjust/Transfer Asset Page", "On the Cost Adjust/Transfer Asset page.", FALSE
+	Else
+		WriteToReport micFail, "Cost Adjust/Transfer Asset Page", "Navigation to Cost Adjust/Transfer Asset page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AssetCostAdjustTransfers").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Status
+		.WebList("AssetStatus").Select GlobalDictionary("Status")
+		WriteToReport micDone, "Selected Asset Status: "&GlobalDictionary("Status"), "Asset Status Selected", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked Search Button", "Button Clicked", FALSE
+
+		'Sort Descending
+		Do 
+			.Link("AssetIdentification").Click
+			Wait 5
+		Loop Until .Link("AssetIdentification").GetROProperty("title") = "Click to sort ascending"
+		WriteToReport micDone, "Sorted Assets in Descending Order", "Order Changed", FALSE
+
+		'Click First Row
+		If .Link("FirstRow").Exist(15) Then
+			.Link("FirstRow").Click
+			WriteToReport micDone, "Asset in First Row Clicked", "Link Clicked", FALSE
+		Else
+			WriteToReport micFail, "No Results Shown for BU ["&GlobalDictionary("BusinessUnit")&"] and Status ["&GlobalDictionary("Status")&"]", "Table is Empty", TRUE
+			ExitTest
+		End If
+
+		'Select Action
+		.WebList("Action").Select INT_UNIT_TRF
+		WriteToReport micDone, "Selected Action "&INT_UNIT_TRF, "Action Selected", FALSE
+
+		'Set Transaction and Accounting Date to EOM
+    	.WebEdit("TransactionDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))
+    	.WebEdit("AccountingDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))
+    	WriteToReport micDone, "Set the Transaction and Accounting Date to: "&AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "Date Set", FALSE
+
+		'Click GO!
+		.WebButton("GO!").Click
+		WriteToReport micDone, "Clicked the GO! Button", "Button Clicked", FALSE
+
+		'Set New Unit
+		.WebEdit("NewUnit").Set GlobalDictionary("NewUnit")
+		WriteToReport micDone, "Changed the Unit to: "&GlobalDictionary("NewUnit"), "Unit Changed", FALSE
+
+		'Hit Enter Key
+		Set oDeviceReplay = CreateObject("Mercury.DeviceReplay")
+		oDeviceReplay.PressKey ENTER
+
+		'Verify New Asset ID now shows NEXT
+		Wait 3
+		If .WebEdit("NewAssetID").GetROProperty("value") = "NEXT" Then
+			WriteToReport micPass, "New Asset ID Ready with NEXT", "NEXT Filled as Expected", FALSE
+		Else
+			WriteToReport micWarning, "NEXT Did Not Appear as Expected", "Field not filled out", TRUE
+		End If
+
+		'Note the Cost to look for later
+		If GlobalDictionary.Exists("AssetAmount") Then
+			GlobalDictionary.Remove("AssetAmount")
+		End If
+		GlobalDictionary.Add "AssetAmount", .WebEdit("Cost").GetROProperty("value")
+		WriteToReport micDone, "Asset Cost Stored for Later Use: "&GlobalDictionary("AssetAmount"), "Asset Cost Stored", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+		Browser("PeopleSoft Browser").Sync
+		Wait 2
+
+		'Note the old Asset ID
+		If GlobalDictionary.Exists("OldAssetID") Then
+       		GlobalDictionary.Remove("OldAssetID")
+    	End If
+    	GlobalDictionary.Add "OldAssetID", .WebElement("AssetID").GetROProperty("innertext")
+    	WriteToReport micDone, "Asset Being Transferred with ID: "&GlobalDictionary("OldAssetID"), "Asset ID Stored", FALSE
+
+		'Note the new Asset ID
+		If GlobalDictionary.Exists("NewAssetID") Then
+       		GlobalDictionary.Remove("NewAssetID")
+    	End If
+    	GlobalDictionary.Add "NewAssetID", .WebEdit("NewAssetID").GetROProperty("value")
+    	WriteToReport micDone, "Asset To Be Created After Transfer has ID: "&GlobalDictionary("NewAssetID"), "Asset ID Stored", FALSE
+
+    	GlobalDictionary("AssetID") = GlobalDictionary("OldAssetID")
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Adjusts the Book by changing the Useful Life of an Asset 2.06/2.07
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AdjustBook
+	Dim arrTemp
+	Const LIFE_INC = 24
+	'Navigate to Define Tax/Depr Criteria
+	If SelectMainMenu1(GlobalDictionary("DefnTax-DeprCrit")) Then
+		WriteToReport micPass, "Define Tax/Depr Criteria Page", "On the Define Tax/Depr Criteria page.", FALSE
+	Else
+		WriteToReport micFail, "Define Tax/Depr Criteria Page", "Navigation to Define Tax/Depr Criteria page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("DefineTax-DeprCriteria").PSFrame("TargetContent")
+		If NOT .WebEdit("BusinessUnit").Exist(30) Then
+			WriteToReport micFail, "Page Took Too Long to Load", "Load time beyond 30 seconds", TRUE
+			ExitTest
+		End If
+
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set AssetID
+		.WebEdit("AssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Set the AssetID to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+
+		'Set Status
+		.WebList("AssetStatus").Select GlobalDictionary("Status")
+		WriteToReport micDone, "Selected Asset Status: "&GlobalDictionary("Status"), "Asset Status Selected", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked Search Button", "Button Clicked", FALSE
+
+		'Click First Row, if Asset did not auto-navigate after search
+		If .Link("FirstRow").Exist(15) Then
+			.Link("FirstRow").Click
+			WriteToReport micDone, "Asset in First Row Clicked", "Link Clicked", FALSE
+		ElseIf NOT .WebElement("AssetID").Exist(30) Then
+			WriteToReport micFail, "No Results Shown for BU ["&GlobalDictionary("BusinessUnit")&"], AssetID ["&GlobalDictionary("AssetID")&"], and Status ["&GlobalDictionary("Status")&"]", "Table is Empty", TRUE
+			ExitTest
+		End If
+
+		Browser("PeopleSoft Browser").Sync
+
+		If NOT .WebList("BookName").Exist(15) Then
+			WriteToReport micFail, "Failed to Load Page", "Page Took Too Long to Load", TRUE
+			ExitTest
+		End If
+
+		'Get the Month/day combo of the Asset's Begin Depr Date
+		arrTemp = Split(.WebEdit("BeginDeprDate").GetROProperty("value"),"/")
+		GlobalDictionary.Add "DeprDate", arrTemp(0)&"/"&arrTemp(1)
+
+		'Get the last year of projected Depreciation
+		GlobalDictionary.Add "OrigLastDeprYear", dbGetLastDeprYear(.WebList("BookName").GetROProperty("value"), GlobalDictionary("AssetID"), GlobalDictionary("BusinessUnit"))
+		WriteToReport micDone, "Depreciation for Asset Expected to end in Year: "&GlobalDictionary("OrigLastDeprYear"), "Found the Last Year of Depreciation", FALSE
+
+		'Set Transaction and Accounting Date to EOM
+    	.WebEdit("TransactionDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))
+    	.WebEdit("AccountingDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))
+    	WriteToReport micDone, "Set the Transaction and Accounting Date to: "&AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "Date Set", FALSE
+
+		'Increase the Useful Life by 24
+		.WebEdit("UsefulLife").Set CStr(CInt(.WebEdit("UsefulLife").GetROProperty("value"))+LIFE_INC)
+		WriteToReport micDone, "Increased Useful Life by "&LIFE_INC&" Periods", "Usefule Life Increased", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		WriteToReport micDone, "After Increasing the Useful Life, the New Final Year of Depreciation is Expected to be: "_
+			& Year(DateAdd("m", LIFE_INC, GlobalDictionary("DeprDate")&"/"&GlobalDictionary("OrigLastDeprYear"))), "Expected New Final Year Calculated", FALSE
+		GlobalDictionary.Add "NewLastDeprYear", Year(DateAdd("m", LIFE_INC, CDate(GlobalDictionary("DeprDate")&"/"&GlobalDictionary("OrigLastDeprYear"))))
+	End With
+	GlobalDictionary.Add "ReviewUsefulLife", "TRUE"
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Recategorizes an Asset 2.08/2.09
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AssetRecategorization
+	Dim nRows, i, nChoice
+	Dim sOrigCat
+	Dim bNewCatChosen
+	Dim oTable
+	Const MIN = 2 'Set to 2 so as to avoid the header row on row 1
+	Const RECAT = "Recategorize"
+	Const PERCENT = "Percent"
+	bNewCatChosen = FALSE
+
+	'Navigate to Cost Adjust/Transfer Asset
+	If SelectMainMenu1(GlobalDictionary("CostAdjust-TransferAsset")) Then
+		WriteToReport micPass, "Cost Adjust/Transfer Asset Page", "On the Cost Adjust/Transfer Asset page.", FALSE
+	Else
+		WriteToReport micFail, "Cost Adjust/Transfer Asset Page", "Navigation to Cost Adjust/Transfer Asset page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AssetCostAdjustTransfers").PSFrame("TargetContent")
+		If NOT .WebEdit("BusinessUnit").Exist(30) Then
+			WriteToReport micFail, "Page Took Too Long to Load", "Load time beyond 30 seconds", TRUE
+			ExitTest
+		End If
+
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set AssetID
+		.WebEdit("AssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Set the AssetID to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+
+		'Set Status
+		.WebList("AssetStatus").Select GlobalDictionary("Status")
+		WriteToReport micDone, "Selected Asset Status: "&GlobalDictionary("Status"), "Asset Status Selected", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked Search Button", "Button Clicked", FALSE
+
+		'Click First Row, if Asset did not auto-navigate after search
+		If .Link("FirstRow").Exist(15) Then
+			.Link("FirstRow").Click
+			WriteToReport micDone, "Asset in First Row Clicked", "Link Clicked", FALSE
+		ElseIf NOT .WebElement("AssetID").Exist(30) Then
+			WriteToReport micFail, "No Results Shown for BU ["&GlobalDictionary("BusinessUnit")&"], AssetID ["&GlobalDictionary("AssetID")&"], and Status ["&GlobalDictionary("Status")&"]", "Table is Empty", TRUE
+			ExitTest
+		End If
+
+		Browser("PeopleSoft Browser").Sync
+
+		'The system recommends transfering by Percent, not Amount
+    	'Select to transfer and adjust other books by Percent
+    	.WebList("TransferOtherBooks").Select PERCENT
+    	.WebList("AdjustOtherBooks").Select PERCENT
+    	WriteToReport micDone, "Selected to Transfer and Adjust Other Books by Percent", "Option Percent Selected", FALSE
+
+    	'Select Action
+		.WebList("Action").Select RECAT
+		WriteToReport micDone, "Selected Action "&RECAT, "Action Selected", FALSE
+
+		'Set Transaction and Accounting Date to EOM
+    	.WebEdit("TransactionDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))
+    	.WebEdit("AccountingDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0))
+    	WriteToReport micDone, "Set the Transaction and Accounting Date to: "&AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "Date Set", FALSE
+
+		'Click GO!
+		.WebButton("GO!").Click
+		WriteToReport micDone, "Clicked the GO! Button", "Button Clicked", FALSE
+
+    	'Get Original Category
+    	sOrigCat = .WebEdit("Category").GetROProperty("value")
+    	WriteToReport micDone, "Original Category is: "&sOrigCat, "Original Category Stored", FALSE
+
+    	'Open up Categories
+    	.Image("CategorySearch").Click
+    	WriteToReport micDone, "Clicked the Search Icon For Categories", "Search Image Clicked", FALSE
+
+    	'Grab a random category other than the original
+    	Set oTable = Browser("PeopleSoft Browser").Page("AssetCostAdjustTransfers").PSFrame("LookUpCategory").WebTable("Categories")
+    	nRows = oTable.GetROProperty("rows")
+    	
+    	Do Until bNewCatChosen
+    		Randomize
+    		nChoice = Int((nRows-MIN+1)*Rnd)+MIN 'Calculates a row number between 2 and nRows
+    		If oTable.Cell(nChoice, 1).GetROProperty("innertext") <> sOrigCat  Then
+    			bNewCatChosen = TRUE
+    			WriteToReport micDone, "New Category Chosen: "&oTable.Cell(nChoice, 1).GetROProperty("innertext"), "New Category Chosen to be Clicked and Set", FALSE
+    			oTable.ChildItem(nChoice, 1, "Link", 0).Click
+    		End If
+    	Loop
+
+    	'Note the Cost to look for later
+		If GlobalDictionary.Exists("AssetAmount") Then
+			GlobalDictionary.Remove("AssetAmount")
+		End If
+		GlobalDictionary.Add "AssetAmount", .WebEdit("Cost").GetROProperty("value")
+		WriteToReport micDone, "Asset Cost Stored for Later Use: "&GlobalDictionary("AssetAmount"), "Asset Cost Stored", FALSE
+
+    	'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With
+	GlobalDictionary.Add "ReviewRecat", "TRUE" 
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Disposes of an Asset 3.01/3.02
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function DisposeAsset
+	Const ROWS = 1
+	Const DISP_CODE = "Abandonment"
+	'Navigate to Disposal Worksheet
+	If SelectMainMenu1(GlobalDictionary("DisposalWorksheet")) Then
+		WriteToReport micPass, "Disposal Worksheet Page", "On the Disposal Worksheet page.", FALSE
+	Else
+		WriteToReport micFail, "Disposal Worksheet Page", "Navigation to Disposal Worksheet page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("DisposalWorksheet").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set AssetID
+		.WebEdit("FromAssetID").Set GlobalDictionary("AssetID")
+		.WebEdit("ToAssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Set the From/To AssetID to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+
+		'Set Status
+		.WebList("AssetStatus").Select GlobalDictionary("Status")
+		WriteToReport micDone, "Selected Asset Status: "&GlobalDictionary("Status"), "Asset Status Selected", FALSE
+
+		'Set Rows to Retrieve
+		.WebEdit("Rows").Set ROWS
+		WriteToReport micDone, "Set the Rows to Retrieve to: "&ROWS, "Rows Field Set", FALSE
+
+		'Click Retrieve
+		.WebButton("Retrieve").Click
+		WriteToReport micDone, "Clicked the Retrieve Button", "Button Clicked", FALSE
+
+		'Set Retire and Accounting Date
+		.WebEdit("RetireDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 2 + Month(Now), 0)) 'Last Day of next month
+		.WebEdit("AccountingDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 2 + Month(Now), 0))
+		WriteToReport micDone, "Set the Retire and Accounting Dates to the Last Day of Next Month: "&AnyDateLeadingZeros(DateSerial(Year(Now), 2 + Month(Now), 0)), "Date Set", FALSE
+
+		'Click Set All
+		.WebButton("SetAll").Click
+		WriteToReport micDone, "Clicked Set All Button", "Button Clicked", FALSE
+
+		'Clear the Disposal Code Dropdown
+		.WebList("DisposalCode").Select DISP_CODE
+		WriteToReport micDone, "Set the Option from the Disposal Code List: "&DISP_CODE, "Option Selected", FALSE
+
+		'Mark the Single Row for Disposal
+		.WebCheckBox("DisposeFirstRow").Click
+		WriteToReport micDone, "Clicked the Single Row Shown for Disposal", "Checkbox Marked", FALSE
+
+    	'Click Submit For Disposal
+		.WebButton("SubmitForDisposal").Click
+		WriteToReport micDone, "Clicked the Submit For Disposal Button", "Button Clicked", FALSE
+
+		'Warning Appears, Click OK
+		If NOT Browser("PeopleSoft Browser").Page("DisposalWorksheet").WebButton("OK").Exist(30) Then
+			WriteToReport micFail, "The Warning Before Disposing the Asset Failed to Appear", "Warning Not Displayed", TRUE
+			ExitTest
+		End If
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("DisposalWorksheet").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button from the Warning", "Warning Dismissed", FALSE
+	End With
+	GlobalDictionary.Add "ReviewDisposal", "TRUE"
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Runs the AMIF1000 Process for an Asset being Loaded
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'29Mar2019			Eric Trout	Added Click of Interface ID to sort newest first, added Selecting Process, since it now no longer autoselects 
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function LoadTransactionsIntoAM
+	Dim sLink
+	Dim nRow, sIntfcID
+	Dim arrSearchCrit, arrTemp
+	Const LTAM = "LTAM"
+	Const PROCNAME = "AMIF1000"
+	Randomize
+	sLink = LTAM&CStr(Round(100000*Rnd))
+	Dim oShell
+	Set oShell = CreateObject("WScript.Shell")
+
+	'Navigate to Load Transactions into AM
+	If SelectMainMenu1(GlobalDictionary("LoadTransactionsIntoAM")) Then
+		WriteToReport micPass, "Load Transactions into AM Page", "On the Load Transactions into AM page.", FALSE
+	Else
+		WriteToReport micFail, "Load Transactions into AM Page", "Navigation to Load Transactions into AM page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("LoadTransactionsIntoAM")
+		'Click Add a New Value
+		.PSFrame("TargetContent").WebElement("AddANewValue").Click
+		WriteToReport micDone, "Clicked Add a New Value Tab", "Tab Clicked", FALSE
+
+		'Set Run Control ID
+		.PSFrame("TargetContent").WebEdit("RunControlID").Set sLink
+		WriteToReport micDone, "Set Run Control ID to: "&sLink, "Run Control ID Set", FALSE
+
+		'Click Add
+		.PSFrame("TargetContent").WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		Browser("PeopleSoft Browser").Sync
+		
+		'Set Process Frequency
+		.PSFrame("TargetContent").WebList("ProcessFrequency").Select GlobalDictionary("LTAM_ProcFreq")
+		WriteToReport micDone, "Set the Process Frequency to: "& GlobalDictionary("LTAM_ProcFreq"), "Process Frequency Set", FALSE
+
+		'Set BusinessUnit
+		.PSFrame("TargetContent").WebEdit("AMBusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set BusinessUnit to Search for Interface
+		.PSFrame("TargetContent").WebEdit("SearchAMBusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit (Under Find Trans Load ID) to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Select Load Type
+		.PSFrame("TargetContent").WebList("LoadType").Select GlobalDictionary("LTAM_LoadType")
+		WriteToReport micDone, "Selected Load Type: "&GlobalDictionary("LTAM_LoadType"), "Load Type Selected", FALSE
+
+		'Select Load Status
+		.PSFrame("TargetContent").WebList("LoadStatus").Select GlobalDictionary("LTAM_LoadStatus")
+		WriteToReport micDone, "Selected Load Status: "&GlobalDictionary("LTAM_LoadStatus"), "Load Status Selected", FALSE
+
+		'Click Search
+		.PSFrame("TargetContent").WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		Wait 3
+
+		'Find the most recent Interface ID for our search
+		arrSearchCrit = Array(GlobalDictionary("BusinessUnit"), GlobalDictionary("LTAM_LoadType"))
+		
+		'Click on Interface ID to ensure most current it on top
+		.PSFrame("TargetContent").WebElement("Interface ID Header").Click
+		
+		wait 1
+		
+		nRow = FindRowWithText(.PSFrame("TargetContent").WebTable("Interfaces"), arrSearchCrit)
+		If nRow = -1 Then
+			WriteToReport micFail, "Could Not Find Any Interface ID for Load Type ["&GlobalDictionary("LTAM_LoadType")&"] and Load Status ["&GlobalDictionary("LTAM_LoadStatus")&"]", "No Interface ID Found", TRUE
+			ExitTest
+		End If
+
+		'Get the Interface ID from that Row
+		sIntfcID = Trim(CStr(.PSFrame("TargetContent").WebTable("Interfaces").Cell(nRow, 1).GetROProperty("innertext")))
+		WriteToReport micDone, "Using Interface ID ["&sIntfcID&"] from row: "&nRow, "Interface ID Found", FALSE
+
+		'Set the From/To Interface ID
+		.PSFrame("TargetContent").WebEdit("InterfaceID").Set sIntfcID
+		' Call oShell.SendKeys("{BACKSPACE}")
+		' Call oShell.SendKeys("{DEL}")
+		' Call oShell.SendKeys(sIntfcID)
+		Call oShell.SendKeys("~")'ENTER
+		WriteToReport micDone, "Set the Interface ID From and To Fields to: "&sIntfcID, "Interface ID Set", FALSE
+		Wait 3
+		If .PSFrame("TargetContent").WebEdit("InterfaceID").GetROProperty("value") <> sIntfcID Then
+			WriteToReport micFail, "Failed to Set the Interface ID", "Set Failed", TRUE
+			ExitTest
+		End If
+
+		'Click Run
+		.PSFrame("TargetContent").WebButton("Run").Click
+		WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+		
+			'Verify Process checkbox is displayed
+		If .WebCheckBox("Transaction Loader").Exist(10) Then
+			.WebCheckBox("Transaction Loader").Set "ON"
+			WriteToReport micPass, "Process Selected", "Transaction Loader, AMIF1000 ", FALSE
+		Else
+			WriteToReport micFail, "The Asset Was Marked Disposed in the Database", "Asset Properly Disposed", FALSE
+			ExitTest
+		End  If
+		
+		.WebButton("OK").Click
+
+		'Click OK
+		'Browser("PeopleSoft Browser").Page("LoadTransactionsIntoAM").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Click Process Monitor
+		.PSFrame("TargetContent").Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+	End With
+
+	'Monitor until Success/Posted
+	Call CheckProcessMontiorStatus(PROCNAME)
+	If GlobalDictionary("ReviewDisposal") Then
+		arrTemp = dbGetAssetStatus(GlobalDictionary("AssetID"))
+		If arrTemp(0) <> "D" Then
+			WriteToReport micFail, "The Asset Was Not Marked Disposed in the Database", "Asset Not Properly Disposed", FALSE
+			ExitTest
+		Else
+			WriteToReport micPass, "The Asset Was Marked Disposed in the Database", "Asset Properly Disposed", FALSE
+		End If
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Reviews a Disposed Asset's Financial Entries
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ReviewDisposedFinancialEntry
+	Dim nRows, sDateEONM, nSum
+	Const RET = "RET"
+	Const DISP = "Disposed"
+	Const ZERO = "0.00"
+	Const ACTG_DATE_COL = 2
+	Const TRANSTYPE_COL = 3
+	Const AMOUNT_COL = 2
+	sDateEONM = AnyDateLeadingZeros(DateSerial(Year(Now), 2 + Month(Now), 0))
+	'Navigate to Review Financial Entries
+	If SelectMainMenu1(GlobalDictionary("ReviewFinEntries")) Then
+		WriteToReport micPass, "Review Financial Entries Page", "On the Review Financial Entries page.", FALSE
+	Else
+		WriteToReport micFail, "Review Financial Entries Page", "Navigation to Review Financial Entries page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AssetAccountingEntries").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Asset ID
+		.WebEdit("AssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Asset ID set to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		Browser("PeopleSoft Browser").Sync
+
+		'Verify Tag is Disposed
+		If .WebElement("Tag").GetROProperty("innertext") <> DISP Then
+			WriteToReport micFail, "Asset Tag was not Disposed as Expected", "Incorrect Tag", TRUE
+			ExitTest
+		End If
+
+		'Click View All, if applicable
+		If .Link("ViewAll-ActngEntries").Exist(5) Then
+			.Link("ViewAll-ActngEntries").Click
+			WriteToReport micDone, "Clicked the View All Link for Accounting Entries Table", "Link Clicked", FALSE
+		End If
+
+		'If Table has one entry, Check for TODAY with Amount 0.00
+		If .WebTable("LeftActgEntries").GetROProperty("rows") = 1 Then
+			If (Trim(.WebTable("LeftActgEntries").Cell(1,2).GetROProperty("innertext")) <> sDateEONM) AND (Trim(.WebTable("RightActgEntries").Cell(1, 2).GetROProperty("innertext")) <> ZERO) Then
+				WriteToReport micFail, "Expected Row 1 with Acctg Date ["&sDateEONM&"] and Amount [0.00], But Did Not Find It", "Incorrect Row Data", TRUE
+				ExitTest
+			Else
+				WriteToReport micPass, "Found Row 1 with Acctg Date ["&sDateEONM&"] and Amount [0.00]", "Correct Row Data", FALSE
+			End If
+		Else 'Check the last three rows for EOM next month, RET, and that the Amounts are sum to zero
+			nRows = .WebTable("LeftActgEntries").GetROProperty("rows")
+			'Check date of third to last row
+			If Trim(.WebTable("LeftActgEntries").Cell(nRows-2,ACTG_DATE_COL).GetROProperty("innertext")) <> sDateEONM Then
+				WriteToReport micFail, "The Date on the Next To Last Row was Not End of Next Month: "&sDateEONM, "Incorrect Date, Value was Instead: "&.WebTable("LeftActgEntries").Cell(nRows-1,ACTG_DATE_COL).GetROProperty("innertext"), TRUE
+			Else
+				WriteToReport micPass, "The Date on the Next To Last Row Was End of Next Month: "&sDateEONM, "Correct Date", FALSE
+			End If
+			'Check date of next to last row
+			If Trim(.WebTable("LeftActgEntries").Cell(nRows-1,ACTG_DATE_COL).GetROProperty("innertext")) <> sDateEONM Then
+				WriteToReport micFail, "The Date on the Next To Last Row was Not End of Next Month: "&sDateEONM, "Incorrect Date, Value was Instead: "&.WebTable("LeftActgEntries").Cell(nRows-1,ACTG_DATE_COL).GetROProperty("innertext"), TRUE
+			Else
+				WriteToReport micPass, "The Date on the Next To Last Row Was End of Next Month: "&sDateEONM, "Correct Date", FALSE
+			End If
+			'Check date of last row
+			If Trim(.WebTable("LeftActgEntries").Cell(nRows,ACTG_DATE_COL).GetROProperty("innertext")) <> sDateEONM Then
+				WriteToReport micFail, "The Date on the Last Row was Not End of Next Month: "&sDateEONM, "Incorrect Date, Value was Instead: "&.WebTable("LeftActgEntries").Cell(nRows,ACTG_DATE_COL).GetROProperty("innertext"), TRUE
+			Else
+				WriteToReport micPass, "The Date on the Last Row Was End of Next Month: "&sDateEONM, "Correct Date", FALSE
+			End If
+			'Check Trans Type of third to last row
+			If Trim(.WebTable("LeftActgEntries").Cell(nRows-2,TRANSTYPE_COL).GetROProperty("innertext")) <> RET Then
+				WriteToReport micFail, "The Trans Type on the Next To Last Row was not RET", "Incorrect Trans Type, Value was Instead: "&.WebTable("LeftActgEntries").Cell(nRows-1,TRANSTYPE_COL).GetROProperty("innertext"), TRUE
+			Else
+				WriteToReport micPass, "The Trans Type On the Next To Last Row was RET", "Correct Trans Type", FALSE
+			End If
+			'Check Trans Type of next to last row
+			If Trim(.WebTable("LeftActgEntries").Cell(nRows-1,TRANSTYPE_COL).GetROProperty("innertext")) <> RET Then
+				WriteToReport micFail, "The Trans Type on the Next To Last Row was not RET", "Incorrect Trans Type, Value was Instead: "&.WebTable("LeftActgEntries").Cell(nRows-1,TRANSTYPE_COL).GetROProperty("innertext"), TRUE
+			Else
+				WriteToReport micPass, "The Trans Type On the Next To Last Row was RET", "Correct Trans Type", FALSE
+			End If
+			'Check Trans Type of last row
+			If Trim(.WebTable("LeftActgEntries").Cell(nRows,TRANSTYPE_COL).GetROProperty("innertext")) <> RET Then
+				WriteToReport micFail, "The Trans Type on the Last Row was not RET", "Incorrect Trans Type, Value was Instead: "&.WebTable("LeftActgEntries").Cell(nRows,TRANSTYPE_COL).GetROProperty("innertext"), TRUE
+			Else
+				WriteToReport micPass, "The Trans Type On the Last Row was RET", "Correct Trans Type", FALSE
+			End If
+			'Check for sum of zero
+			nSum = Round(CDbl(.WebTable("RightActgEntries").Cell(nRows-1,AMOUNT_COL).GetROProperty("innertext")) + CDbl(.WebTable("RightActgEntries").Cell(nRows,AMOUNT_COL).GetROProperty("innertext")))
+			nSum = Round(nSum + CDbl(.WebTable("RightActgEntries").Cell(nRows-2,AMOUNT_COL).GetROProperty("innertext")))
+			If nSum <> 0.0 Then
+				WriteToReport micFail, "The Last Three Rows Did Not Sum to Zero", "Unexpected Amounts Displayed", TRUE
+				WriteToReport micFail, "Third To Last Row Amount", ""&.WebTable("RightActgEntries").Cell(nRows-2,AMOUNT_COL).GetROProperty("innertext"), FALSE
+				WriteToReport micFail, "Next To Last Row Amount", ""&.WebTable("RightActgEntries").Cell(nRows-1,AMOUNT_COL).GetROProperty("innertext"), FALSE
+				WriteToReport micFail, "Last Row Amount", ""&.WebTable("RightActgEntries").Cell(nRows,AMOUNT_COL).GetROProperty("innertext"), FALSE
+			Else
+				WriteToReport micPass, "The Last Three Rows Summed to Zero", "Expected Amounts Displayed", FALSE
+			End If
+		End If
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Verifies all Drill Down Options can be Navigated to from the Search for an Asset Page
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function VerifyAllDrillDowns
+	Dim i, sOption
+	Const ORIG_NAME = "Search for an Asset"
+
+	'Get an Asset ID
+	If GlobalDictionary.Exists("AssetID") Then
+       	GlobalDictionary.Remove("AssetID")
+    End If
+    GlobalDictionary.Add "AssetID", dbGetAnyAssetID()(0)
+    WriteToReport micDone, "Asset To Be Searched has ID: "&GlobalDictionary("AssetID"), "Asset ID Stored", FALSE
+    
+    'Search for the found Asset
+	Call SearchForAnAsset
+
+	With Browser("PeopleSoft Browser").Page("SearchForAnAsset").PSFrame("TargetContent")
+		.WebRadioGroup("FirstRowUnit").Click
+		WriteToReport micDone, "Clicked the Radio Button for the Asset on the First Row", "Radio Button Clicked", FALSE
+
+		For i=2 To .WebList("Drill-DownTo").GetROProperty("items count")-1 'Skip index 0 (blank) and 1 (default selector). Subtract 1 since index starts at 0
+			.WebList("Drill-DownTo").Select "#"&i '#i will select the option at the index given
+			sOption = .WebList("Drill-DownTo").GetROProperty("value")
+			WriteToReport micDone, "Option Selected: "&sOption, "Option Selected", FALSE
+
+			'Click GO!
+			.WebButton("GO!").Click
+			WriteToReport micDone, "Clicked the GO! Button", "Button Clicked", FALSE
+			
+			'Check that the new tab exists
+			If Browser("creationtime:=1").Exist(30) Then
+				Wait 10'Gives it time to load properly. Sync did not work
+				'Check that the object below isnt looking for the original tab
+				If Browser("creationtime:=1").GetROProperty("name") <> ORIG_NAME Then
+					WriteToReport micPass, "New Tab Opened with Page Name: "&Browser("creationtime:=1").GetROProperty("name"), "Tab Opened", FALSE
+				Else 'The Tab does not exist or automation did not recognize the new tab under creationtime:=1
+					WriteToReport micFail, sOption&" Tab Failed to Open or Was Not Identified Prpoerly", "Tab Failed to Open from the Drill-Down To Option Previously Selected", TRUE
+					ExitTest
+				End If
+			Else'check exists under 30 
+				WriteToReport micFail, sOption&" Tab Failed to Open In 30 Seconds", "Tab Failed to Open from the Drill-Down To Option Previously Selected", TRUE
+				ExitTest
+			End If
+			'Close the new tab
+			Browser("creationtime:=1").Close
+			WriteToReport micDone, "Closed the New Tab", "Tab Closed", FALSE
+			Wait 5
+		Next
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Generates all Journals for AM
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'04/24/2019			Stephen King	Added syncs when leaving Run ID page. Added checks to not click checkboxes if already clicked. Added GlobalDictionary flags for certain Project Costing steps that won't interfere with AM tests
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AMGenerateJournals
+	Const AM_GEN_JRL = "AM_GEN_JRL"
+	Const SPEC_DATE = "Specify Date"
+	Const PROCNAME = "FS_JGEN"
+	Dim sProcInst
+
+	'Navigate to Generate Journals Under Subsystem Journals
+	If SelectMainMenu1(GlobalDictionary("GLGenerateJournals")) Then
+		WriteToReport micPass, "Generate Journals Page", "On the Generate Journals page.", FALSE
+	Else
+		WriteToReport micFail, "Generate Journals Page", "Navigation to Generate Journals page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("GenerateJournals").PSFrame("TargetContent")
+		'Click Add a New Value
+		.WebElement("AddANewValue").Click
+		WriteToReport micDone, "Clicked Add a New Value Tab", "Tab Clicked", FALSE
+
+		'Set Run Control ID
+		.WebEdit("RunControlID").Set AM_GEN_JRL
+		WriteToReport micDone, "Set Run Control ID to: "&AM_GEN_JRL, "Run Control ID Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+		Browser("PeopleSoft Browser").Sync
+
+		'Check If Link already exists
+		If .Link("AM_GEN_JRL").Exist Then
+			WriteToReport micDone, "AM_GEN_JRL Run Control ID Already Exists, Clicking Link", "Link Clicked", FALSE
+			.Link("AM_GEN_JRL").Click
+			Browser("PeopleSoft Browser").Sync
+		End If
+
+		If .WebCheckBox("Edit").GetROProperty("checked") = 0 Then
+			.WebCheckBox("Edit").Click
+		End If
+		WriteToReport micDone, "Edit Checkbox Clicked", "Checkbox Clicked", FALSE
+
+		If .WebCheckBox("Post").GetROProperty("checked") = 0 Then
+			.WebCheckBox("Post").Click
+		End If
+		WriteToReport micDone, "Post Checkbox Clicked", "Checkbox Clicked", FALSE
+
+		.WebElement("Always").Click
+		WriteToReport micDone, "Process Frequency Always Clicked", "Process Frequency Chosen", FALSE
+
+		.WebEdit("AccountingDefinitionName").Set GlobalDictionary("AM_ADN")
+		WriteToReport micDone, "Set the Accounting Definition Name to: "&GlobalDictionary("AM_ADN"), "Accounting Definition Name Set", FALSE
+
+		'Set or clear the field depending on test case
+		If GlobalDictionary("ForceBusinessUnit") <> "" Then
+			.WebEdit("AppBusinessUnit").Set GlobalDictionary("ForceBusinessUnit")
+			WriteToReport micDone, "Set the Application Business Unit", GlobalDictionary("ForceBusinessUnit"), FALSE
+		Else
+			.WebEdit("AppBusinessUnit").Set "" 'Clear the field
+			WriteToReport micDone, "Cleared the Application Business Unit", "Field Cleared", FALSE
+		End If
+
+		'Set or clear the field depending on test case
+		If GlobalDictionary("ForceLedgerGroup") <> "" Then
+			.WebEdit("LedgerGroup").Set GlobalDictionary("ForceLedgerGroup")
+			WriteToReport micDone, "Set the Ledger Group", GlobalDictionary("ForceLedgerGroup"), FALSE
+		Else
+			.WebEdit("LedgerGroup").Set "" 'Clear the field
+			WriteToReport micDone, "Cleared the Ledger Group", "Field Cleared", FALSE
+		End If
+
+		.WebList("FromDateOption").Select SPEC_DATE
+		.WebList("ToDateOption").Select SPEC_DATE
+		WriteToReport micDone, "Selected to Specify Date for From/To Date Fields", "Option Selected", FALSE
+
+		.WebEdit("FromDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)) 'First Day of the Month
+		WriteToReport micDone, "Set From Date to: "&AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "From Date Set", FALSE
+
+		.WebEdit("ToDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)) 'Last Day of the Month
+		WriteToReport micDone, "Set To Date to: "&AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "To Date Set", FALSE
+
+		'Click Run
+		.WebButton("Run").Click
+		WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+		'Click FS_JGEN checkbox
+		If Browser("PeopleSoft Browser").Page("GenerateJournals").PSFrame("ProcessSchedulerRequest").WebCheckBox("FS_JGEN").Exist(20) Then
+			If Browser("PeopleSoft Browser").Page("GenerateJournals").PSFrame("ProcessSchedulerRequest").WebCheckBox("FS_JGEN").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+				Browser("PeopleSoft Browser").Page("GenerateJournals").PSFrame("ProcessSchedulerRequest").WebCheckBox("FS_JGEN").Click
+				WriteToReport micDone, "Clicked the Checkbox for FS_JGEN", "Checkbox Checked", FALSE
+			Else
+				WriteToReport micDone, "Checkbox for FS_JGEN Already Checked", "No Action Taken", FALSE
+			End If
+		Else
+			WriteToReport micFail, "Failed to Window After Clicking Run", "Window Not Shown", TRUE
+			ExitTest
+		End If
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("GenerateJournals").PSFrame("ProcessSchedulerRequest").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Note Process Instance
+		If .WebElement("ProcessInstance").Exist(15) Then
+			sProcInst = Split(.WebElement("ProcessInstance").GetROProperty("innertext"), ":")(1)
+			WriteToReport micPass, "Instance ["&sProcInst&"] Started", PROCNAME&" Process Started", FALSE
+		End If
+
+		'Click Process Monitor
+		.Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+
+		'Monitor until Success/Posted
+		Call CheckProcessMontiorStatus(PROCNAME)
+
+		'Project costing tests use a flag that doesn't require this step. However, AM tests should never have this flag, so when it's null/empty, run the function
+		If GLobalDictionary("NotAM") = "" Then
+			Call ReviewAMGeneratedJournals(sProcInst)
+		End  If
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Runs Depreciation Calculation for Each Business Unit
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function DepreciationCalculationEachBU
+	Dim sProcInst, sLink
+	Dim arrBUs, arrBooks
+	Dim i
+	Const DEPR_CALC = "DEPR_CALC"
+	Const PROCNAME = "AM_DEPR_CALC"
+	
+	arrBUs = Split(GlobalDictionary("All_BUs"), ",")
+	arrBooks = Split(GlobalDictionary("All_Books"), ",")
+
+	If GlobalDictionary.Exists("DEPR_Time") Then
+   		GlobalDictionary.Remove("DEPR_Time")
+	End If
+	GlobalDictionary.Add "DEPR_Time", SQLDateLeadingZeros&" "&Hour(Now)&":"&Minute(Now)&":00"
+	WriteToReport micDone, "DEPR_CALC Time Start: "&GlobalDictionary("DEPR_Time"), "Time Stored", FALSE
+
+	For i=0 To UBound(arrBUs)
+		Randomize
+		sLink = DEPR_CALC&CStr(Round(100000*Rnd))
+		'Navigate to Calculate under Depreciation
+		If SelectMainMenu1(GlobalDictionary("DeprCalculate")) Then
+			WriteToReport micPass, "Depreciation Calculation Page", "On the Depreciation Calculation page.", FALSE
+		Else
+			WriteToReport micFail, "Depreciation Calculation Page", "Navigation to Depreciation Calculation page failed. Exiting test.", TRUE
+			ExitTest
+		End If
+
+		With Browser("PeopleSoft Browser").Page("DepreciationCalculation").PSFrame("TargetContent")
+			'Click Add a New Value Tab
+			.WebElement("AddANewValue").Click
+			WriteToReport micDone, "Clicked Add a New Value Tab", "Tab Clicked", FALSE
+
+			'Set Run Control ID
+			.WebEdit("RunControlID").Set sLink
+			WriteToReport micDone, "Set Run Control ID to: "&sLink, "Run Control ID Set", FALSE
+
+			'Click Add
+			.WebButton("Add").Click
+			WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+			Browser("PeopleSoft Browser").Sync
+
+			'If it already exists, click the Link else on page to create the Run Control
+			Call .Link("DEPR_CALC").SetTOProperty("innertext", sLink)
+			If .Link("DEPR_CALC").Exist(5) Then
+				.Link("DEPR_CALC").Click
+				WriteToReport micDone, "Run Control ID with Name "&sLink&" Already Exists; Link Clicked After Add Clicked", "Link Clicked", FALSE
+			End If
+			
+			'Set BusinessUnit
+			.WebEdit("BusinessUnit").Set arrBUs(i)
+			WriteToReport micDone, "Set Business Unit to: "&arrBUs(i), "BU Set", FALSE
+
+			'Set Process Frequency
+			.WebList("ProcessFrequency").Select GlobalDictionary("Depr_ProcFreq")
+			WriteToReport micDone, "Set the Process Frequency to: "& GlobalDictionary("Depr_ProcFreq"), "Process Frequency Set", FALSE
+
+			'Set Asset ID
+			.WebEdit("FromAssetID").Set ""
+			.WebEdit("ToAssetID").Set ""
+			
+			'Click Run
+			.WebButton("Run").Click
+			WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+			'Click OK
+			Browser("PeopleSoft Browser").Page("DepreciationCalculation").WebButton("OK").Click
+			WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+			'Note Process Instance
+			If .WebElement("ProcessInstance").Exist(15) Then
+				sProcInst = Split(.WebElement("ProcessInstance").GetROProperty("innertext"), ":")(1)
+				WriteToReport micPass, "Instance ["&sProcInst&"] Started", PROCNAME&" Process Started", FALSE
+			End If
+
+			'Click Process Monitor
+			.Link("ProcessMonitor").Click
+			WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+		End With
+
+		'Monitor until Success/Posted
+		Call CheckProcessMontiorStatus(PROCNAME)
+	Next
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Creates Accounting Entries for Each Business Unit
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function CreateAccountingEntriesEachBU
+	Dim sProcInst, sLink
+	Dim i
+	Dim arrBUs, arrBooks
+	Const ACTG_ENTRY_CRT = "ACTG_ENTRY_CRT"
+	Const PROCNAME = "AM_AMAEDIST"
+	arrBUs = Split(GlobalDictionary("All_BUs"), ",")
+	arrBooks = Split(GlobalDictionary("All_Books"), ",")
+
+	If GlobalDictionary.Exists("AEC_Time") Then
+   		GlobalDictionary.Remove("AEC_Time")
+	End If
+	GlobalDictionary.Add "AEC_Time", SQLDateLeadingZeros&" "&Hour(Now)&":"&Minute(Now)&":00"
+	WriteToReport micDone, "ACTG_ENTRY_CRT Time Start: "&GlobalDictionary("AEC_Time"), "Time Stored", FALSE
+
+	For i=0 To UBound(arrBUs)
+		Randomize
+		sLink = ACTG_ENTRY_CRT&CStr(Round(100000*Rnd))
+		'Navigate to Create Accounting Entries
+		If SelectMainMenu1(GlobalDictionary("CreateActgEntries")) Then
+			WriteToReport micPass, "Create Accounting Entries Page", "On the Create Accounting Entries page.", FALSE
+		Else
+			WriteToReport micFail, "Create Accounting Entries Page", "Navigation to Create Accounting Entries page failed. Exiting test.", TRUE
+			ExitTest
+		End If
+
+		With Browser("PeopleSoft Browser").Page("AccountingEntryCreation").PSFrame("TargetContent")
+			'Click Add a New Value
+			.WebElement("AddANewValue").Click
+			WriteToReport micDone, "Clicked Add a New Value Tab", "Tab Clicked", FALSE
+
+			'Set Run Control ID
+			.WebEdit("RunControlID").Set sLink
+			WriteToReport micDone, "Set Run Control ID to: "&sLink, "Run Control ID Set", FALSE
+
+			'Click Add
+			.WebButton("Add").Click
+			WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+			'If it already exists, click the Link else on page to create the Run Control
+			Call .Link("ACTG_ENTRY_CRT").SetTOProperty("innertext", sLink)
+			If .Link("ACTG_ENTRY_CRT").Exist(5) Then
+				.Link("ACTG_ENTRY_CRT").Click
+				WriteToReport micDone, "Run Control ID with Name "&sLink&" Already Exists; Link Clicked After Add Clicked", "Link Clicked", FALSE
+			End If
+			
+			'Set Process Frequency
+			.WebList("ProcessFrequency").Select GlobalDictionary("AEC_ProcFreq")
+			WriteToReport micDone, "Set the Process Frequency to: "& GlobalDictionary("AEC_ProcFreq"), "Process Frequency Set", FALSE
+
+			'Set BusinessUnit
+			.WebEdit("BusinessUnit").Set arrBUs(i)
+			WriteToReport micDone, "Set Business Unit to: "&arrBUs(i), "BU Set", FALSE
+
+			'Set Book Name
+			.WebEdit("BookName").Set arrBooks(i)
+			WriteToReport micDone, "Set Book Name to: "&arrBooks(i), "Book Name Set", FALSE
+
+			'Set Asset ID To/From
+			.WebEdit("FromAssetID").Set ""
+			.WebEdit("ToAssetID").Set ""
+			WriteToReport micDone, "From/To Asset ID Set Empty", "From/To Asset ID Cleared", FALSE
+
+			'Click Run
+			.WebButton("Run").Click
+			WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+			'Click OK
+			Browser("PeopleSoft Browser").Page("AccountingEntryCreation").WebButton("OK").Click
+			WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+			'Note Process Instance
+			If .WebElement("ProcessInstance").Exist(15) Then
+				sProcInst = Split(.WebElement("ProcessInstance").GetROProperty("innertext"), ":")(1)
+				WriteToReport micPass, "Instance ["&sProcInst&"] Started", PROCNAME&" Process Started", FALSE
+			End If
+
+			'Click Process Monitor
+			.Link("ProcessMonitor").Click
+			WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+		End With
+
+		'Monitor until Success/Posted
+		Call CheckProcessMontiorStatus(PROCNAME)
+	Next
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Runs Depreciation Close Process
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function DepreciationClose
+	Dim i
+	Dim sProcInst
+	Dim arrBUs, arrBooks
+	Const DEPR_CLOSE = "DEPR_CLOSE"
+	Const PROC_FREQ = "Always"
+	Const PROCNAME = "AM_DPCLOSE"
+	arrBUs = Split(GlobalDictionary("All_BUs"), ",")
+	arrBooks = Split(GlobalDictionary("All_Books"), ",")
+	For i=0 To UBound(arrBUs)
+		'Navigate to Close Depreciation
+		If SelectMainMenu1(GlobalDictionary("DeprClose")) Then
+			WriteToReport micPass, "Close Depreciation Page", "On the Close Depreciation page.", FALSE
+		Else
+			WriteToReport micFail, "Close Depreciation Page", "Navigation to Close Depreciation page failed. Exiting test.", TRUE
+			ExitTest
+		End If
+
+		With Browser("PeopleSoft Browser").Page("DepreciationClose").PSFrame("TargetContent")
+			'Click Add a New Value
+			.WebElement("AddANewValue").Click
+			WriteToReport micDone, "Clicked Add a New Value Tab", "Tab Clicked", FALSE
+
+			'Set Run Control ID
+			.WebEdit("RunControlID").Set DEPR_CLOSE
+			WriteToReport micDone, "Set Run Control ID to: "&DEPR_CLOSE, "Run Control ID Set", FALSE
+
+			'Click Add
+			.WebButton("Add").Click
+			WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+			'If it already exists, click the Link else on page to create the Run Control
+			If .Link("DEPR_CLOSE").Exist(5) Then
+				.Link("DEPR_CLOSE").Click
+				WriteToReport micDone, "Run Control ID with Name "&DEPR_CLOSE&" Already Exists; Link Clicked After Add Clicked", "Link Clicked", FALSE
+			End If
+
+			'Set Process Frequency
+			.WebList("ProcessFrequency").Select PROC_FREQ
+			WriteToReport micDone, "Set the Process Frequency to: "& PROC_FREQ, "Process Frequency Set", FALSE
+
+			'Set BusinessUnit
+			.WebEdit("BusinessUnit").Set arrBUs(i)
+			WriteToReport micDone, "Set Business Unit to: "&arrBUs(i), "BU Set", FALSE
+
+			'Set Book Name
+			.WebList("BookName").Select arrBooks(i)
+			WriteToReport micDone, "Selected Book Name to: "&arrBooks(i), "Book Name Selected", FALSE
+
+			'Set Fiscal Year
+			.WebEdit("FiscalYear").Set Year(Date)
+
+			'Set Period
+			.WebEdit("Period").Set Month(Date)
+
+			'Check if we need to rerun, happens if test case failed or entrie AM 4.0X test cases are being rerun
+			If GlobalDictionary("Rerun") = "TRUE" Then
+				If .WebCheckBox("Rerun").GetROProperty("checked") <> 1 Then '1 is checked, 0 is cleared
+					.WebCheckBox("Rerun").Click
+				End If
+				If .WebCheckBox("ReversePostedEntries").GetROProperty("checked") <> 1 Then '1 is checked, 0 is cleared
+					.WebCheckBox("ReversePostedEntries").Click
+				End If
+				WriteToReport micWarning, "Rerunning Depr Close", "Rerun Options Set", FALSE
+			Else
+				If .WebCheckBox("Rerun").GetROProperty("checked") = 1 Then '1 is checked, 0 is cleared
+					.WebCheckBox("Rerun").Click
+				End If
+				If .WebCheckBox("ReversePostedEntries").GetROProperty("checked") = 1 Then '1 is checked, 0 is cleared
+					.WebCheckBox("ReversePostedEntries").Click
+				End If
+				WriteToReport micDone, "Depr Close", "Rerun Options Cleared", FALSE
+			End If
+
+			'Click Run
+			.WebButton("Run").Click
+			WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+			If GlobalDictionary("Rerun") = "TRUE" Then
+				'Click Yes
+				Browser("PeopleSoft Browser").Page("DepreciationClose").WebButton("Yes").Click
+				WriteToReport micDone, "Clicked the Yes Button", "Button Clicked", FALSE
+			Else
+				If Browser("PeopleSoft Browser").Page("DepreciationClose").WebButton("Yes").Exist(5) Then
+					WriteToReport micFail, "Double Check if you are trying to Rerun Depr Close; The Warning Appeared", "Warning Appeared", TRUE
+					ExitTest
+				End If
+			End If
+
+			'Click OK
+			Browser("PeopleSoft Browser").Page("DepreciationClose").WebButton("OK").Click
+			WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+			'Note Process Instance
+			If .WebElement("ProcessInstance").Exist(15) Then
+				sProcInst = Split(.WebElement("ProcessInstance").GetROProperty("innertext"), ":")(1)
+				WriteToReport micPass, "Instance ["&sProcInst&"] Started", PROCNAME&" Process Started", FALSE
+			End If
+
+			'Click Process Monitor
+			.Link("ProcessMonitor").Click
+			WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+		End With
+		'Monitor until Success/Posted
+		Call CheckProcessMontiorStatus(PROCNAME)
+	Next
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Makes sure all Generated Journals Appear under Create/Modify Journals
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Private Function ReviewAMGeneratedJournals(ProcessInstance)
+	Dim arrResult, i
+	arrResult = dbFindAMJournals(ProcessInstance)
+	For i=1 To UBound(arrResult) 'Skip index 0, it is not a valid row
+		'Navigate to the PeopleSoft Create/Update Journal Entries page
+		If SelectMainMenu1(GlobalDictionary("GLCreateUpdateJournals")) Then
+			WriteToReport micPass, "ReviewAMGeneratedJournals - Create/Edit Journal Page", "On the Create/Update Journal Entries page.", False
+		Else
+			WriteToReport micFail, "ReviewAMGeneratedJournals - Create/Edit Journal Page", "Navigation to Create/Update Journal Entries page failed. Exiting test.", True
+			ExitTest
+		End If
+		Browser("PeopleSoft Browser").Sync
+		With Browser("PeopleSoft Browser").Page("Create/Update Journal").PSFrame("TargetContent")
+			If .Link("Find an Existing Value").Exist(5) Then
+				.Link("Find an Existing Value").Click
+				Browser("PeopleSoft Browser").Sync
+			End If
+
+			'Click the clear button so we don't filter by anything that we don't want
+			.WebButton("Clear").Click
+
+			'Change BU Filter to "in"
+			.WebList("BusinessUnitOption").Select "in"
+
+			'Set our Business Units
+			.WebEdit("Journal Business Unit").Set GlobalDictionary("All_BUs")
+
+			'Set Journal ID
+			.WebEdit("Journal ID").Set arrResult(i)
+			
+			'Click Search
+			.WebButton("Search").Click
+
+			'Look for link of Journal ID
+			Call .Link("JournalLink").SetTOProperty("text",arrResult(i))
+			If .Link("JournalLink").Exist(5) Then
+				WriteToReport micPass, "Journal with ID ["&arrResult(i)&"] Found", "Journal Generated Successfully", FALSE
+			Else
+				WriteToReport micFail, "Journal with ID ["&arrResult(i)&"] Not Found", "Journal Not Generated", TRUE
+				ExitTest
+			End If
+		End With
+	Next
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Runs the Load Depr Rept Table Process
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function LoadDeprReptTable
+	Dim arrBUs, i, sProcInst
+	Const DEPR_RPT = "DEPR_RPT"
+	Const PROC_FREQ = "Always"
+	Const PROCNAME = "AMDPREPT"
+	arrBUs = Split(GlobalDictionary("All_BUs"), ",")
+	For i=0 To UBound(arrBUs)
+		'Navigate to Load Depr Reporting Table
+		If SelectMainMenu1(GlobalDictionary("LoadDeprReptTable")) Then
+			WriteToReport micPass, "Load Depr Reporting Table Page", "On the Load Depr Reporting Table page.", FALSE
+		Else
+			WriteToReport micFail, "Load Depr Reporting Table Page", "Navigation to Load Depr Reporting Table page failed. Exiting test.", TRUE
+			ExitTest
+		End If
+
+		With Browser("PeopleSoft Browser").Page("DeprReportingTable").PSFrame("TargetContent")
+			'Click Add a New Value
+			.WebElement("AddANewValue").Click
+			WriteToReport micDone, "Clicked Add a New Value Tab", "Tab Clicked", FALSE
+
+			'Set Run Control ID
+			.WebEdit("RunControlID").Set DEPR_RPT
+			WriteToReport micDone, "Set Run Control ID to: "&DEPR_RPT, "Run Control ID Set", FALSE
+
+			'Click Add
+			.WebButton("Add").Click
+			WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+			'If it already exists, click the Link else on page to create the Run Control
+			If .Link("DEPR_RPT").Exist(5) Then
+				.Link("DEPR_RPT").Click
+				WriteToReport micDone, "Run Control ID with Name "&DEPR_RPT&" Already Exists; Link Clicked After Add Clicked", "Link Clicked", FALSE
+			End If
+
+			'Set Process Frequency
+			.WebList("ProcessFrequency").Select PROC_FREQ
+			WriteToReport micDone, "Set the Process Frequency to: "& PROC_FREQ, "Process Frequency Set", FALSE
+
+			'Click Keep Other Fiscal Years
+			.WebCheckBox("KeepOtherFiscalYears").Click
+			WriteToReport micDone, "Clicked the Checkbox to Keep Other Fiscal Years", "Checkbox Marked", FALSE
+
+			'Set From/To Year
+			.WebEdit("FromYear").Set Year(Date)
+			.WebEdit("ToYear").Set Year(Date)
+			WriteToReport micDone, "Set the From/To year", "Year Set", FALSE
+
+			'Set BusinessUnit
+			.WebEdit("BusinessUnit").Set arrBUs(i)
+			WriteToReport micDone, "Set Business Unit to: "&arrBUs(i), "BU Set", FALSE
+
+			'Click Run
+			.WebButton("Run").Click
+			WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+			'Click OK
+			Browser("PeopleSoft Browser").Page("DepreciationClose").WebButton("OK").Click
+			WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+			'Note Process Instance
+			If .WebElement("ProcessInstance").Exist(15) Then
+				sProcInst = Split(.WebElement("ProcessInstance").GetROProperty("innertext"), ":")(1)
+				WriteToReport micPass, "Instance ["&sProcInst&"] Started", PROCNAME&" Process Started", FALSE
+			End If
+
+			'Click Process Monitor
+			.Link("ProcessMonitor").Click
+			WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+		End With
+		'Monitor until Success/Posted
+		Call CheckProcessMontiorStatus(PROCNAME)
+	Next
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Runs the Load NBV Table Process
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function LoadNBVTable
+	Dim sProcInst, sRunID
+	Const LOAD_NBV = "LOAD_NBV"
+	Const PROCNAME = "AMLDNBVT"
+	Const RUN_ID = "QA_NBV"
+	Randomize
+	sRunID = RUN_ID & CStr(Round(100000*Rnd))
+
+	'Navigate to Load Net Book Value Table
+	If SelectMainMenu1(GlobalDictionary("LoadNBVTable")) Then
+		WriteToReport micPass, "Load Net Book Value Table Page", "On the Load Net Book Value Table page.", FALSE
+	Else
+		WriteToReport micFail, "Load Net Book Value Table Page", "Navigation to Load Net Book Value Table page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("NetBookValueTable").PSFrame("TargetContent")
+		'Click Add a New Value
+		.WebElement("AddANewValue").Click
+		WriteToReport micDone, "Clicked Add a New Value Tab", "Tab Clicked", FALSE
+
+		'Set Run Control ID
+		.WebEdit("RunControlID").Set LOAD_NBV
+		WriteToReport micDone, "Set Run Control ID to: "&LOAD_NBV, "Run Control ID Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'If it already exists, click the Link else on page to create the Run Control
+		If .Link("LOAD_NBV").Exist(5) Then
+			.Link("LOAD_NBV").Click
+			WriteToReport micDone, "Run Control ID with Name "&LOAD_NBV&" Already Exists; Link Clicked After Add Clicked", "Link Clicked", FALSE
+		End If
+
+		'Set Run ID, This is different than the Run Control
+		.WebEdit("RunID").Set sRunID
+		WriteToReport micDone, "Set the Run ID to: "&sRunID, "Run ID Set", FALSE
+
+		'Set the As of FY
+		.WebEdit("AsOfFY").Set Year(Date)
+		WriteToReport micDone, "Set the As of FY Field to: "&Year(Date), "As of FY Set", FALSE
+
+		'Set the Period
+		.WebEdit("Period").Set Month(Date)
+		WriteToReport micDone, "Set the Period", "Period Set", FALSE
+
+		'Click Run
+		.WebButton("Run").Click
+		WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("NetBookValueTable").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Note Process Instance
+		If .WebElement("ProcessInstance").Exist(15) Then
+			sProcInst = Split(.WebElement("ProcessInstance").GetROProperty("innertext"), ":")(1)
+			WriteToReport micPass, "Instance ["&sProcInst&"] Started", PROCNAME&" Process Started", FALSE
+		End If
+
+		'Click Process Monitor
+		.Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+	End With
+	'Monitor until Success/Posted
+	Call CheckProcessMontiorStatus(PROCNAME)
+	If dbCheckNBVTableRunID(sRunID) Then
+		WriteToReport micPass, "NBV Table Loaded with Run ID: "&sRunID, "NBV Table Loaded", FALSE
+	Else
+		WriteToReport micFail, "NBV Table Not Loaded with Run ID: "&sRunID, "NBV Table Not Loaded", FALSE
+		ExitTest
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Reviews the Depr Rpt Entries for an Asset Created during 4.0X Test
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ReviewDeprRpt
+	Dim sBookName, sCurrency, sCategory
+	Dim nFiscalYear, nPeriod, nDeprAmount, i
+	Dim bBookVerify, bTemp, bStop
+	Const YEAR_COL = 1
+	Const PERIOD_COL = 2
+	Const DEPR_AMT_COL = 4
+	Const CATEGORY_COL = 7
+	bStop = FALSE
+
+	'Navigate to Asset Depreciation under Review Depreciation Info
+	If SelectMainMenu1(GlobalDictionary("AssetDepreciation")) Then
+		WriteToReport micPass, "Review Asset Depreciation Page", "On the Review Asset Depreciation page.", FALSE
+	Else
+		WriteToReport micFail, "Review Asset Depreciation Page", "Navigation to Review Asset Depreciation page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AssetDepreciation").PSFrame("TargetContent")
+		'Set Business Unit
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set the Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Asset ID
+		.WebEdit("AssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Asset ID set to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		Browser("PeopleSoft Browser").Sync
+
+		'Click the Period Depreciation Tab
+		.WebElement("PeriodDepreciation").Click
+		WriteToReport micDone, "Clicked the Period Depreciation Tab", "Tab Clicked", FALSE
+
+		Do Until bStop
+			If NOT .WebElement("BookNext").Exist Then
+				bStop = TRUE 'check here
+			End If
+			
+			'Reset
+			bBookVerify = TRUE
+			
+			'Get Book Name
+			sBookName = Trim(.WebElement("BookName").GetROProperty("innertext"))
+			WriteToReport micDone, "Obtained the Book Name: "&sBookName, "Book Name Stored", FALSE
+
+			'Get Currency
+			sCurrency = Trim(.WebElement("Currency").GetROProperty("innertext"))
+			WriteToReport micDone, "Obtained the Currency: "&sCurrency, "Currency Stored", FALSE
+
+			For i=1 To .WebTable("LeftPeriodDepreciation").GetROProperty("rows")
+				nFiscalYear = Trim(.WebTable("LeftPeriodDepreciation").Cell(i, YEAR_COL).GetROProperty("innertext"))
+				nPeriod = Trim(.WebTable("LeftPeriodDepreciation").Cell(i, PERIOD_COL).GetROProperty("innertext"))
+				nDeprAmount = .WebTable("LeftPeriodDepreciation").ChildItem(i, DEPR_AMT_COL, "WebEdit", 0).GetROProperty("value")
+				sCategory = Trim(.WebTable("RightPeriodDepreciation").Cell(i, CATEGORY_COL).GetROProperty("innertext"))
+				bTemp = dbFindRowDeprRptTable(GlobalDictionary("BusinessUnit"), GlobalDictionary("AssetID"), sBookName, nFiscalYear, nPeriod, sCategory, nDeprAmount, sCurrency)
+				bBookVerify = bBookVerify AND bTemp
+			Next
+
+			If NOT bBookVerify Then
+				WriteToReport micFail, "Failed to Verify Depr Rept Table Entries for Book ["&sBookName&"] and Asset with ID ["&GlobalDictionary("AssetID")&"]", "Verification Failed", TRUE
+			Else
+				WriteToReport micPass, "Verified Depr Rept Table Entries for Book ["&sBookName&"] and Asset with ID ["&GlobalDictionary("AssetID")&"]", "Verification Passed", FALSE
+			End If
+			If .WebElement("BookNext").Exist Then
+				.WebElement("BookNext").Click
+			End If
+		Loop
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Reviews NBV Entries for an Asset Created during 4.0X Test
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ReviewNBVTable
+	Dim sBookName, sCurrency
+	Dim nPeriod, nAccumDepr, nCost, nNBV
+	Dim bBookVerify, bStop
+	Const YEAR_COL = 1
+	Const PERIOD_COL = 2
+	Const DEPR_AMT_COL = 4
+	Const CATEGORY_COL = 7
+	bBookVerify = FALSE
+	bStop = FALSE
+
+	'Navigate to Asset Depreciation under Review Depreciation Info
+	If SelectMainMenu1(GlobalDictionary("AssetDepreciation")) Then
+		WriteToReport micPass, "Review Asset Depreciation Page", "On the Review Asset Depreciation page.", FALSE
+	Else
+		WriteToReport micFail, "Review Asset Depreciation Page", "Navigation to Review Asset Depreciation page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AssetDepreciation").PSFrame("TargetContent")
+		'Set Business Unit
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set the Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Asset ID
+		.WebEdit("AssetID").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Asset ID set to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		Browser("PeopleSoft Browser").Sync
+
+		'Click the Depreciation Tab
+		.WebElement("Depreciation").Click
+		WriteToReport micDone, "Clicked the Depreciation Tab", "Tab Clicked", FALSE
+
+		Do Until bStop
+			If NOT .WebElement("BookNext").Exist Then
+				bStop = TRUE 'check here
+			End If
+			
+			'Get Book Name
+			sBookName = Trim(.WebElement("BookName").GetROProperty("innertext"))
+			WriteToReport micDone, "Obtained the Book Name: "&sBookName, "Book Name Stored", FALSE
+
+			'Get Currency
+			sCurrency = Trim(.WebElement("Currency").GetROProperty("innertext"))
+			WriteToReport micDone, "Obtained the Currency: "&sCurrency, "Currency Stored", FALSE
+
+			'Set Fiscal Year
+			.WebList("AsOfFiscalYear").Select CStr(Year(Now))
+			WriteToReport micDone, "Set the Fiscal Year to: "&CStr(Year(Now)), "Fiscal Year Set", FALSE
+
+			'Set Period
+			.WebEdit("Period").Set CStr(Month(Now))
+			WriteToReport micDone, "Set the Period to: "&CStr(Month(Now)), "Period Set", FALSE
+
+			'Click Calculate NBV
+			.WebButton("CalculateNBV").Click
+			WriteToReport micDone, "Calculate NBV Button Clicked", "Button Clicked", FALSE
+
+			'Get Cost
+			nCost = .WebElement("Cost").GetROProperty("innertext")
+			WriteToReport micDone, "Found Cost for Asset: "&GlobalDictionary("AssetID"), "Cost Stored", FALSE
+
+			'Get Accum Depr
+			nAccumDepr = .WebElement("AccumDepr").GetROProperty("innertext")
+			WriteToReport micDone, "Found Accumulated Depreciation for Asset under Given Period/Fiscal Year", "Accumulated Depreciation Stored", FALSE
+
+			'Get NBV
+			nNBV = .WebElement("NBV").GetROProperty("innertext")
+			WriteToReport micDone, "Found NBV for Asset under Given Period/Fiscal Year", "NBV Stored", FALSE
+
+			bBookVerify = dbFindRowNBVTable(GlobalDictionary("BusinessUnit"), GlobalDictionary("AssetID"), sBookName, nCost, sCurrency, nAccumDepr, nNBV)
+			
+			If NOT bBookVerify Then
+				WriteToReport micFail, "Failed to Verify NBV Table Entries for Book ["&sBookName&"] and Asset with ID ["&GlobalDictionary("AssetID")&"]", "Verification Failed", TRUE
+			Else
+				WriteToReport micPass, "Verified NBV Table Entries for Book ["&sBookName&"] and Asset with ID ["&GlobalDictionary("AssetID")&"]", "Verification Passed", FALSE
+			End If
+			If .WebElement("BookNext").Exist Then
+				.WebElement("BookNext").Click
+				WriteToReport micDone, "Clicked the Next Book Button", "Next Book Opened", FALSE
+			End If
+		Loop
+	End With
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' Checks and sets up an Asset.
+''' </summary>
+''' <author>Brian Buckhana</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________________________
+' 22APR19			Zach Apple  Add NotAM Flag
+' 24APR19			Zach Apple  Refactor sLastDayOfMonth to sDate, Add DatePlusYear Flag, Add Parent Flag
+'______________________________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ExpressAssetDefinition
+	Dim sBusUnit, sProjectID, sActivityID, sProfile, sDescription, sShortDesc, sDept, sDate, sParent
+	Dim sLocation
+	Dim arrIDs
+	Dim i, nRows, nRow
+	
+	sBusUnit =  GlobalDictionary("BusinessUnit")
+	sDescription = GlobalDictionary("Description")
+	sShortDesc = GlobalDictionary("ShortDesc")
+	sDept = GlobalDictionary("Dept")
+	sLocation = GlobalDictionary("Location")
+	
+	If GlobalDictionary("NotAM") = "" Then
+		' Grab Project ID and Activity ID
+		arrIDs = dbFindAssetProjectIDAndActivityID()
+		sProjectID = arrIDs(0)
+		sActivityID = arrIDs(1)
+		
+		' Select Profile
+		Select Case UCase(sActivityID) 'NOTE: When debugging, check the Activity ID to Profile table.  Location: ALM > PSFT Project > Test Lab > AM 1.01 > Attachments
+			Case "COMP_HARDWARE"
+				sProfile = "CPTRS3"
+			Case "COMP_SOFTWARE"
+				sProfile = "SOFTWARE3"
+			Case "EXT_LABOR"
+				sProfile = "EXEFF3"
+			Case "INT_LABOR"
+				sProfile = "INTEFF3"
+			Case "FURNITURE"
+				sProfile = "FF5"
+			Case Else
+				WriteToReport micFail, "Activity ID [" & sActivityID & "] Is Not Recognized", "Check and/or add a case for this ID so that a proper profile can be selected."
+				ExitTest			
+		End Select
+	Else
+		sProjectID = GlobalDictionary("ProjectID")
+		sActivityID = GlobalDictionary("ActivityID")
+		sProfile = GlobalDictionary("Profile")
+	End If
+		
+	'Navigate to Express Asset Definition
+	If SelectMainMenu1(GlobalDictionary("ExpressAssetDefinition")) Then
+		WriteToReport micPass, "Navigated to the Express Asset Definition Page", "On the Express Asset Definition page.", FALSE
+	Else
+		WriteToReport micFail, "Did Not Navigate to the Express Asset Definition Page", "Navigation to Express Asset Definition page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+	
+	With Browser("PeopleSoft Browser").Page("Express Asset Definition").PSFrame("TargetContent")		
+		'Set Business Unit
+		.WebEdit("BusinessUnit").Set sBusUnit
+		WriteToReport micDone, "Set Business Unit to [" & sBusUnit & "]", "BU Set after navigating to the Express Asset Definition page.", FALSE
+
+		'Set Project ID
+		.WebEdit("Project").Set sProjectID
+		WriteToReport micDone, "Set Project to [" & sProjectID & "]", "Project Set", FALSE
+
+		' Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Search started.", FALSE
+		
+		' Verify Navigation
+		If .Link("View All").Exist(10) Then
+			WriteToReport micDone, "Successfully Navigated to the Search Results Page", "Navigated to the search results page after clicking search.", FALSE
+		Else
+			WriteToReport micFail, "Failed Navigation to the Search Results Page", "Failed navigation to the search results page after clicking search.", TRUE
+			ExitTest
+		End If
+		
+		' Click "View All" to expose all the rows.
+		.Link("View All").Click
+		WriteToReport micDone, "Clicked the 'View All' Link", "Clicked the link after navigating to the Search Results page.", FALSE
+		
+		' Click Define Assets on the Row of the Activity ID
+	'	nRows = .WebTable("Basic Assets Table").GetRowWithCellText(sActivityID, 1, 0) ' GetRowWithCellText(StringLookingFor, ColumnToSearch, RowToStart)
+		nRows = .WebTable("Basic Assets Table").RowCount
+		.WebElement("Basic Asset Activity Element").SetTOProperty "innertext", sActivityID
+		For i = 0 To nRows
+			.WebElement("Basic Asset Activity Element").SetTOProperty "html id", "PC_AM_EXP1_VW_ACTIVITY_ID$" & i
+			
+			If .WebElement("Basic Asset Activity Element").Exist(2) Then
+				nRow = i
+				WriteToReport micDone, "Activity ID [" & sActivityID & "] Found On Row [" & nRow & "]", "Row was successfully found.", FALSE
+				Exit For
+			End If
+			
+			If i = nRows Then
+				WriteToReport micFail, "Unable To Find Row With Activity ID [" & sActivityID & "]", "Row not found.  Exiting Test.", TRUE
+				ExitTest
+			End If
+		Next
+		.Link("Define Assets").SetTOProperty "html id", "DRILL_TO_DEFN$" & nRow
+
+		If .Link("Define Assets").Exist(5) Then
+			.Link("Define Assets").Click
+			WriteToReport micDone, "Clicked the Define Assets Link On Row [" & nRow & "]", "Clicked the link after selecting 'View All'.", FALSE
+		Else
+			WriteToReport micFail, "Could Not Click Define Assets", "Could not find the link at row [" & nRow & "].  Exiting Test.", TRUE
+			ExitTest
+		End If
+	End With
+	
+	With Browser("PeopleSoft Browser").Page("Express Asset Definition").Frame("PC Asset Definition Popup")
+		' Verify Navigation
+		If .WebEdit("Profile").Exist(10) Then
+			WriteToReport micDone, "Successfully navigated to the PC Asset Definition Popup.", "Popup window appeared after clicking the 'Define Assets' link.", FALSE
+		Else
+			WriteToReport micFail, "Failed To Navigate To PC Asset Definition Popup", "Popup window did not appear after clicking the 'Define Assets' link. Exiting Test.", TRUE
+			ExitTest
+		End If
+		
+	'	Set:
+	'	•	Profile
+		.WebEdit("Profile").Set sProfile
+		WriteToReport micDone, "Set Profile to [" & sProfile & "]", "Profile Set", FALSE
+		
+	'	•	Description
+		.WebEdit("Description").Set sDescription
+		WriteToReport micDone, "Set Description to [" & sDescription & "]", "Description Set", FALSE
+
+	'	•	Short Desc
+		.WebEdit("ShortDesc").Set sShortDesc
+		WriteToReport micDone, "Set Short Description to [" & sShortDesc & "]", "Short Description Set", FALSE
+
+	'	•	Dept 
+		.WebEdit("Department").Set sDept
+		WriteToReport micDone, "Set Department to [" & sDept & "]", "Department Set", FALSE
+
+	'	•	Trans. Date
+		If GlobalDictionary("DatePlusYear") = "TRUE" Then
+			sDate = AnyDateLeadingZeros(DateSerial(Year(Now)+1, Month(Now)+1, 0))
+		Else
+			sDate = DateSerial(Year(Now), 1 + Month(Now), 0) 'FORMAT: mm/dd/yyyy
+		End If
+		
+		.WebEdit("TransDate").Set sDate
+		WriteToReport micDone, "Set Transaction Date to [" & sDate & "]", "Transaction Date Set", FALSE
+		
+	'	•	Acct. Date
+		.WebEdit("AcctDate").Set sDate
+		WriteToReport micDone, "Set Account Date to [" & sDate & "]", "Account Date Set", FALSE
+
+	'	•	In Service Date
+		.WebEdit("InServiceDate").Set sDate
+		WriteToReport micDone, "Set In Service Date to [" & sDate & "]", "In Service Date Set", FALSE
+
+	'	•	Location
+		.WebEdit("Location").Set sLocation
+		WriteToReport micDone, "Set Location to [" & sLocation & "]", "Location Set", FALSE
+
+		If GlobalDictionary("AddParent") = "TRUE" Then
+			sParent = dbGetParentAssetID(GlobalDictionary("ActivityID"))
+			.WebEdit("Parent").Set sParent
+			WriteToReport micDone, "Set Parent Asset: "&sParent, "Parent Set", FALSE
+		End If
+		
+		' Click Apply
+		.WebButton("Apply").Click
+		WriteToReport micDone, "Clicked the 'Apply' Button", "Applying Changes", FALSE
+		
+		' Give time to apply.
+		Browser("PeopleSoft Browser").Page("Express Asset Definition").Sync
+		
+	'	Click OK
+		.WebButton("OK").Click
+		WriteToReport micDone, "Clicked the 'OK' Button To Close Popup", "Closing PC Asset Definition Popup.", FALSE
+	End With
+
+	With Browser("PeopleSoft Browser").Page("Express Asset Definition").PSFrame("TargetContent")
+		' Check the Capitalize Button for that row.
+		Browser("PeopleSoft Browser").Page("Express Asset Definition").Sync()
+		
+		.WebCheckBox("Capitalize Checkbox").SetTOProperty "html id", "PC_AM_EXP1_VW_PC_AM_CAP_SW$" & nRow
+		If .WebCheckBox("Capitalize Checkbox").Exist(10) Then
+			.WebCheckBox("Capitalize Checkbox").Click
+			WriteToReport micDone, "Checked the Capitalize Box For [" & nRow & "]", "Checkbox Marked", FALSE
+		Else
+			WriteToReport micFail, "Could Not Find Capitalize Checkbox On Row [" & nRow & "]", "Failed to find checkbox.  Exiting Test.", TRUE
+			ExitTest
+		End If
+		
+		' Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the 'Save' Button", "Saving Express Asset Definition Table Changes", FALSE
+		
+		' Give time for Page to finish Saving.
+		Browser("PeopleSoft Browser").Page("Express Asset Definition").Sync
+		
+		' Store the Asset ID that was just created.
+		.WebElement("Asset ID").SetTOProperty "html id", "PC_AM_EXP1_VW_ASSET_ID$" & nRow
+		'Call .WebElement("AssetID").WaitProperty("innertext", micRegExpMatch("[0-9]{12}"), 20000)
+		If GlobalDictionary.Exists("AssetID") Then
+       	GlobalDictionary.Remove("AssetID")
+    	End If
+    	GlobalDictionary.Add "AssetID", .WebElement("Asset ID").GetROProperty("innertext")
+    	WriteToReport micDone, "Asset Created with ID [" & GlobalDictionary("AssetID") & "]", "Asset ID Stored", FALSE
+	End With
+	If GlobalDictionary("NotAM") = "" Then
+		' Store Project ID
+		GlobalDictionary.Add "ProjectID", sProjectID
+	    WriteToReport micDone, "Project Created with ID [" & GlobalDictionary("ProjectID") & "]", "Project ID Stored", FALSE
+	    
+		' Store Activity ID
+		GlobalDictionary.Add "ActivityID", sActivityID
+	    WriteToReport micDone, "Activity Created with ID [" & GlobalDictionary("ActivityID") & "]", "Activity ID Stored", FALSE
+    End If
+	
+	' Cleanup
+	If IsArray(arrIDs) Then Erase arrIDs
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' Reviews Depreciation for Inter Unit Transfers for old and new Asset IDs
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ReviewInterUnitDepreciation
+	'checks that each book is now 0.00 for the original asset in 01
+	Dim arrBooks
+	Dim i, j
+	Dim nSum
+	Dim bCorrect, bSkip
+	bCorrect = TRUE
+	bSkip = FALSE
+	Const DEPR_AMT_COL = 2
+	Const YEAR_COL = 1
+	
+	'Navigate to Asset Depreciation under Review Depreciation Info
+	If SelectMainMenu1(GlobalDictionary("AssetDepreciation")) Then
+		WriteToReport micPass, "Review Asset Depreciation Page", "On the Review Asset Depreciation page.", FALSE
+	Else
+		WriteToReport micFail, "Review Asset Depreciation Page", "Navigation to Review Asset Depreciation page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AssetDepreciation").PSFrame("TargetContent")
+		'Set Business Unit
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set the Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Asset ID
+		.WebEdit("AssetID").Set GlobalDictionary("OldAssetID")
+		WriteToReport micDone, "Asset ID set to: "&GlobalDictionary("OldAssetID"), "Asset ID Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		Browser("PeopleSoft Browser").Sync
+
+		'Loop over Books
+		arrBooks = Split(GlobalDictionary("BooksToReview"), ",")
+		For i=0 To  UBound(arrBooks)
+			'Click book name link
+			Call .Link("Book").SetTOProperty("text", arrBooks(i))
+			If .Link("Book").Exist(15) Then
+				.Link("Book").Click
+				WriteToReport micDone, "Clicked Link for Book: "&arrBooks(i), "Link Clicked", FALSE
+			Else
+				WriteToReport micWarning, "Issue Locating Link for Book: "&arrBooks(i), "Book may not be valid for this asset", TRUE
+				bSkip = TRUE
+			End If
+			
+			Browser("PeopleSoft Browser").Sync
+			
+			'Reset nSum to zero
+			nSum = 0.0
+			If NOT bSkip Then
+							
+				If NOT .WebTable("YearlyDepreciation").Exist(30) Then
+					WriteToReport micFail, "Failed to Load Page for Book: "&arrBooks(i), "Page took too long", TRUE
+					ExitTest
+				End If
+	
+				'Loop through table, add values, match sum against Accumulated
+				For j=1 To .WebTable("YearlyDepreciation").GetROProperty("rows")
+					nSum = Round(nSum + CDbl(.WebTable("YearlyDepreciation").Cell(j, DEPR_AMT_COL).GetROProperty("innertext")),2)
+				Next
+	
+				'Compare to Displayed Cost
+				If nSum = CDbl(.WebElement("Cost").GetROProperty("innertext")) AND nSum = 0.0 Then
+					WriteToReport micPass, "Displayed Depreciation For Transferred Asset Calculated Correctly", "Depreciation Calculated Correctly", FALSE
+					WriteToReport micDone, "Calculated Sum of Total Depreciation ["&nSum&"] Equals Cost Displayed ["&.WebElement("Cost").GetROProperty("innertext")&"]","", FALSE
+					bCorrect = bCorrect AND TRUE
+				Else	
+					WriteToReport micFail, "Total Depreciation Not Calculated Correctly", "Incorrect Total Depreciation", TRUE
+					WriteToReport micDone, "Calculated Sum of Total Depreciation ["&nSum&"] Does Not Equal Cost Displayed ["&.WebElement("Cost").GetROProperty("innertext")&"]", "", TRUE
+					bCorrect = FALSE
+				End If
+	
+				'Return to Asset Tab
+				.WebElement("AssetTab").Click
+				WriteToReport micDone, "Clicked the Asset Tab", "Tab Clicked", FALSE
+			End If	
+			bSkip = FALSE
+		Next
+		
+		If bCorrect Then
+			WriteToReport micPass, "All Depreciation Calculations were Correct", "Continuing Test", FALSE
+		Else
+			WriteToReport micFail, "At least one Depreciation Calculation was Not Correct", "Stopping the Test", FALSE
+			ExitTest
+		End If
+	End With
+
+	'Check the new Asset
+	GlobalDictionary("OldUnit") = GlobalDictionary("BusinessUnit")
+	GlobalDictionary("BusinessUnit") = GlobalDictionary("NewUnit")
+	GlobalDictionary("AssetID") = GlobalDictionary("NewAssetID")
+	Call ReviewDepreciation()
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' Reviews Accounting Entries for Inter Unit Transfers for old and new Asset IDs
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ReviewInterUnitAcctgEntries
+	Dim i, nRowsFound
+	Dim sCellDate
+	Const ACTG_DATE_COL = 2
+	Const AMOUNT_COL = 2
+	Const TRANSTYPE_COL = 3
+	nRowsFound = 0
+	'Create Accounting Entries for the Original Asset
+	GlobalDictionary("BusinessUnit") = GlobalDictionary("OldUnit")
+	GlobalDictionary("AssetID") = GlobalDictionary("OldAssetID")
+	Call CreateAccountingEntries()
+	'Create Accounting Entries for the New Asset
+	GlobalDictionary("BusinessUnit") = GlobalDictionary("NewUnit")
+	GlobalDictionary("AssetID") = GlobalDictionary("NewAssetID")
+	Call CreateAccountingEntries()
+
+	'Navigate to Review Financial Entries
+	If SelectMainMenu1(GlobalDictionary("ReviewFinEntries")) Then
+		WriteToReport micPass, "Review Financial Entries Page", "On the Review Financial Entries page.", FALSE
+	Else
+		WriteToReport micFail, "Review Financial Entries Page", "Navigation to Review Financial Entries page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+	
+	'Original BU/Asset ID
+	With Browser("PeopleSoft Browser").Page("AssetAccountingEntries").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("OldUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("OldUnit"), "BU Set", FALSE
+
+		'Set Asset ID
+		.WebEdit("AssetID").Set GlobalDictionary("OldAssetID")
+		WriteToReport micDone, "Asset ID set to: "&GlobalDictionary("OldAssetID"), "Asset ID Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Click View All, if applicable
+		If .Link("ViewAll-ActngEntries").Exist(5) Then
+			.Link("ViewAll-ActngEntries").Click
+			WriteToReport micDone, "Clicked the View All Link for Accounting Entries Table", "Link Clicked", FALSE
+		End If
+
+		'Parse the Table, looking for the recent Transfer. NOTE: there are two tables, a left and a right.
+		For i=1 To .WebTable("LeftActgEntries").GetROProperty("rows")
+			sCellDate = .WebTable("LeftActgEntries").Cell(i, ACTG_DATE_COL).GetROProperty("innertext")
+
+			If (Trim(sCellDate) = Trim(AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)))) Then 'Last Day of the Month
+				If Trim(.WebTable("LeftActgEntries").Cell(i, TRANSTYPE_COL).GetROProperty("innertext")) = "TRF" AND Abs(CDbl(.WebTable("RightActgEntries").Cell(i, AMOUNT_COL).GetROProperty("innertext")))=Abs(CDbl(GlobalDictionary("AssetAmount"))) Then
+					nRowsFound = nRowsFound + 1
+					WriteToReport micPass, "Found a Valid Transfer Entry for Original Asset: "&GlobalDictionary("OldAssetID"), "Asset Transfer Entry Found", FALSE
+				End If
+			End If			
+		Next
+
+		If nRowsFound <> 2 Then '+/- rows of the original amount with TRF
+			WriteToReport micFail, "Never Found the Expected Transfer in the Table", "Transfer not Found or Incorrect", TRUE
+		Else
+			WriteToReport micPass, "Found Expected Transfer Date and Amount Entries", "Entries Correct", FALSE
+		End If
+	End With
+
+	nRowsFound = 0 'Reset
+	
+	'Navigate to Review Financial Entries
+	If SelectMainMenu1(GlobalDictionary("ReviewFinEntries")) Then
+		WriteToReport micPass, "Review Financial Entries Page", "On the Review Financial Entries page.", FALSE
+	Else
+		WriteToReport micFail, "Review Financial Entries Page", "Navigation to Review Financial Entries page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+	'New BU/Asset ID
+	With Browser("PeopleSoft Browser").Page("AssetAccountingEntries").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("NewUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("NewUnit"), "BU Set", FALSE
+
+		'Set Asset ID
+		.WebEdit("AssetID").Set GlobalDictionary("NewAssetID")
+		WriteToReport micDone, "Asset ID set to: "&GlobalDictionary("NewAssetID"), "Asset ID Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Click View All, if applicable
+		If .Link("ViewAll-ActngEntries").Exist(5) Then
+			.Link("ViewAll-ActngEntries").Click
+			WriteToReport micDone, "Clicked the View All Link for Accounting Entries Table", "Link Clicked", FALSE
+		End If
+
+		'Parse the Table, looking for the recent Transfer. NOTE: there are two tables, a left and a right.
+		For i=1 To .WebTable("LeftActgEntries").GetROProperty("rows")
+			sCellDate = .WebTable("LeftActgEntries").Cell(i, ACTG_DATE_COL).GetROProperty("innertext")
+
+			If (Trim(sCellDate) = Trim(AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)))) Then 'Last Day of the Month
+				If Trim(.WebTable("LeftActgEntries").Cell(i, TRANSTYPE_COL).GetROProperty("innertext")) = "TRF" AND Abs(CDbl(.WebTable("RightActgEntries").Cell(i, AMOUNT_COL).GetROProperty("innertext")))=Abs(CDbl(GlobalDictionary("AssetAmount"))) Then
+					nRowsFound = nRowsFound + 1
+					WriteToReport micPass, "Found a Valid Transfer Entry for Original Asset: "&GlobalDictionary("NewAssetID"), "Asset Transfer Entry Found", FALSE
+				End If
+			End If			
+		Next
+
+		If nRowsFound <> 2 Then '+/- rows of the original amount with TRF
+			WriteToReport micFail, "Never Found the Expected Transfer in the Table", "Transfer not Found or Incorrect", TRUE
+		Else
+			WriteToReport micPass, "Found Expected Transfer Date and Amount Entries", "Entries Correct", FALSE
+		End If
+	End With
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' Returns an Activity and Profile for a valid combo in the database to use to create an asset in 1.02
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Private Function FindActivityAndProfile
+	'Find ActivityID and ProfileID
+	Dim arrTemp
+	arrTemp = dbGetActivityFromProjects(GlobalDictionary("BusinessUnit"), GlobalDictionary("Projects"))
+	GlobalDictionary("ActivityID") = arrTemp(2)
+	Select Case arrTemp(2)
+		Case "BUILD_IMP"
+			GlobalDictionary("Profile") = "BLDG-LT5"
+		Case "COMP_HARDWARE"
+			GlobalDictionary("Profile") = "CPTRS3"
+		Case "EXT_LABOR"
+			GlobalDictionary("Profile") = "EXEFF3"
+		Case "INT_LABOR"
+			GlobalDictionary("Profile") = "INTEFF3"
+		Case "FURNITURE"
+			GlobalDictionary("Profile") = "FF-HMS-C5"
+		Case "LEASE_IMP"
+			GlobalDictionary("Profile") = "LEASEHLD"
+		Case "MACH_EQUIP"
+			GlobalDictionary("Profile") = "ME5"
+		Case "COMP_SOFTWARE"
+			GlobalDictionary("Profile") = "SOFTWARE3"
+		Case Else
+			WriteToReport micFail, "No Profile Known for Activity: "&arrTemp(2), "Cannot Continue; Please Add Profile or Verify Valid Activity", FALSE
+			ExitTest
+	End Select
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Reviews an Asset's Details from Project Costing
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ReviewOwnedAsset
+	Dim oExcel, oFSO, oWorkbook, oSheet
+	Dim bFirst, bFound
+	bFirst = TRUE
+	bFound = FALSE
+	If SelectMainMenu1(GlobalDictionary("BasicAddAsset")) Then
+		WriteToReport micPass, "Basic Add Assets Page", "Navigation to Basic Add Assets Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Basic Add Assets Page", "Navigation to Basic Add Assets page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+	
+	With Browser("PeopleSoft Browser").Page("Basic Add").PSFrame("Basic Add")	
+		'Set Business Unit
+		.WebEdit("Business Unit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+	
+		'Set Asset ID from before
+		.WebEdit("Asset Identification").Set GlobalDictionary("AssetID")
+		WriteToReport micDone, "Set the Asset ID to: "&GlobalDictionary("AssetID"), "Asset ID Set", FALSE
+	
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		If NOT .WebEdit("Asset Description").Exist(30) Then
+			WriteToReport micFail, "Page Took Too Long to Load", "Page Not Loaded under 30 seconds", TRUE
+			ExitTest
+		End If
+
+		'General Info Tab
+		'-Check Description
+		If .WebEdit("Asset Description").GetROProperty("value") = GlobalDictionary("Description") Then
+			WriteToReport micPass, "Verified Asset Description: "&GlobalDictionary("Description"), "Description Verified", FALSE
+		Else
+			WriteToReport micFail, "Could Not Verify Asset Description: "&GlobalDictionary("Description"), "Description Not Verified", TRUE
+		End If
+
+		'-Check Acquisition Date
+		If GlobalDictionary("DatePlusYear") = "TRUE" Then
+			If .WebEdit("AcquisitionDate").GetROProperty("value") = AnyDateLeadingZeros(DateSerial(Year(Now)+1, Month(Now)+1, 0)) Then
+				WriteToReport micPass, "Verified Asset Acquisition Date: "&AnyDateLeadingZeros(DateSerial(Year(Now)+1, Month(Now)+1, 0)), "Acquisition Date Verified", FALSE
+			Else
+				WriteToReport micFail, "Could Not Verify Asset Acquisition Date: "&AnyDateLeadingZeros(DateSerial(Year(Now)+1, Month(Now)+1, 0)), "Acquisition Date Not Verified", TRUE
+			End If
+		ElseIf GlobalDictionary("AddSecondTransaction") = "TRUE" Then 
+			If .WebEdit("AcquisitionDate").GetROProperty("value") = DateLeadingZeros Then
+				WriteToReport micPass, "Verified Asset Acquisition Date: "&DateLeadingZeros, "Acquisition Date Verified", FALSE
+			Else
+				WriteToReport micFail, "Could Not Verify Asset Acquisition Date: "&DateLeadingZeros, "Acquisition Date Not Verified", TRUE
+			End If
+		Else
+			If .WebEdit("AcquisitionDate").GetROProperty("value") = AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)) Then
+				WriteToReport micPass, "Verified Asset Acquisition Date: "&AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "Acquisition Date Verified", FALSE
+			Else
+				WriteToReport micFail, "Could Not Verify Asset Acquisition Date: "&AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "Acquisition Date Not Verified", TRUE
+			End If
+		End If
+		
+
+		'-Check Profile ID
+		If .WebEdit("Asset Profile ID").GetROProperty("value") = GlobalDictionary("Profile") Then
+			WriteToReport micPass, "Verified Asset Profile ID: "&GlobalDictionary("Profile"), "Profile ID Verified", FALSE
+		Else
+			WriteToReport micFail, "Could Not Verify Asset Profile ID: "&GlobalDictionary("Profile"), "Profile ID Not Verified", TRUE
+		End If
+
+		'Asset Acquisition Detail Tab
+		.WebElement("AssetAcquisitionDetail").Click
+		WriteToReport micDone, "Clicked the Asset Acquisition Detail Tab", "Tab Clicked", FALSE
+
+		If NOT .WebEdit("Amount").Exist(30) Then
+			WriteToReport micFail, "Asset Acquisition Detail Tab Did Not Load", "Took Longer than 30 Seconds", TRUE
+			ExitTest
+		End If
+
+		'-Check Amount
+		Do
+			If NOT bFirst AND .WebButton(">Next").Exist(5) Then
+				.WebButton(">Next").Click
+				WriteToReport micDone, "Clicked the > Button to Show More Entries", "Button Clicked", FALSE
+			End If
+
+			If GlobalDictionary("AddSecondTransaction") ="TRUE" Then
+				If CDbl(.WebEdit("Amount").GetROProperty("value")) = CDbl(GlobalDictionary("SourceAmount2")) Then
+					WriteToReport micPass, "Verified Amount: "&GlobalDictionary("SourceAmount2"), "Amount Verified", FALSE
+					bFound = TRUE
+				End If
+			Else
+				If CDbl(.WebEdit("Amount").GetROProperty("value")) = CDbl(GlobalDictionary("SourceAmount")) Then
+					WriteToReport micPass, "Verified Amount: "&GlobalDictionary("SourceAmount"), "Amount Verified", FALSE
+					bFound = TRUE
+				End If
+			End If
+
+			bFirst = FALSE
+		Loop Until (NOT .WebButton(">Next").Exist(5)) OR bFound
+
+		If NOT bFound Then
+			If GlobalDictionary("AddSecondTransaction") = "TRUE" Then
+				WriteToReport micFail, "Could Not Verify Amount: "&GlobalDictionary("SourceAmount2"), "Amount Not Verified", TRUE
+			Else
+				WriteToReport micFail, "Could Not Verify Amount: "&GlobalDictionary("SourceAmount"), "Amount Not Verified", TRUE
+			End If
+		End If
+
+		'Location/Comments/Attributes Tab
+		.Link("Location/Comments/Attributes").Click
+		WriteToReport micDone, "Clicked Link to the Location/Comments/Attributes Tab", "Tab Clicked", FALSE
+
+		'-Check Location
+		If .WebEdit("Location").GetROProperty("value") = GlobalDictionary("Location") Then
+			WriteToReport micPass, "Verified Location: "&GlobalDictionary("Location"), "Location Verified", FALSE
+		Else
+			WriteToReport micFail, "Could Not Verify Location: "&GlobalDictionary("Location"), "Location Not Verified", TRUE
+		End If
+
+		'Manufacture/License/Custodian Tab
+		.Link("Manufacture/License/Custodian").Click
+		WriteToReport micDone, "Clicked Link to the Manufacture/License/Custodian Tab", "Tab Clicked", FALSE
+
+		'-Check Department
+		If .WebEdit("Department").GetROProperty("value") = GlobalDictionary("Dept") Then
+			WriteToReport micPass, "Verified Department: "&GlobalDictionary("Dept"), "Department Verified", FALSE
+		Else
+			WriteToReport micFail, "Could Not Verify Department: "&GlobalDictionary("Dept"), "Department Not Verified", TRUE
+		End If
+
+		'-Check Project ID
+		If .WebEdit("Project").GetROProperty("value") = GlobalDictionary("ProjectID") Then
+			WriteToReport micPass, "Verified Project: "&GlobalDictionary("ProjectID"), "Project Verified", FALSE
+		Else
+			WriteToReport micFail, "Could Not Verify Project: "&GlobalDictionary("ProjectID"), "Project Not Verified", TRUE
+		End If
+	End With
+	If GlobalDictionary("SaveForPC") = "TRUE" Then
+		Set oExcel = CreateObject("Excel.Application")
+		Set oFSO = CreateObject("Scripting.FileSystemObject")
+		'Delete the old asset file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\PCAsset.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\PCAsset.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\PCAsset.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "AssetID"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("AssetID")
+		oSheet.Cells(2,1).Value = "ProjectID"
+		oSheet.Cells(2,2).Value = "'"&GlobalDictionary("ProjectID")
+		oSheet.Cells(3,1).Value = "ActivityID"
+		oSheet.Cells(3,2).Value = "'"&GlobalDictionary("ActivityID")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\PCAsset", 56)
+		WriteToReport micPass, "Asset, Project, and Activity Saved for Later Test", "Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\PCAsset.xls", FALSE
+		Set oSheet = Nothing
+		oWorkbook.Close
+	End If
+End Function

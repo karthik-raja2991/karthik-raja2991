@@ -1,0 +1,1610 @@
+'==========================================================
+'PSFIN Real Estate Management/Leasing Function Library
+'Contains commonly used functions for Leases in the PSFin application.
+'Changelog: 
+'Date			Author					Description
+'______________________________________________________ 
+Option Explicit
+'**************************************************************************************************************
+''' <summary> 
+''' Adds a Property through Asset Management Basic Add LS_1.01,02,03
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function BasicAddProperty
+	'Navigate to Asset Basic Add
+	If SelectMainMenu1(GlobalDictionary("BasicAddAsset")) Then
+		WriteToReport micPass, "Basic Add Assets Page", "Navigation to Basic Add Assets Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Basic Add Assets Page", "Navigation to Basic Add Assets page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("Basic Add").PSFrame("Basic Add")
+		If .WebElement("AddANewValue").Exist(30) Then
+			'Click Add a New Value Tab
+			.WebElement("AddANewValue").Click
+			WriteToReport micDone, "Clicked Add a New Value Tab", "Tab Clicked", FALSE
+		Else
+			WriteToReport micFail, "Could Not Locate Add a New Value Tab under 30 Seconds", "Tab Not Found", FALSE
+			ExitTest
+		End If
+		
+		'Set Business Unit
+		.WebEdit("Add-BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set the Business Unit to: "&GlobalDictionary("BusinessUnit"), "Business Unit Set", FALSE
+
+		'Click the Add Button
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Clicked Add", FALSE
+		
+		Browser("PeopleSoft Browser").Sync
+		
+		'Set Fields: Desc, Short Desc, Asset Type, Acquisition Date, Placement Date
+		If .WebEdit("Asset Description").Exist(30) Then
+			.WebEdit("Asset Description").Set GlobalDictionary("Desc")
+			WriteToReport micDone, "Set Description to: "&GlobalDictionary("Desc"), "Description Set", FALSE
+		Else
+			WriteToReport micFail, "Could Not Locate Description Field under 30 Seconds", "Field Not Found", FALSE
+			ExitTest
+		End If
+
+		.WebEdit("Asset Short Description").Set GlobalDictionary("ShortDesc")
+		WriteToReport micDone, "Set Short Description to: "&GlobalDictionary("ShortDesc"), "Short Description Set", FALSE
+
+		.WebList("Asset Type").Select GlobalDictionary("AssetType")
+		WriteToReport micDone, "Selected Asset Type: "&GlobalDictionary("AssetType"), "Asset Type Selected", FALSE
+
+		.WebEdit("AcquisitionDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)) 'First of current month
+		WriteToReport micDone, "Set Acquisition Date to: "&AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "Date Set", FALSE
+
+		.WebEdit("PlacementDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)) 'First of current month
+		WriteToReport micDone, "Set Placement Date to: "&AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "Date Set", FALSE
+
+		'Click Asset Property Tab
+		Do While NOT .WebElement("AssetProperty").Exist(5) AND .Image("ScrollRight").Exist(5)
+			.Image("ScrollRight").Click
+			WriteToReport micDone, "Clicked the Right Button to Show more Tabs", "Button Clicked", FALSE
+		Loop
+		If .WebElement("AssetProperty").Exist(5) Then
+			.WebElement("AssetProperty").Click
+			WriteToReport micDone, "Clicked the Asset Property Tab", "Tab Clicked", FALSE
+		Else
+			WriteToReport micFail, "Asset Property Tab Not Found", "Tab Not Found After Scrolling Through", TRUE
+			ExitTest
+		End If
+
+		'Set Property Class, Name, Parent Property, Site ID, Total Area, Space Unit of Measure, Occupancy, Ownership
+		.WebList("PropertyClass").Select GlobalDictionary("PropertyClass")
+		WriteToReport micDone, "Selected Property Class: "&GlobalDictionary("PropertyClass"), "Property Class Selected", FALSE
+
+		.WebEdit("PropertyName").Set GlobalDictionary("PropertyName")
+		WriteToReport micDone, "Set Property Name: "&GlobalDictionary("PropertyName"), "Property Name Set", FALSE
+
+		.WebEdit("ParentProperty").Set GlobalDictionary("ParentProperty")
+		WriteToReport micDone, "Set Parent Property: "&GlobalDictionary("ParentProperty"), "Parent Property Set", FALSE
+
+		.WebEdit("SiteID").Set GlobalDictionary("SiteID")
+		WriteToReport micDone, "Set Site ID: "&GlobalDictionary("SiteID"), "Site ID Set", FALSE
+
+		.WebEdit("TotalArea").Set GlobalDictionary("TotalArea")
+		WriteToReport micDone, "Total Area Set: "&GlobalDictionary("TotalArea"), "Total Area Set", FALSE
+
+		.WebEdit("SpaceUnitOfMeasure").Set GlobalDictionary("SpaceUnitOfMeasure")
+		WriteToReport micDone, "Set Space Unit of Measure: "&GlobalDictionary("SpaceUnitOfMeasure"), "Space Unit of Measure Set", FALSE
+
+		.WebList("Occupancy").Select GlobalDictionary("Occupancy")
+		WriteToReport micDone, "Selected Occupancy: "&GlobalDictionary("Occupancy"), "Occupancy Selected", FALSE
+
+		.WebList("Ownership").Select GlobalDictionary("Ownership")
+		WriteToReport micDone, "Selected Ownership: "&GlobalDictionary("Ownership"), "Ownership Selected", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Asset Saved with Amount Capitalized", FALSE
+
+		Wait 5
+
+		'Note Asset ID, waiting for it to update to an actual ID first
+		If GlobalDictionary.Exists("AssetID") Then
+       		GlobalDictionary.Remove("AssetID")
+    	End If
+    	GlobalDictionary.Add "AssetID", .WebElement("Asset ID").GetROProperty("innertext")
+    	WriteToReport micDone, "Asset Created with ID: "&GlobalDictionary("AssetID"), "Asset ID Stored", FALSE
+
+    	'Click Asset Property Tab
+		Do While NOT .WebElement("AssetProperty").Exist(5) AND .Image("ScrollRight").Exist(5)
+			.Image("ScrollRight").Click
+			WriteToReport micDone, "Clicked the Right Button to Show more Tabs", "Button Clicked", FALSE
+		Loop
+		If .WebElement("AssetProperty").Exist(5) Then
+			.WebElement("AssetProperty").Click
+			WriteToReport micDone, "Clicked the Asset Property Tab", "Tab Clicked", FALSE
+		Else
+			WriteToReport micFail, "Asset Property Tab Not Found", "Tab Not Found After Scrolling Through", TRUE
+			ExitTest
+		End If
+
+		'Note Property ID
+		If GlobalDictionary.Exists("PropertyID") Then
+       		GlobalDictionary.Remove("PropertyID")
+    	End If
+    	GlobalDictionary.Add "PropertyID", .WebElement("PropertyID").GetROProperty("innertext")
+    	WriteToReport micDone, "Property Created with ID: "&GlobalDictionary("PropertyID"), "Property ID Stored", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Creates a new Lease LS_1.01,02,03
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function CreateNewLease
+	Dim sTemp
+	Dim nPmt, nRow
+	Dim arrSearch
+	'Navigate to Create New Lease
+	If SelectMainMenu1(GlobalDictionary("CreateNewLease")) Then
+		WriteToReport micPass, "Create New Lease Page", "Navigation to Create New Lease Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Create New Lease Page", "Navigation to Create New Lease page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("TargetContent")
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		.WebList("Classification").Select GlobalDictionary("Classification")
+		WriteToReport micDone, "Selected Classification: "&GlobalDictionary("Classification"), "Classification Selected", FALSE
+
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set the following fields
+
+		'Lease Name
+		.WebEdit("LeaseName").Set GlobalDictionary("LeaseName")
+		WriteToReport micDone, "Set Lease Name: "&GlobalDictionary("LeaseName"), "Lease Name Set", FALSE
+
+		'Lease Type
+		.WebEdit("LeaseType").Set GlobalDictionary("LeaseType")
+		WriteToReport micDone, "Set Lease Type: "&GlobalDictionary("LeaseType"), "Lease Type Set", FALSE
+
+		'Lessor
+		.WebEdit("Lessor").Set GlobalDictionary("Lessor")
+		WriteToReport micDone, "Set Lessor: "&GlobalDictionary("Lessor"), "Lessor Set", FALSE
+
+		'Location
+		.WebEdit("Location").Set GlobalDictionary("Location")
+		WriteToReport micDone, "Set Location: "&GlobalDictionary("Location"), "Location Set", FALSE
+
+		'Region
+		.WebEdit("Region").Set GlobalDictionary("Region")
+		WriteToReport micDone, "Set Region: "&GlobalDictionary("Region"), "Region Set", FALSE
+
+		'Commencement Date
+		.WebEdit("CommencementDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)) 'First of current month
+		WriteToReport micDone, "Set Commencement Date: "&AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "Commencement Date Set", FALSE
+
+		'Termination Date
+		.WebEdit("TerminationDate").Set AnyDateLeadingZeros(DateSerial(Year(Now)+1, Month(Now)+1, 0)) 'End of current month, next year
+		WriteToReport micDone, "Set Termination Date: "&AnyDateLeadingZeros(DateSerial(Year(Now)+1, 1 + Month(Now), 0)), "Termination Date Set", FALSE
+
+		'Lease Signed
+		.WebEdit("LeaseSigned").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 0)) 'End of previous month
+		WriteToReport micDone, "Set Lease Signed: "&AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 0)), "Lease Signed Set", FALSE
+
+		'Lease Administrator
+		.WebEdit("LeaseAdministrator").Set GlobalDictionary("LeaseAdministrator")
+		WriteToReport micDone, "Set Lease Administrator: "&GlobalDictionary("LeaseAdministrator"), "Lease Administrator Set", FALSE
+
+		'Portfolio Manager
+		.WebEdit("PortfolioManager").Set GlobalDictionary("PortfolioManager")
+		WriteToReport micDone, "Set Portfolio Manager: "&GlobalDictionary("PortfolioManager"), "Portfolio Manager Set", FALSE
+
+		'Select Action under Asset Information
+		.WebList("AssetInfoAction").Select GlobalDictionary("AssetInfoAction")
+		WriteToReport micDone, "Selected Asset Info Action: "&GlobalDictionary("AssetInfoAction"), "Asset Info Action Selected", FALSE
+
+		'Click Go
+		.WebButton("AssetInfoGo").Click
+		WriteToReport micDone, "Clicked the Go Button", "Button Clicked", FALSE
+
+		'Select Property Class
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("PropertySearch").WebList("PropertyClass").Select GlobalDictionary("PropertyClass")
+		WriteToReport micDone, "Selected Property Class: "&GlobalDictionary("PropertyClass"), "Property Class Selected", FALSE
+
+		'Set PropertyID
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("PropertySearch").WebEdit("PropertyID").Set GlobalDictionary("PropertyID")
+		WriteToReport micDone, "Set Property ID: "&GlobalDictionary("PropertyID"), "Property ID Set", FALSE
+
+		'Click Search
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("PropertySearch").WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Find and click Checkbox for Property Created with name from before
+		Call Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("PropertySearch").WebCheckBox("FirstRow").SetTOProperty("xpath", "//span[text()='"&GlobalDictionary("PropertyName")&"']/../../../../td[1]/div/input[@type='checkbox']")
+		If Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("PropertySearch").WebCheckBox("FirstRow").Exist(10) Then
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("PropertySearch").WebCheckBox("FirstRow").Click
+			WriteToReport micDone, "Found/Clicked the Property Created Earlier to Add to Lease", "Property Found/Clicked", FALSE
+		Else
+			WriteToReport micFail, "Did Not Find the Property Created Earlier", "Property Not Found", TRUE
+			ExitTest
+		End If
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("PropertySearch").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Verify Asset ID matches
+		Call .Link("Asset").SetTOProperty("innertext", GlobalDictionary("AssetID"))
+		If .Link("Asset").Exist(5) Then
+			WriteToReport micPass, "Added the Asset ["&GlobalDictionary("AssetID")&"] to the Lease", "Asset Added", FALSE
+		Else
+			WriteToReport micFail, "Asset ID For the Chosen Property Not Found", "Asset Not Added", TRUE
+			ExitTest
+		End If
+
+		'Click Location and Area tab
+		.WebElement("LocationAndArea").Click
+		WriteToReport micDone, "Clicked the Location and Area Tab", "Tab Clicked", FALSE
+
+		'Set Occupancy Date
+		.WebEdit("OccupancyDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 2)) 'Second of current month
+		WriteToReport micDone, "Set Occupancy Date: "&AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 2)), "Occupancy Date Set", FALSE
+
+		'Click Financial Terms Tab
+		.WebElement("FinancialTerms").Click
+		WriteToReport micDone, "Clicked the Financial Terms Tab", "Tab Clicked", FALSE
+
+		'Select from Add Lease Payment 'Percent Rent Details'
+		.WebList("AddLeasePayments").Select GlobalDictionary("AddLeasePayments1")
+		WriteToReport micDone, "Selected Add Lease Payments Option: "&GlobalDictionary("AddLeasePayments1"), "Option Selected", FALSE
+
+		'Click Go
+		.WebButton("AddLeasePmtGo").Click
+		WriteToReport micDone, "Clicked the Go Button", "Button Clicked", FALSE
+
+		If NOT Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("ReportingCalendar").Exist(30) Then
+			WriteToReport micFail, "Could not locate the Reporting Calendar Field", "Field not found", FALSE
+			ExitTest
+		End If
+
+		'Set Reporting Calendar to Monthly
+		Wait 1
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").Image("ReportingCalendar").Click
+		If Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("LookUpReportingCalendar").Link(GlobalDictionary("ReportingCalendar")).Exist(10) Then
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("LookUpReportingCalendar").Link(GlobalDictionary("ReportingCalendar")).Click
+			WriteToReport micDone, "Set Reporting Calendar: "&GlobalDictionary("ReportingCalendar"), "Reporting Calendar Set", FALSE
+		Else
+			WriteToReport micFail, "Could not Find Reporting Calndar Link: "&GlobalDictionary("ReportingCalendar"), "Link Not Found", FALSE
+			ExitTest	
+		End If
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Select from Add Lease Payment 'Add Base Rent'
+		Wait 1
+		.WebList("AddLeasePayments").Select GlobalDictionary("AddLeasePayments2")
+		WriteToReport micDone, "Selected Add Lease Payments Option: "&GlobalDictionary("AddLeasePayments2"), "Option Selected", FALSE
+
+		'Click Go
+		.WebButton("AddLeasePmtGo").Click
+		WriteToReport micDone, "Clicked the Go Button", "Button Clicked", FALSE
+
+		If NOT Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("StartDate").Exist(30) Then
+			WriteToReport micFail, "Could not locate the Reporting Start Date", "Field not found", FALSE
+			ExitTest
+		End If
+
+		'Set Start Date
+		Wait 1
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("StartDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)) 'First of current month
+		WriteToReport micDone, "Start Date: "&AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "Set Start Date", FALSE
+
+		'Set End Date
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("EndDate").Set AnyDateLeadingZeros(DateSerial(Year(Now)+1, Month(Now)+1, 0)) 'Last of current month, next year
+		WriteToReport micDone, "End Date: "&AnyDateLeadingZeros(DateSerial(Year(Now)+1, Month(Now)+1, 0)), "Set End Date", FALSE
+
+		'Check Payee is Lessor
+		sTemp = Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("Payee").GetROProperty("value")
+		If Trim(sTemp) <> GlobalDictionary("Lessor") Then
+			WriteToReport micFail, "The Payee Does Not Match the Lessor Assigned", "Given ["&sTemp&"] and Expected ["&GlobalDictionary("Lessor")&"]", TRUE
+			ExitTest
+		Else
+			WriteToReport micPass, "The Payee is Already Set to the Lessor", "Payee Set", FALSE
+		End If
+
+		'Check Location
+		sTemp = Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("Location").GetROProperty("value")
+		If Trim(sTemp) <> GlobalDictionary("Location") Then
+			WriteToReport micFail, "The Location Does Not Match the Location Assigned", "Given ["&sTemp&"] and Expected ["&GlobalDictionary("Location")&"]", TRUE
+			ExitTest
+		Else
+			WriteToReport micPass, "The Location is Already Set", "Location Set", FALSE
+		End If
+
+		'Set Amount
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("AmountDollar").Set GlobalDictionary("AmountDollar")
+		WriteToReport micDone, "Set Base Dollar Amount: "&GlobalDictionary("AmountDollar"), "Base Rent Set", FALSE
+
+		'Set Schedule
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("Schedule").Set GlobalDictionary("Schedule")
+		WriteToReport micDone, "Set Schedule: "&GlobalDictionary("Schedule"), "Schedule Set", FALSE
+
+		If GlobalDictionary.Exists("RentEscalation") Then
+			'Select Escalation Type Stepped
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebList("EscalationType").Select GlobalDictionary("RentEscalation")
+			WriteToReport micDone, "Selected Escalation Type: "&GlobalDictionary("RentEscalation"), "Escalation Type Selected", FALSE
+
+			'Click Go
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebButton("EscalationGo").Click
+			WriteToReport micDone, "Clicked Go next to Escalation Type", "Button Clicked", FALSE
+
+			'Set Start Date 2nd of Next Month
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("EscalationStartDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now) + 1, 2)) 'Second of next month
+			WriteToReport micDone, "Set Escalation Start Date: "&AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now) + 1, 2)), "Escalation Start Date Set", FALSE
+
+			'Click Amount to Escalate By
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebElement("Amount").Click
+			WriteToReport micDone, "Clicked Escalate By: Amount", "Amount Clicked", FALSE
+
+			'Set Dollar Amount
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("EscalationAmountDollar").Set GlobalDictionary("EscalateAmount")
+			WriteToReport micDone, "Set Amount to Escalate By: "&GlobalDictionary("EscalateAmount"), "Amount to Escalate By Set", FALSE
+
+			'Click Generate Schedule
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebButton("GenerateSchedule").Click
+			WriteToReport micDone, "Clicked Generate Schedule", "Button Clicked", FALSE
+
+			Wait 5
+
+			'Verify Rows appear in table
+			If NOT (Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebTable("Schedule").GetROProperty("rows") > 1) Then 'default one "row" meant for manual additions
+				WriteToReport micFail, "Failed to Generate Schedule of Escalations", "Table Has No Escalation Entries", TRUE
+				ExitTest
+			Else
+				WriteToReport micPass, "Schedule Generated", "Table Filled with Schedule", FALSE
+			End If
+		End If
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		If GlobalDictionary.Exists("OpExp") Then
+			Wait 3
+			.WebList("AddLeasePayments").Select GlobalDictionary("OpExp")
+			WriteToReport micDone, "Selected Add Lease Payments Option: "&GlobalDictionary("OpExp"), "Option Selected", FALSE
+
+			'Click Go
+			.WebButton("AddLeasePmtGo").Click
+			WriteToReport micDone, "Clicked the Go Button", "Button Clicked", FALSE
+
+			Wait 2
+
+			'Select from Prorata Share Method
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebList("ProrataShareMethod").Select GlobalDictionary("ProrataShareMethod")
+			WriteToReport micDone, "Selected Prorata Share Method: "&GlobalDictionary("ProrataShareMethod"), "Method Selected", FALSE
+
+			'Select Admin Fee Method
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebList("AdminFeeMethod").Select GlobalDictionary("AdminFeeMethod")
+			WriteToReport micDone, "Selected Admin Fee Method: "&GlobalDictionary("AdminFeeMethod"), "Admin Fee Method Selected", FALSE
+
+			'Uncheck Exp. Gross Up
+			If Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebCheckBox("ExpGrossUp").GetROProperty("checked") <> 0 Then '1 is checked, 0 is cleared
+				Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebCheckBox("ExpGrossUp").Click
+				WriteToReport micDone, "Unchecked the Exp. Gross Up Checkbox", "Checkbox Unchecked", FALSE
+			End If
+
+			'Uncheck Exclude Base Year
+			If Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebCheckBox("ExcludeBaseYear").GetROProperty("checked") <> 0 Then '1 is checked, 0 is cleared
+				Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebCheckBox("ExcludeBaseYear").Click
+				WriteToReport micDone, "Unchecked the Exclude Base Year Checkbox", "Checkbox Unchecked", FALSE
+			End If
+
+			'Set Base Year: Current
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("BaseYear").Set Year(Now)
+			WriteToReport micDone, "Set the Base Year to: "&Year(Now), "Base Year Set", FALSE
+
+			'Set Operating Expense
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("OperatingExpense").Set GlobalDictionary("OperatingExpense")
+			WriteToReport micDone, "Set the Operating Expense to: "&GlobalDictionary("OperatingExpense"), "Operating Expense Set", FALSE
+
+			'Set Estimated Amount
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("EstimatedAmount").Set GlobalDictionary("EstimatedAmount")
+			WriteToReport micDone, "Set the Estimated Amount to: "&GlobalDictionary("EstimatedAmount"), "Estimated Amount Set", FALSE
+
+			'Set Min Amount
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("MinAmount").Set GlobalDictionary("MinAmount")
+			WriteToReport micDone, "Set Min Amount to: "&GlobalDictionary("MinAmount"), "Min Amount Amount Set", FALSE
+
+			'Set Max Amount
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("MaxAmount").Set GlobalDictionary("MaxAmount")
+			WriteToReport micDone, "Set Max Amount to: "&GlobalDictionary("MaxAmount"), "Max Amount Amount Set", FALSE
+
+			'Set Total Administration Fee
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("TotalAdminFee").Set GlobalDictionary("TotalAdminFee")
+			WriteToReport micDone, "Set Total Admin Fee: "&GlobalDictionary("TotalAdminFee"), "Total Admin Fee Set", FALSE
+
+			'Set Schedule
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebEdit("OpExpSchedule").Set GlobalDictionary("OpExpSchedule")
+			WriteToReport micDone, "Set Schedule: "&GlobalDictionary("OpExpSchedule"), "Schedule Set", FALSE
+
+			'Click OK
+			Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FinancialTermsPopup").WebButton("OK").Click
+			WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+		End If
+
+		'Verify Base Rent appears under Schedule of Payments
+		arrSearch = Array("Base Rent",GlobalDictionary("AmountDollar"))
+		nRow = FindRowWithText(.WebTable("ScheduleOfPayments"), arrSearch)
+
+		If nRow = -1 Then
+			WriteToReport micFail, "Did Not Find a Row under Schedule of Payments for Base Rent", "Expected Base Rent", TRUE
+			ExitTest
+		Else
+			WriteToReport micPass, "Found the Base Rent Under Schedule of Payments", "Base Rent Found as Expected", FALSE
+		End If
+
+		If GlobalDictionary.Exists("RentEscalation") Then
+			'Verify Escalation appears under Schedule of Payments
+			If InStr(1, .WebTable("ScheduleOfPayments").Cell(nRow, 14).GetROProperty("innerhtml"), "Escalation") > 0 Then
+				WriteToReport micPass, "Found the Escalated Base Rent Under Schedule of Payments", "Escalation Found", FALSE
+			Else
+				WriteToReport micFail, "Did Not Find Escalated Base Rent Under Schedule of Payments", "Escalation Not Found", TRUE
+				ExitTest
+			End If
+		End If
+
+		If GlobalDictionary.Exists("OpExp") Then
+			arrSearch = Array("Operating Expense",GlobalDictionary("EstimatedAmount"))
+			nRow = FindRowWithText(.WebTable("ScheduleOfPayments"), arrSearch)
+			If nRow = -1 Then
+				WriteToReport micFail, "Did Not Find a Row under Schedule of Payments for Operating Expense", "Expected Operating Expense", TRUE
+				ExitTest
+			Else
+				WriteToReport micPass, "Found the Operating Expense Under Schedule of Payments", "Operating Expense Found as Expected", FALSE
+			End If
+		End If
+
+		'Click General Information Tab
+		.WebElement("GeneralInformation").Click
+		WriteToReport micDone, "Clicked the General Information Tab", "Tab Clicked", FALSE
+		Wait 3
+
+		'Expand Lease Payment Allocation
+		.WebElement("ExpLeasePmtAlloc").Click
+		WriteToReport micDone, "Expanded the Lease Payment Allocation Section", "Section Expanded", FALSE
+
+		'Select Allocation Basis: Price
+		.WebList("AllocationBasis").Select "Price"
+		WriteToReport micDone, "Allocation Basis Selected: Price", "Option Selected", FALSE
+
+		'Get Displayed Unallocated Amount
+		nPmt = .WebElement("UnallocatedAmt").GetROProperty("innertext")
+		WriteToReport micDone, "Found Unallocated Amount of: "&nPmt, "Unallocated Amount Stored", FALSE
+
+		'Click Cost Tab under Asset List
+		.WebElement("Cost").Click
+		WriteToReport micDone, "Clicked the Cost Tab", "Tab Clicked", FALSE
+
+		'Set Allocated Lease Payments to Unallocated Amount
+		.WebEdit("AllocatedLeasePmt").Set nPmt
+		WriteToReport micDone, "Set Allocated Lease Payment to Unallocated Amount: "&nPmt, "Allocated Lease Payment Set", FALSE
+
+		'Select Action Calculate Allocation under Lease Payment Allocation
+		.WebList("LPA_Action").Select "Calculate Allocation"
+		WriteToReport micDone, "Lease Payment Allocation Action Selected: Calculate Allocation", "Option Selected", FALSE
+
+		'Click Go
+		.WebButton("LPA_Go").Click
+		WriteToReport micDone, "Clicked the Go Button", "Button Clicked", FALSE
+
+		'Submit for Review
+		.WebList("TopAction").Select "Submit for Review"
+		WriteToReport micDone, "Selected Action 'Submit for Review' From Top Action List", "Action Selected", FALSE
+		.WebButton("TopGo").Click
+		WriteToReport micDone, "Clicked the Go Button Next to the Top Action List", "Button Clicked", FALSE
+
+		'Click General Information Tab
+		.WebElement("GeneralInformation").Click
+		WriteToReport micDone, "Clicked the General Information Tab", "Tab Clicked", FALSE
+		Wait 3
+
+		'Click Classification under Asset List
+		.WebElement("Classification").Click
+		WriteToReport micDone, "Clicked the Classification Tab", "Tab Clicked", FALSE
+
+		'Check Reviewed Box
+		.WebCheckBox("Reviewed").Click
+		WriteToReport micDone, "Checked the Reviewed Box for the Asset", "Box Checked", FALSE
+
+		'Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		'Validate Lease
+		.WebList("TopAction").Select "Validate Lease"
+		WriteToReport micDone, "Selected Action 'Validate Lease' From Top Action List", "Action Selected", FALSE
+		.WebButton("TopGo").Click
+		WriteToReport micDone, "Clicked the Go Button Next to the Top Action List", "Button Clicked", FALSE
+
+		If NOT .WebElement("ErrorMsg").Exist(15) Then
+			If Browser("PeopleSoft Browser").Page("CreateNewLease").WebElement("NoErrors").Exist(15) Then
+				WriteToReport micPass, "Successfully Created a Lease", "Lease Created Successfully", FALSE
+				Browser("PeopleSoft Browser").Page("CreateNewLease").WebButton("OK").Click
+				WriteToReport micDone, "Dismissed Error Message", "Clicked OK", FALSE
+			Else
+				WriteToReport micFail, "Did Not Receive a Message ""No errors were found...""", "Expected Message Not Found", TRUE
+				ExitTest
+			End If
+		Else
+			WriteToReport micFail, "Errors Detected in Lease", "Cannot Continue Lease Creation", TRUE
+			ExitTest
+		End If
+
+		'Store Lease Number
+		If GlobalDictionary.Exists("LeaseNumber") Then
+       		GlobalDictionary.Remove("LeaseNumber")
+    	End If
+    	GlobalDictionary.Add "LeaseNumber", .WebElement("LeaseNumber").GetROProperty("innertext")
+    	WriteToReport micDone, "Lease Created with Number: "&GlobalDictionary("LeaseNumber"), "Lease Number Stored", FALSE
+
+    	If GlobalDictionary.Exists("Attachment") Then
+    		Call AttachToLease
+    	End If
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Login as the Portfolio Manager from a created Lease, and Activate the Lease LS_1.04 (as part of 1.01,02,03)
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ActivateLease
+	Const ACT_LS = "Activate Lease"
+	Const ACTIVE = "Active"
+	Call Login(dbFetchUserId(GlobalDictionary("PortfolioManager"))(1))
+
+	'Navigate to Maintain Lease
+	If SelectMainMenu1(GlobalDictionary("MaintainLease")) Then
+		WriteToReport micPass, "Maintain Lease Page", "Navigation to Maintain Lease Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Maintain Lease Page", "Navigation to Maintain Lease page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("MaintainLease").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Lease Number
+		.WebEdit("LeaseNumber").Set GlobalDictionary("LeaseNumber")
+		WriteToReport micDone, "Set Lease Number: "&GlobalDictionary("LeaseNumber"), "Lease Number Set", FALSE
+
+		'Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Verify Page Loaded
+		If .WebElement("LeaseNumber").Exist(30) Then
+			If .WebElement("LeaseNumber").GetROProperty("innertext") = GlobalDictionary("LeaseNumber") Then
+				WriteToReport micDone, "Lease Page Loaded", "Page Loaded under 30 Seconds", FALSE
+			Else
+				WriteToReport micFail, "Wrong Lease opened", "", TRUE
+				ExitTest
+			End If
+		Else
+			WriteToReport micFail, "Did Not Open any Lease", "No Lease Opened", TRUE
+			ExitTest
+		End If
+
+		'Activate Lease 
+		.WebList("TopAction").Select ACT_LS
+		WriteToReport micDone, "Selected Action: "&ACT_LS, "Option Selected", FALSE
+		.WebButton("TopGo").Click
+		WriteToReport micDone, "Clicked the Go Button Next to the Top Action List", "Button Clicked", FALSE
+
+		Wait 5
+
+		'Verify Lease is now in Active Status
+		If Trim(.WebElement("LeaseStatus").GetROProperty("innertext")) = ACTIVE Then
+			WriteToReport micPass, "Lease Number ["&GlobalDictionary("LeaseNumber")&"] Activated Successfully", "Lease Activated", FALSE
+		Else
+			WriteToReport micFail, "Lease Number ["&GlobalDictionary("LeaseNumber")&"] Failed to Activate", "Lease Not Activated", TRUE
+			ExitTest
+		End If
+	End With
+	'Save for later Tests
+	If GlobalDictionary("SaveForLater") = "TRUE" Then
+		Dim oExcel, oFSO, oWorkbook, oSheet
+		Set oExcel = CreateObject("Excel.Application")
+		Set oFSO = CreateObject("Scripting.FileSystemObject")
+		'Delete the old asset file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\LeaseNumber.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\LeaseNumber.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\LeaseNumber.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "LeaseNumber"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("LeaseNumber")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\LeaseNumber", 56)
+		WriteToReport micPass, "Asset Saved for Later Test", "Asset Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\LeaseNumber.xls", FALSE
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Adds an Attachment to a Lease NOTE: Must already be on CreateNewLease Page LS_1.03
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AttachToLease
+	Dim arrTemp
+	'Click Notes and Attachments tab
+	Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("TargetContent").WebElement("NotesAndAttachments").Click
+	WriteToReport micDone, "Clicked the Notes and Attachments Tab", "Tab Clicked", FALSE
+
+	'Click Add Attachment
+	Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("TargetContent").WebButton("AddAttachment").Click
+	WriteToReport micDone, "Clicked Add Attachment Button", "Button Clicked", FALSE
+
+	'Choose File
+	Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FileAttachment").WebFile("File").Set GlobalDictionary("Attachment")
+	WriteToReport micDone, "Attachment to Upload from Path: "&GlobalDictionary("Attachment"), "Attachment Uploaded", FALSE
+
+	Wait 10
+
+	'Click Upload
+	Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FileAttachment").WebButton("Upload").Click
+	WriteToReport micDone, "Clicked the Upload Button", "Button Clicked", FALSE
+
+	'Verify File Exists on Page
+	arrTemp = Split(GlobalDictionary("Attachment"), "\")
+	Call Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("TargetContent").Link("Filename").SetTOProperty("text", arrTemp(UBound(arrTemp)))
+	If Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("TargetContent").Link("Filename").Exist(30) Then
+		WriteToReport micPass, "File Uploaded Successfully", "File Found", FALSE
+	Else
+		WriteToReport micFail, "File Failed to Upload", "File Link Not Found under 30 Seconds", TRUE
+		ExitTest
+	End If
+
+	If GlobalDictionary.Exists("Attachment2") Then
+		'Click Add Attachment
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("TargetContent").WebButton("AddAttachment").Click
+		WriteToReport micDone, "Clicked Add Attachment Button", "Button Clicked", FALSE
+
+		'Choose File
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FileAttachment").WebFile("File").Set GlobalDictionary("Attachment2")
+		WriteToReport micDone, "Attachment to Upload from Path: "&GlobalDictionary("Attachment2"), "Attachment Uploaded", FALSE
+
+		Wait 10
+
+		'Click Upload
+		Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("FileAttachment").WebButton("Upload").Click
+		WriteToReport micDone, "Clicked the Upload Button", "Button Clicked", FALSE
+
+		'Verify File Exists on Page
+		arrTemp = Split(GlobalDictionary("Attachment2"), "\")
+		Call Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("TargetContent").Link("Filename").SetTOProperty("text", arrTemp(UBound(arrTemp)))
+		If Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("TargetContent").Link("Filename").Exist(30) Then
+			WriteToReport micPass, "File Uploaded Successfully", "File Found", FALSE
+		Else
+			WriteToReport micFail, "File Failed to Upload", "File Link Not Found under 30 Seconds", TRUE
+			ExitTest
+		End If
+	End If
+
+	'Click Save
+	Browser("PeopleSoft Browser").Page("CreateNewLease").PSFrame("TargetContent").WebButton("Save").Click
+	WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Adds a Time Extension Amendment to the Lease LS_1.05
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ExtendLease
+	Dim sDate
+	Dim nPmt, nOrig
+	Const MNG_AMD = "Manage Amendments"
+	Const ACTIVE = "Active"
+	'Navigate to Maintain Lease
+	If SelectMainMenu1(GlobalDictionary("MaintainLease")) Then
+		WriteToReport micPass, "Maintain Lease Page", "Navigation to Maintain Lease Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Maintain Lease Page", "Navigation to Maintain Lease page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("MaintainLease").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Lease Number
+		.WebEdit("LeaseNumber").Set GlobalDictionary("LeaseNumber")
+		WriteToReport micDone, "Set Lease Number: "&GlobalDictionary("LeaseNumber"), "Lease Number Set", FALSE
+
+		'Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Verify Page Loaded
+		If .WebElement("LeaseNumber").Exist(30) Then
+			If .WebElement("LeaseNumber").GetROProperty("innertext") = GlobalDictionary("LeaseNumber") Then
+				WriteToReport micDone, "Lease Page Loaded", "Page Loaded under 30 Seconds", FALSE
+			Else
+				WriteToReport micFail, "Wrong Lease opened", "", TRUE
+				ExitTest
+			End If
+		Else
+			WriteToReport micFail, "Did Not Open any Lease", "No Lease Opened", TRUE
+			ExitTest
+		End If
+
+		'Manage Lease 
+		.WebList("TopAction").Select MNG_AMD
+		WriteToReport micDone, "Selected Action: "&MNG_AMD, "Option Selected", FALSE
+		.WebButton("TopGo").Click
+		WriteToReport micDone, "Clicked the Go Button Next to the Top Action List", "Button Clicked", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set Amendment Type
+		Browser("PeopleSoft Browser").Page("MaintainLease").PSFrame("AmendmentsPopup").WebEdit("AmendmentType").Set GlobalDictionary("AmendmentType")
+		WriteToReport micDone, "Set Amendment Type: "&GlobalDictionary("AmendmentType"), "Amendment Type Set", FALSE
+
+		'Set Reason
+		Browser("PeopleSoft Browser").Page("MaintainLease").PSFrame("AmendmentsPopup").WebEdit("Reason").Set GlobalDictionary("Reason")
+		WriteToReport micDone, "Set Reason: "&GlobalDictionary("Reason"), "Reason Set", FALSE
+
+		'Click Continue
+		Browser("PeopleSoft Browser").Page("MaintainLease").PSFrame("AmendmentsPopup").WebButton("Continue").Click
+		WriteToReport micDone, "Clicked the Continue Button", "Button Clicked", FALSE
+
+		'Extend Termination Date by 1 year
+		If .WebEdit("TerminationDate").Exist(30) Then
+			sDate = .WebEdit("TerminationDate").GetROProperty("value")
+			.WebEdit("TerminationDate").Set AnyDateLeadingZeros(DateAdd("yyyy", 1, sDate))
+			WriteToReport micDone, "Extended Lease from Date ["&sDate&"] to Date ["&AnyDateLeadingZeros(DateAdd("yyyy", 1, sDate))&"]", "Lease Extended", FALSE
+		Else
+			WriteToReport micFail, "Could Not Locate the Termination Date Field", "Field Not Found", TRUE
+			ExitTest
+		End If
+
+		'Click Financial Terms Tab
+		.WebElement("FinancialTerms").Click
+		WriteToReport micDone, "Clicked the Financial Terms Tab", "Tab Clicked", FALSE
+
+		'Click Base Rent Link
+		.Link("BaseRent").Click
+		WriteToReport micDone, "Clicked the Base Rent Link", "Link Clicked", FALSE
+
+		'Change End Date to Current Value + 1 year
+		Browser("PeopleSoft Browser").Page("MaintainLease").PSFrame("FinancialTermsPopup").WebEdit("EndDate").Set AnyDateLeadingZeros(DateAdd("yyyy", 1, sDate))
+		WriteToReport micDone, "Extended Base Rent End Date from Date ["&sDate&"] to Date ["&AnyDateLeadingZeros(DateAdd("yyyy", 1, sDate))&"]", "Rent Extended to Match Lease Extension", FALSE
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("MaintainLease").PSFrame("FinancialTermsPopup").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Click General Information Tab
+		.WebElement("GeneralInformation").Click
+		WriteToReport micDone, "Clicked the General Information Tab", "Tab Clicked", FALSE
+		Wait 3
+
+		'Expand Lease Payment Allocation
+		.WebElement("ExpLeasePmtAlloc").Click
+		WriteToReport micDone, "Expanded the Lease Payment Allocation Section", "Section Expanded", FALSE	
+
+		'Select Allocation Basis: Price
+		.WebList("AllocationBasis").Select "Price"
+		WriteToReport micDone, "Allocation Basis Selected: Price", "Option Selected", FALSE
+
+		'Get Displayed Unallocated Amount
+		nPmt = .WebElement("UnallocatedAmt").GetROProperty("innertext")
+		WriteToReport micDone, "Found Unallocated Amount of: "&nPmt, "Unallocated Amount Stored", FALSE
+
+		'Click Cost Tab under Asset List
+		.WebElement("Cost").Click
+		WriteToReport micDone, "Clicked the Cost Tab", "Tab Clicked", FALSE
+
+		'Add Unallocated Lease Payments to Allocated Amount
+		nOrig = .WebEdit("AllocatedLeasePmt").GetROProperty("value")
+		.WebEdit("AllocatedLeasePmt").Set CDbl(nPmt) + CDbl(nOrig)
+		WriteToReport micDone, "Updated Allocated Lease Payment ["&nOrig&"] by Adding Unallocated Amount ["&nPmt&"] To New Amount ["&CDbl(nPmt) + CDbl(nOrig)&"]", "Updated Allocated Payment", FALSE
+
+		'Select Action Calculate Allocation under Lease Payment Allocation
+		.WebList("LPA_Action").Select "Calculate Allocation"
+		WriteToReport micDone, "Lease Payment Allocation Action Selected: Calculate Allocation", "Option Selected", FALSE
+
+		'Click Go
+		.WebButton("LPA_Go").Click
+		WriteToReport micDone, "Clicked the Go Button", "Button Clicked", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		'Click Return to Amendment History Link
+		.Link("ReturnToAmendmentHistory").Click
+		WriteToReport micDone, "Clicked Return to Amendment History Link", "Link Clicked", FALSE
+
+		'Click Activate
+		.WebButton("Activate").Click
+		WriteToReport micDone, "Clicked to Activate the Amendment", "Button Clicked", FALSE
+
+		'Alert appears
+		If Browser("PeopleSoft Browser").Page("MaintainLease").WebElement("Alert").Exist(10) Then
+			WriteToReport micDone, "Alert Appeared, Explaining that Transactions Later Than "&DateLeadingZeros&" Will be Reversed", "Alert Appeared", TRUE
+		Else
+			WriteToReport micFail, "Alert Explaining that Transactions Later Than "&DateLeadingZeros&" Will be Reversed did Not Appear", "Alert Not Found", TRUE
+			ExitTest
+		End If
+
+		'Click OK to dismiss
+		Browser("PeopleSoft Browser").Page("MaintainLease").WebButton("Alert_OK").Click
+		WriteToReport micDone, "Click OK to Dismiss the Alert", "Alert Dismissed", FALSE
+
+		'Return to Maintain Lease
+		.Link("ReturnToMaintainLease").Click
+		WriteToReport micDone, "Clicked Return to Maintain Lease Link", "Link Clicked", FALSE
+
+		Wait 5
+
+		'Verify Lease is now in Active Status
+		If Trim(.WebElement("LeaseStatus").GetROProperty("innertext")) = ACTIVE Then
+			WriteToReport micPass, "Lease Number ["&GlobalDictionary("LeaseNumber")&"] Activated Successfully", "Lease Activated", FALSE
+		Else
+			WriteToReport micFail, "Lease Number ["&GlobalDictionary("LeaseNumber")&"] Failed to Activate", "Lease Not Activated", TRUE
+			ExitTest
+		End If
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Looks in the Database for the OPRID of the Portfolio Manager of the Lease Number Stored in GlobalDictionary
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function FindPortfolioManager
+	GlobalDictionary.Add "SignInUser", dbGetLeasePortfolioMgrID(GlobalDictionary("LeaseNumber"))
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Generates the Straightline Schedule for the Lease Number Stored in GlobalDictionary LS_2.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function GenerateStraightlineSchedule
+	Const GSS = "GSS"
+	Const PROCNAME = "RE_FASB_GEN"
+	Dim sProcInst
+	'Navigate to Generate Straightline Schedule
+	If SelectMainMenu1(GlobalDictionary("GenerateStraightlineSchedule")) Then
+		WriteToReport micPass, "Generate Straightline Schedule Page", "Navigation to Generate Straightline Schedule Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Generate Straightline Schedule Page", "Navigation to Generate Straightline Schedule page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("GenerateStraightlineSchedule").PSFrame("TargetContent")
+		'Click Add a New Value Link
+		.Link("AddANewValue").Click
+		WriteToReport micDone, "Clickeed Add a New Value Link", "Link Clicked", FALSE
+
+		'Set Run Control ID to GSS
+		.WebEdit("RunControlID").Set GSS
+		WriteToReport micDone, "Set Run Control ID to: "&GSS, "Run Control ID Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'If it already exists, click the Link else on page to create the Run Control
+		If .Link("GSS").Exist(5) Then
+			.Link("GSS").Click
+			WriteToReport micDone, "Run Control ID with Name "&GSS&" Already Exists; Link Clicked After Add Clicked", "Link Clicked", FALSE
+		End If
+
+		'Verify Navigation
+		If NOT .WebEdit("LeaseNumber").Exist(15) Then
+			WriteToReport micFail, "Not on the Run Control Options Page for "&GSS, "Failed to move to the Run Control Options Page in 15 seconds", TRUE
+			ExitTest
+		End If
+
+		'Set BusinessUnit
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Lease Number
+		.WebEdit("LeaseNumber").Set GlobalDictionary("LeaseNumber")
+		WriteToReport micDone, "Set Lease Number to: "&GlobalDictionary("LeaseNumber"), "Lease Number Set", FALSE
+
+		'Click Run
+		.WebButton("Run").Click
+		WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("GenerateStraightlineSchedule").PSFrame("ProcessSchedulerRequest").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Note Process Instance
+		If .WebElement("ProcessInstance").Exist(15) Then
+			sProcInst = Split(.WebElement("ProcessInstance").GetROProperty("innertext"), ":")(1)
+			WriteToReport micPass, "Instance ["&sProcInst&"] Started", "Send to Asset Management Process Started", FALSE
+		End If
+
+		'Click Process Monitor
+		.Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+
+	End With
+	'Monitor until Success/Posted
+	Call CheckProcessMontiorStatus(PROCNAME)
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Opens Manual Straightline Adjustment and verifies all rows add up to the Total Payment Expected from the Lease LS_2.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ManualStraightlineAdjustment
+	Dim nExpectedTotal, i, nSum
+	Const STRT_AMT_COL = 7
+	nSum = 0.0
+	'Navigate to Manual Straightline Adjustment
+	If SelectMainMenu1(GlobalDictionary("ManualStraightlineAdjustment")) Then
+		WriteToReport micPass, "Manual Straightline Adjustment Page", "Navigation to Manual Straightline Adjustment Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Manual Straightline Adjustment Page", "Navigation to Manual Straightline Adjustment page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("ManualStraightlineAdjustment").PSFrame("TargetContent")
+		'Set BusinessUnit
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Lease Number
+		.WebEdit("LeaseNumber").Set GlobalDictionary("LeaseNumber")
+		WriteToReport micDone, "Set Lease Number to: "&GlobalDictionary("LeaseNumber"), "Lease Number Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Verify Nav
+		If NOT .WebTable("Schedule").Exist(20) Then
+			WriteToReport micFail, "Failed to Open Manual Straightline Adjustment Page for Lease: "&GlobalDictionary("LeaseNumber"), "Page Not Loaded Under 20 Seconds", TRUE
+			ExitTest
+		End If
+
+		nExpectedTotal = CDbl(dbGetLeasePaymentTotal(GlobalDictionary("LeaseNumber")))
+
+		'Loop over table, adding values to match against expected total
+		For i=1 To .WebTable("Schedule").GetROProperty("rows")
+			nSum = Round(nSum + CDbl(.WebTable("Schedule").Cell(i, STRT_AMT_COL).GetROProperty("innertext")),2)
+		Next
+		WriteToReport micDone, "Table Has a Total Straightline Amount of: "&nSum, "Straightline Amount Total Found", FALSE
+
+		If nSum = nExpectedTotal Then
+			WriteToReport micPass, "Total Straightline Amount Shown in Table Matches Total Lease Payment Amount", "Values Match: "&nSum, FALSE
+		Else
+			WriteToReport micFail, "Total Straightline Amount ["&nSum&"] Does Not Match Total Lease Payment Amount ["&nExpectedTotal&"]", "Values Unmatched", TRUE 
+			ExitTest
+		End If
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Posts the Current Month's Straightline Entries for the Lease LS_2.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function PostStraightlineEntries
+	Const PSE = "PSE"
+	Const PROCNAME = "RE_STGL_POST"
+	Dim sProcInst
+	'Navigate to Post Straightline Entries
+	If SelectMainMenu1(GlobalDictionary("PostStraightlineEntries")) Then
+		WriteToReport micPass, "Post Straightline Entries Page", "Navigation to Post Straightline Entries Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Post Straightline Entries Page", "Navigation to Post Straightline Entries page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("PostStraightlineEntries").PSFrame("TargetContent")
+		'Click Add a New Value Link
+		.Link("AddANewValue").Click
+		WriteToReport micDone, "Clickeed Add a New Value Link", "Link Clicked", FALSE
+
+		'Set Run Control ID to PSE
+		.WebEdit("RunControlID").Set PSE
+		WriteToReport micDone, "Set Run Control ID to: "&PSE, "Run Control ID Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'If it already exists, click the Link else on page to create the Run Control
+		If .Link("PSE").Exist(5) Then
+			.Link("PSE").Click
+			WriteToReport micDone, "Run Control ID with Name "&PSE&" Already Exists; Link Clicked After Add Clicked", "Link Clicked", FALSE
+		End If
+
+		'Verify Navigation
+		If NOT .WebEdit("LeaseNumber").Exist(15) Then
+			WriteToReport micFail, "Not on the Run Control Options Page for "&PSE, "Failed to move to the Run Control Options Page in 15 seconds", TRUE
+			ExitTest
+		End If
+
+		'Set BusinessUnit
+		.WebEdit("LABusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Lease Number
+		.WebEdit("LeaseNumber").Set GlobalDictionary("LeaseNumber")
+		WriteToReport micDone, "Set Lease Number to: "&GlobalDictionary("LeaseNumber"), "Lease Number Set", FALSE
+
+		'Set Accounting Date
+		.WebEdit("AccountingDate").Set DateLeadingZeros
+		WriteToReport micDone, "Set Accounting Date: "&DateLeadingZeros, "Accounting Date Set", FALSE
+
+		'Set Fiscal Year
+		.WebEdit("FiscalYear").Set Year(Now)
+		WriteToReport micDone, "Set Fiscal Year: "&Year(Now), "Fiscal Year Set", FALSE
+
+		'Set Accounting Period From/To
+		.WebEdit("AcctgPeriodFrom").Set Month(Now)
+		.WebEdit("AcctgPeriodTo").Set Month(Now)
+		WriteToReport micDone, "Set Accounting Period From/To: "&Month(Now), "Accounting Period From/To Set", FALSE
+
+		'Click Run
+		.WebButton("Run").Click
+		WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+		Wait 1
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("PostStraightlineEntries").PSFrame("ProcessSchedulerRequest").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Note Process Instance
+		If .WebElement("ProcessInstance").Exist(15) Then
+			sProcInst = Split(.WebElement("ProcessInstance").GetROProperty("innertext"), ":")(1)
+			WriteToReport micPass, "Instance ["&sProcInst&"] Started", "Send to Asset Management Process Started", FALSE
+		End If
+
+		'Click Process Monitor
+		.Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+	End With
+	'Monitor until Success/Posted
+	Call CheckProcessMontiorStatus(PROCNAME)
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Check Posted Straightline Accounting for the current Month, that was just Posted LS_2.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function CheckPostedStraightlineAccounting
+	Dim arrSearch
+	'Navigate to Post Straightline Accounting
+	If SelectMainMenu1(GlobalDictionary("PostedStraightlineAccounting")) Then
+		WriteToReport micPass, "Posted Straightline Accounting Page", "Navigation to Posted Straightline Accounting Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Posted Straightline Accounting Page", "Navigation to Posted Straightline Accounting page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("PostedStraightlineAccounting").PSFrame("TargetContent")
+		'Set BusinessUnit
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Lease Number
+		.WebEdit("LeaseNumber").Set GlobalDictionary("LeaseNumber")
+		WriteToReport micDone, "Set Lease Number to: "&GlobalDictionary("LeaseNumber"), "Lease Number Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Look for Credit Row
+		arrSearch = Array(GlobalDictionary("LeaseNumber"),"Credit", CStr(DateLeadingZeros), CStr(Year(Now)), CStr(Month(Now)))
+		If FindRowWithText(.WebTable("SearchResults"), arrSearch) <> -1 Then
+			WriteToReport micPass, "Found a Valid Credit Row", "Credit Row Found", FALSE
+		Else
+			WriteToReport micFail, "Did Not Find a Valid Credit Row", "Credit Row Not Found", TRUE
+			ExitTest
+		End If
+
+		'Look for Debit Row
+		arrSearch = Array(GlobalDictionary("LeaseNumber"),"Debit", CStr(DateLeadingZeros), CStr(Year(Now)), CStr(Month(Now)))
+		If FindRowWithText(.WebTable("SearchResults"), arrSearch) <> -1 Then
+			WriteToReport micPass, "Found a Valid Debit Row", "Debit Row Found", FALSE
+		Else
+			WriteToReport micFail, "Did Not Find a Valid Debit Row", "Debit Row Not Found", TRUE
+			ExitTest
+		End If
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Generates Journals for Posted Payments for the Lease LS_2.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function LSGenerateJournals
+	Const LS_GEN_JRL = "LS_GEN_JRL"
+	Const ACCDEFNNAME = "REM"
+	Const PROCNAME = "FS_JGEN"
+	Const SPEC_DATE = "Specify Date"
+	Dim sProcInst
+	'Navigate to Generate Journals Under Subsystem Journals
+	If SelectMainMenu1(GlobalDictionary("GLGenerateJournals")) Then
+		WriteToReport micPass, "Generate Journals Page", "On the Generate Journals page.", FALSE
+	Else
+		WriteToReport micFail, "Generate Journals Page", "Navigation to Generate Journals page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("GenerateJournals").PSFrame("TargetContent")
+		'Click Add a New Value
+		.WebElement("AddANewValue").Click
+		WriteToReport micDone, "Clicked Add a New Value Tab", "Tab Clicked", FALSE
+
+		'Set Run Control ID
+		.WebEdit("RunControlID").Set LS_GEN_JRL
+		WriteToReport micDone, "Set Run Control ID to: "&LS_GEN_JRL, "Run Control ID Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Check If Link already exists
+		If .Link("LS_GEN_JRL").Exist Then
+			WriteToReport micDone, "LS_GEN_JRL Run Control ID Already Exists, Clicking Link", "Link Clicked", FALSE
+			.Link("LS_GEN_JRL").Click
+		End If
+
+		If .WebCheckBox("Edit").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("Edit").Click
+			WriteToReport micDone, "Clicked the Checkbox for Edit", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Edit Already Checked", "No Action Taken", FALSE
+		End If
+
+		If .WebCheckBox("Post").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("Post").Click
+			WriteToReport micDone, "Clicked the Checkbox for Post", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Post Already Checked", "No Action Taken", FALSE
+		End If
+
+		.WebElement("Always").Click
+		WriteToReport micDone, "Process Frequency Always Clicked", "Process Frequency Chosen", FALSE
+
+		.WebEdit("AccountingDefinitionName").Set ACCDEFNNAME
+		WriteToReport micDone, "Set the Accounting Definition Name to: "&ACCDEFNNAME, "Accounting Definition Name Set", FALSE
+
+		.WebEdit("AppBusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		.WebEdit("LedgerGroup").Set "" 'Clear the field
+		WriteToReport micDone, "Cleared the Ledger Group", "Field Cleared", FALSE
+
+		.WebList("FromDateOption").Select SPEC_DATE
+		.WebList("ToDateOption").Select SPEC_DATE
+		WriteToReport micDone, "Selected to Specify Date for From/To Date Fields", "Option Selected", FALSE
+
+		.WebEdit("FromDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)) 'First Day of the Month
+		WriteToReport micDone, "Set From Date to: "&AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "From Date Set", FALSE
+
+		.WebEdit("ToDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)) 'Last Day of the Month
+		WriteToReport micDone, "Set To Date to: "&AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "To Date Set", FALSE
+
+		'Click Run
+		.WebButton("Run").Click
+		WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+		'Click FS_JGEN checkbox
+		If Browser("PeopleSoft Browser").Page("GenerateJournals").PSFrame("ProcessSchedulerRequest").WebCheckBox("FS_JGEN").Exist(20) Then
+			If Browser("PeopleSoft Browser").Page("GenerateJournals").PSFrame("ProcessSchedulerRequest").WebCheckBox("FS_JGEN").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+				Browser("PeopleSoft Browser").Page("GenerateJournals").PSFrame("ProcessSchedulerRequest").WebCheckBox("FS_JGEN").Click
+				WriteToReport micDone, "Clicked the Checkbox for FS_JGEN", "Checkbox Checked", FALSE
+			Else
+				WriteToReport micDone, "Checkbox for FS_JGEN Already Checked", "No Action Taken", FALSE
+			End If
+		Else
+			WriteToReport micFail, "Failed to Window After Clicking Run", "Window Not Shown", TRUE
+			ExitTest
+		End If
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("GenerateJournals").PSFrame("ProcessSchedulerRequest").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Note Process Instance
+		If .WebElement("ProcessInstance").Exist(15) Then
+			sProcInst = Split(.WebElement("ProcessInstance").GetROProperty("innertext"), ":")(1)
+			WriteToReport micPass, "Instance ["&sProcInst&"] Started", PROCNAME&" Process Started", FALSE
+		End If
+
+		'Click Process Monitor
+		.Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+
+		'Monitor until Success/Posted
+		Call CheckProcessMontiorStatus(PROCNAME)
+	End With
+	Call CheckPostedLeaseJournalStatus(sProcInst)
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Checks the Status of the Journal(s) that was just Generated LS_2.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Private Function CheckPostedLeaseJournalStatus(ProcessInstance)
+	Dim arrResult, i, arrTemp
+
+	Const JRNL_HDR_STATUS = 6
+	Const BUDGET_HDR_STATUS = 7
+	arrResult = dbFindLeaseJournals(ProcessInstance)
+
+	If UBound(arrResult) = 0 Then
+		WriteToReport micFail, "No Journals Found Posted Today with ID Starting with REM", "No Journals Found", FALSE
+		ExitTest
+	End If
+
+	For i=1 To UBound(arrResult) 'Skip index 0, it is not a valid row
+		arrTemp = dbGetLeaseJournalStatus(arrResult(i))
+		WriteToReport micDone, "Checking Journal: "&arrTemp(i), "", FALSE
+		If arrTemp(JRNL_HDR_STATUS) = "P" Then
+			WriteToReport micPass, "Journal Posted", "Found Journal Posted Successfully", FALSE
+		Else
+			WriteToReport micFail, "Journal Not Posted", "Found Journal Not Posted Successfully; Instead Had Status: "&arrTemp(JRNL_HDR_STATUS), FALSE
+		End If
+		If arrTemp(BUDGET_HDR_STATUS) = "V" Then
+			WriteToReport micPass, "Journal Is Valid", "Found Journal in Valid State", FALSE
+		Else
+			WriteToReport micFail, "Journal Not Valid", "Found Journal in Non-Valid State; Instead Had Status: "&arrTemp(BUDGET_HDR_STATUS), FALSE
+		End If
+	Next
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Adds a Manual Fee to a Lease LS_3.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AddManualFee
+	Dim nRandom, oDeviceReplay
+	Const PENDING = "Pending"
+	Const ENTER = 28
+
+	'Navigate to Create Manual Payables
+	If SelectMainMenu1(GlobalDictionary("CreateManualPayables")) Then
+		WriteToReport micPass, "Create Manual Payables Page", "On the Create Manual Payables page.", FALSE
+	Else
+		WriteToReport micFail, "Create Manual Payables Page", "Navigation to Create Manual Payables page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("CreateManualPayables").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set Manual Fee Type
+		.WebEdit("ManualFeeType").Set GlobalDictionary("ManualFeeType")
+		WriteToReport micDone, "Set Manual Fee Type: "&GlobalDictionary("ManualFeeType"), "Manual Fee Type Set", FALSE
+
+		'Set Charge Amount
+		.WebEdit("ChargeAmount").Set GlobalDictionary("ChargeAmount")
+		WriteToReport micDone, "Set Charge Amount: "&GlobalDictionary("ChargeAmount"), "Charge Amount Set", FALSE
+
+		'Set Description
+		.WebEdit("Description").Set GlobalDictionary("Description")
+		WriteToReport micDone, "Set Description: "&GlobalDictionary("Description"), "Description Set", FALSE
+
+		'Set Lease Number
+		.WebEdit("LeaseNumber").Set GlobalDictionary("LeaseNumber")
+		WriteToReport micDone, "Set LeaseNumber: "&GlobalDictionary("LeaseNumber"), "Lease Number Set", FALSE
+
+		'Hit Enter Key
+		Set oDeviceReplay = CreateObject("Mercury.DeviceReplay")
+		oDeviceReplay.PressKey ENTER
+
+		Wait 1
+
+		'Set Transaction Detail Amount
+		.WebEdit("TDAmount").Set GlobalDictionary("TDAmount")
+		WriteToReport micDone, "Set Transaction Detail Amount: "&GlobalDictionary("TDAmount"), "Transaction Detail Amount Set", FALSE
+
+		'Set Invoice Number
+		Randomize
+		nRandom = CStr(Round(100000*Rnd))
+		.WebEdit("InvoiceNumber").Set nRandom
+		WriteToReport micDone, "Set Invoice Number to: "&nRandom, "Invoice Number Set", FALSE
+
+		'Click Commit Transactions
+		.WebButton("CommitTransactions").Click
+		WriteToReport micDone, "Clicked the Commit Transactions Button", "Button Clicked", FALSE
+
+		Wait 3
+
+		'Verify Lease Transaction Status is now Pending
+		If Trim(.WebElement("LeaseTxnStatus").GetROProperty("innertext")) <> PENDING Then
+			WriteToReport micFail, "Lease is not in Pending Status as Expected", "Status Instead: "&Trim(.WebElement("LeaseTxnStatus").GetROProperty("innertext")), TRUE
+			ExitTest
+		Else
+			WriteToReport micPass, "Lease is in Pending Status", "Status Pending as Expected", FALSE
+		End If
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Runs the Report for Future Payment Obligations, and verifies table rows match displayed total values LS_4.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function FuturePaymentObligations
+	Dim nYearOneTotal, nYearTwoTotal, nYearThreeTotal, nYearFourTotal, nYearFiveTotal, nYearThereafterTotal, nTotal, i
+	Const YR_ONE_COL = 6
+	Const YR_TWO_COL = 7
+	Const YR_THREE_COL = 8
+	Const YR_FOUR_COL = 9
+	Const YR_FIVE_COL = 10
+	Const THEREAFTER_COL = 11
+
+	nYearOneTotal = 0.0
+	nYearTwoTotal = 0.0
+	nYearThreeTotal = 0.0
+	nYearFourTotal = 0.0
+	nYearFiveTotal = 0.0
+	nYearThereafterTotal = 0.0
+
+	'Navigate to Future Lease Payment Obligations
+	If SelectMainMenu1(GlobalDictionary("FuturePaymentObligations")) Then
+		WriteToReport micPass, "Future Payment Obligations Page", "On the Future Lease Payment Obligations page.", FALSE
+	Else
+		WriteToReport micFail, "Future Payment Obligations Page", "Navigation to Future Lease Payment Obligations page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("FutureLeasePaymentObligations").PSFrame("TargetContent")
+
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit to: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Set Fiscal Year
+		.WebEdit("FiscalYear").Set Year(Now)
+		WriteToReport micDone, "Set the Fiscal Year: "&Year(Now), "Fiscal Year Set", FALSE
+
+		'Check the following boxes 
+		If .WebCheckBox("BaseRent").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("BaseRent").Click
+			WriteToReport micDone, "Clicked the Checkbox for Base Rent", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Base Rent Already Checked", "No Action Taken", FALSE
+		End If
+
+		If .WebCheckBox("OperatingExpenses").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("OperatingExpenses").Click
+			WriteToReport micDone, "Clicked the Checkbox for Operating Expenses", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Operating Expenses Already Checked", "No Action Taken", FALSE
+		End If
+
+		If .WebCheckBox("MiscellaneousRent").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("MiscellaneousRent").Click
+			WriteToReport micDone, "Clicked the Checkbox for Miscellaneous Rent", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Miscellaneous Rent Already Checked", "No Action Taken", FALSE
+		End If
+
+		If .WebCheckBox("ExcludePaidTransactions").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("ExcludePaidTransactions").Click
+			WriteToReport micDone, "Clicked the Checkbox for Exclude Paid Transactions", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Exclude Paid Transactions Already Checked", "No Action Taken", FALSE
+		End If
+
+		'Click Submit
+		.WebButton("Submit").Click
+		WriteToReport micDone, "Clicked the Submit Button", "Button Clicked", FALSE
+
+		'Click View All
+		.Link("ViewAll").Click
+		WriteToReport micDone, "Clicked the View All Link", "Link Clicked", FALSE
+
+		'Get year totals
+		For i=1 To .WebTable("FLPO").GetROProperty("rows")
+			nYearOneTotal = Round(nYearOneTotal + CDbl(.WebTable("FLPO").Cell(i, YR_ONE_COL).GetROProperty("innertext")),2)
+			nYearTwoTotal = Round(nYearTwoTotal + CDbl(.WebTable("FLPO").Cell(i, YR_TWO_COL).GetROProperty("innertext")),2)
+			nYearThreeTotal = Round(nYearThreeTotal + CDbl(.WebTable("FLPO").Cell(i, YR_THREE_COL).GetROProperty("innertext")),2)
+			nYearFourTotal = Round(nYearFourTotal + CDbl(.WebTable("FLPO").Cell(i, YR_FOUR_COL).GetROProperty("innertext")),2)
+			nYearFiveTotal = Round(nYearFiveTotal + CDbl(.WebTable("FLPO").Cell(i, YR_FIVE_COL).GetROProperty("innertext")),2)
+			nYearThereafterTotal = Round(nYearThereafterTotal + CDbl(.WebTable("FLPO").Cell(i, THEREAFTER_COL).GetROProperty("innertext")),2)
+		Next
+
+		'compare the year totals
+		If nYearOneTotal <> CDbl(.WebElement("TotalFY1").GetROProperty("innertext")) Then
+			WriteToReport micFail, "Error Calculating FY 1 Total", "Calculated ["&nYearOneTotal&"] Displayed ["&CDbl(.WebElement("TotalFY1").GetROProperty("innertext"))&"]", TRUE
+		Else
+			WriteToReport micPass, "Fiscal Year 1 Total Matches Expected", "FY 1 Total ["&nYearOneTotal&"]", FALSE
+		End If
+
+		If nYearTwoTotal <> CDbl(.WebElement("TotalFY2").GetROProperty("innertext")) Then
+			WriteToReport micFail, "Error Calculating FY 2 Total", "Calculated ["&nYearTwoTotal&"] Displayed ["&CDbl(.WebElement("TotalFY2").GetROProperty("innertext"))&"]", TRUE
+		Else
+			WriteToReport micPass, "Fiscal Year 2 Total Matches Expected", "FY 2 Total ["&nYearTwoTotal&"]", FALSE
+		End If
+
+		If nYearThreeTotal <> CDbl(.WebElement("TotalFY3").GetROProperty("innertext")) Then
+			WriteToReport micFail, "Error Calculating FY 3 Total", "Calculated ["&nYearThreeTotal&"] Displayed ["&CDbl(.WebElement("TotalFY3").GetROProperty("innertext"))&"]", TRUE
+		Else
+			WriteToReport micPass, "Fiscal Year 3 Total Matches Expected", "FY 3 Total ["&nYearThreeTotal&"]", FALSE
+		End If
+
+		If nYearFourTotal <> CDbl(.WebElement("TotalFY4").GetROProperty("innertext")) Then
+			WriteToReport micFail, "Error Calculating FY 4 Total", "Calculated ["&nYearFourTotal&"] Displayed ["&CDbl(.WebElement("TotalFY4").GetROProperty("innertext"))&"]", TRUE
+		Else
+			WriteToReport micPass, "Fiscal Year 4 Total Matches Expected", "FY 4 Total ["&nYearFourTotal&"]", FALSE
+		End If
+
+		If nYearFiveTotal <> CDbl(.WebElement("TotalFY5").GetROProperty("innertext")) Then
+			WriteToReport micFail, "Error Calculating FY 5 Total", "Calculated ["&nYearFiveTotal&"] Displayed ["&CDbl(.WebElement("TotalFY5").GetROProperty("innertext"))&"]", TRUE
+		Else
+			WriteToReport micPass, "Fiscal Year 5 Total Matches Expected", "FY 5 Total ["&nYearFiveTotal&"]", FALSE
+		End If
+
+		If nYearThereafterTotal <> CDbl(.WebElement("TotalThereafter").GetROProperty("innertext")) Then
+			WriteToReport micFail, "Error Calculating Thereafter Total", "Calculated ["&nYearThereafterTotal&"] Displayed ["&CDbl(.WebElement("TotalThereafter").GetROProperty("innertext"))&"]", TRUE
+		Else
+			WriteToReport micPass, "Thereafter Total Matches Expected", "Thereafter Total ["&nYearThereafterTotal&"]", FALSE
+		End If
+
+		'Get total and compare
+		nTotal = Round(nYearOneTotal + nYearTwoTotal + nYearThreeTotal + nYearFourTotal + nYearFiveTotal + nYearThereafterTotal,2)
+		If nTotal <> CDbl(.WebElement("Total").GetROProperty("innertext")) Then
+			WriteToReport micFail, "Error Calculating Total", "Calculated ["&nTotal&"] Displayed ["&CDbl(.WebElement("Total").GetROProperty("innertext"))&"]", TRUE
+		Else
+			WriteToReport micPass, "Total Matches Expected", "Total ["&nTotal&"]", FALSE
+		End If
+	End With
+End Function

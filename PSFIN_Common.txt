@@ -1,0 +1,2236 @@
+'==========================================================
+'PSF Common Function Library
+'Contains commonly used functions for interacting with the PSF application.
+'Changelog: 
+'Date			Author					Description
+'______________________________________________________ 
+
+Option Explicit
+
+'Updated Twotier password - dO NOT USE without permission from PSFin team
+Const ENCRYPTEDPASSWORD = "5c812fb23d3e87270a06178a005665350c76b559b7dfefc8f0bb6d35302669146adf9183"
+'"5c0e7b8227bb657163d5491b06d43bcf85a13764ec4b736aaee1082c81e4"
+'Const ENCRYPTEDPASSWORD = "5b8ffb861fcc7c5f965066b90bcdc4649bd193f2165ab8300a07461777dd95d73f1d"
+'"5b17cf8bc3eb56c848c61becf630594cd30bf03e3c13eef830fe38b2b100b9e20ecbd959"
+'"5aa140a7f6f4d32360fe784a56792b3073a17f9405f8925d1f3b1e1216060c4a"
+'"5a26a4bc6c982d4507a559c8035c60a6eb466f1a471afc66974631e8fe5cd5ef"
+'"59b15071a1d105c8fba9ba027775ed8187e50e9997aee1967f3ed59f98c978ab"
+'"57d6c7d6118905ecae9eec2a8b7fe09a8a9ba397822e0abd50e65742ff0a"
+Const CDWBATCHENCRYPTEDPASSWORD = "56cb6a4032d85b4ad4c67e081010302c2f5c9faf"
+'Updated Twotier password - dO NOT USE without permission from PSF team
+Const nMINWAIT = 25 '5
+Const nMAXWAIT = 120 '60
+
+Public objectsFile, processTimeUpdate 
+objectsFile = "C:\AutoSource_Prod\PSFinUFT\Object Repository\PSFIN_OR.xml"
+processTimeUpdate = GlobalDictionary("PROJECT_FOLDER")&"Data\Process_Time.xls"
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' LaunchURL() Function will launch Url into PSF Application
+''' <para>
+''' <note>Required Excel Envrionment Parameter = "ApplicationUrl"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>5/21/2014</datecreated>
+''' <startstate>Login Page</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'   28Jun2018		Eric Trout		  Merge with PSF and updated to use Environment to get url
+'______________
+Public Function LaunchURL()
+	Dim oInternetExp, hwnd, url
+
+	If Browser("PeopleSoft Browser").Exist(1) = True Then
+		Browser("PeopleSoft Browser").CloseAllTabs
+		Wait(nMINWAIT)
+	End If
+
+	If StrComp (GlobalDictionary("Environment"),"FNQA") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNQA")
+	ElseIf 	StrComp (GlobalDictionary("Environment"),"FNREG") = 0 Then
+		url = GlobalDictionary("ApplicationUrl_FNREG")	
+	ElseIf StrComp (GlobalDictionary("Environment"),"FNTST") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNTST")
+	ElseIf StrComp (GlobalDictionary("Environment"),"FNRVTST") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNRVTST")
+	ElseIf StrComp (GlobalDictionary("Environment"),"FNDEV") = 0Then
+	    url = GlobalDictionary("ApplicationUrl_FNDEV") 	
+	Else
+		Call WriteToReport(micFail, "Environment", "Environment not found [" &GlobalDictionary("Environment")&"]", True)
+		ExitTestIteration 
+	End If
+	Set oInternetExp = CreateObject("InternetExplorer.Application") 
+	oInternetExp.Visible = True
+	oInternetExp.Navigate(url)
+	
+	If NOT Browser("PeopleSoft Browser").Exist (nMINWAIT) Then
+		 WriteToReport micFail, "Browser PSF", "Not loaded yet", false
+		 Exit Function
+	End If
+
+	Browser("PeopleSoft Browser").Sync
+	If Browser("PeopleSoft Browser").Page("SignIn").Exist(nMINWAIT) Then
+		Browser("PeopleSoft Browser").DeleteCookies
+		Browser("PeopleSoft Browser").Refresh
+
+		'Check if the Browser is already maximized or not		
+		hwnd = Browser("CreationTime:=0").Object.HWND
+		If Window("hwnd:=" & hwnd).GetROProperty("maximized") = False Then
+			Window("hwnd:=" & hwnd).Maximize
+		End If
+
+		WriteToReport micDone, "Launch Url", "Browser is launched and loaded application Url to SignIn page, url is [" &url & "]", true
+	Else
+		WriteToReport micFail, "Launch Url", "Browser is launched and loaded application Url to SignIn page, url is [" &url & "]", true
+	End If	
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' SelectMainMenu() function to get to the proper area in the application.
+''' <para>
+''' <note>MainMenuSelection - String delimited with > that identifies a  menu items to select</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>5/30/2014</datecreated>
+''' <startstate>PSF is logged in and Home and MainMenu are displayed</startstate>
+''' <endstate> Page selected  in PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'	01/30/2019				Stephen King			Added validation at end of function to confirm that we are in the correct environment
+'__________
+Public Sub SelectMainMenu(sPageStringText)
+	Dim arrSubMenuItems
+	Dim bFound
+	Dim sMenuSelection, nMenuCount, i
+	Dim strEnv, strUrl
+
+	'Get the menu items to be selected
+	sMenuSelection = Trim(GlobalDictionary("MainMenuSelection"))
+	arrSubMenuItems = Split(sMenuSelection,">")
+	bFound = True
+	nMenuCount = Ubound(arrSubMenuItems)
+
+	'Select Home and then Main Menu to start selecting menu items
+	
+	SelectNavBar()
+	'Browser("PeopleSoft Browser").Page("PSFGeneric").Link("Home").Click
+	'Browser("PeopleSoft Browser").Page("PSFGeneric").Link("Main Menu").Click
+
+	'Loop through the menu selection provided
+	For i = 0 to nMenuCount
+		If Browser("PeopleSoft Browser").Page("PSFGeneric").PSFrame("NavBar").Link("innerText:="&arrSubMenuItems(i)).Exist(nMINWAIT) Then
+			Browser("PeopleSoft Browser").Page("PSFGeneric").PSFrame("NavBar").Link("innerText:="&arrSubMenuItems(i)).Click
+		else
+			bFound = False
+			Exit For
+		End If
+	Next
+
+	If Not bFound Then
+		Call WriteToReport(micFail, "Menu option not found.", "The menu option [" & sMenuSelection & "] was not selected.", True)
+	Else
+		Call WriteToReport(micDone, "Menu Option Selected", "Menu option selected was [" & sMenuSelection & "].", True)
+		If sPageStringText <> "" Then
+
+			'Verify page 
+			If Browser("PeopleSoft Browser").Page("PSFGeneric").WebElement("innerText:="& sPageStringText).Exist(nMAXWAIT) Then
+				Call WriteToReport(micDone, "Page Selection confirmed ", "Page selected was [" & sPageStringText & "].", True)
+			ElseIf Browser("PeopleSoft Browser").Page("PSFGeneric").PSFrame("name:=TargetContent").WebElement("innerText:="& sPageStringText).Exist(nMAXWAIT) Then
+				Call WriteToReport(micDone, "Page Selection confirmed ", "Page selected was [" & sPageStringText & "].", True)
+			else
+				Call WriteToReport(micFail, "Page Selection failed ", "Page [" & sPageStringText & "] was not selected.", True)
+			End If	
+		End If
+		
+		'Validate our environment due to caching/session issues. Using the first part of the environment URL to compare
+		Select Case UCase(GlobalDictionary("Environment"))
+			Case "FNDEV"
+				strEnv = "psfnapwbpstst1"
+
+			Case "FNREG"
+				strEnv = "psfnapwbregvh1"
+
+			Case "FNQA"
+				strEnv = "psfnqa"
+
+			Case "FNTST"
+				strEnv = "psfnapwbpsdev1"
+
+			Case "FNRVTST"
+				strEnv = "psfnapwbpstst1"
+
+			'If no environment is specified, default to FNREG
+			Case Else
+				strEnv = "psfnapwbregvh1"
+
+		End Select
+
+		'Get our current URL
+		strUrl = Browser("PeopleSoft Browser").GetROProperty("openurl")
+		
+		'Confirm that the environment search string is in the url
+		If InStr(1, strUrl, strEnv, vbTextCompare) > 0 Then
+			WriteToReport micPass, "Page Environment Confirmed ", "Environment string [" & strEnv & "] found in URL [" & strUrl & "].", False
+		Else
+			WriteToReport micFail, "Page Environment Not Confirmed ", "Environment string [" & strEnv & "] was not found in URL [" & strUrl & "].", True
+			ExitTest
+		End If
+	End If
+
+	'Cleanup
+	If isArray(arrSubMenuItems) Then Erase arrSubMenuItems
+End Sub
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' SelectSubMenus() function to slect the functional area in application.
+''' <para>
+''' <note>MainMenuSelection -string represents the functional area lowest sub menu item</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>8/30/2014</datecreated>
+''' <startstate>PSF is logged in and Home and MainMenu are displayed</startstate>
+''' <endstate> Page selected  in PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'__________
+Public Sub SelectSubMenus (sSubMenuItem)
+	
+	With Browser("PeopleSoft Browser").Page("PSFGeneric")
+	
+	  '.Link("innertext:=Home").Click
+	  '.Link("innertext:=Main Menu").Click	  
+	  
+	  SelectNavBar()
+	  
+	  Select Case  uCase(sSubMenuItem)
+		
+		Case "VOUCHER POSTING"
+			.Link("innertext:=Accounts Payable").Click
+			.Link("innertext:=Batch Processes").Click
+			Wait(1)
+			.Link("innertext:=Vouchers","index:=1").Click
+			.Link("innertext:=Voucher Posting").Click
+			WriteToReport micDone, "Menu Selected", "Menu option selected was [Accounts Payable>Batch Processes>Vouchers>Voucher Posting ].", False
+
+		Case "PAYMENT POSTING"		
+			.Link("innertext:=Accounts Payable").Click
+			.Link("innertext:=Batch Processes").Click
+			Wait(1)
+			.Link("innertext:=Payment","index:=1").Click
+			.Link("innertext:=Payment Posting").Click
+			WriteToReport micDone, "Menu Selected", "Menu option selected was [Accounts Payable>Batch Processes>Payment>Payment Posting ].", False
+
+		Case "ACCOUNTING ENTRIES"
+			.Link("innertext:=Accounts Payable").Click
+			.Link("innertext:=Review Accounts Payable Info ").Click
+			Wait(1)
+			.Link("innertext:=Vouchers","index:=1").Click
+			.Link("innertext:=Accounting Entries","html tag:=A").Click
+			WriteToReport micDone, "Menu Selected", "Menu option selected was [Accounts Payable>Review Accounts Payable Info>Vouchers>Accounting Entries ].", false
+	
+		Case else
+			WriteToReport micFail, "Menu NOT in list", "Menu is not an option in select [ " & sSubMenuItem& " ].", True
+
+	  End Select
+	End With	
+End Sub
+
+'*********************************************************************************************************************************************
+''' <summary> 
+''' getObjectFromXML() This function will return object's properties and description from constant OR
+'''Parameter1:	name of object
+'''Parameter2:	xml file path
+'''Parameter3:	tag name (Value or Description)
+''' <para>
+''' <note></note> 
+''' </para>
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>11/10/2015</datecreated>
+''' <startstate>Completed</startstate>
+''' <endstate>None</endstate>
+'Changelog:
+''*************************************************************************************************************************************************
+public Function getObjectInfoFromXML(ByVal name, ByVal xmlFile, ByVal tagName)
+	On Error Resume Next
+	Err.Clear
+	Dim colNodes, bTagFound, xmlDoc
+	
+	Set xmlDoc = CreateObject("Microsoft.XMLDOM")
+	If fileExist(xmlFile) Then
+		xmlDoc.load(xmlFile)
+		If xmlDoc.parseError.errorCode = 0 Then
+			Set colNodes = xmlDoc.selectNodes("/Objects/Object/"&tagName&"[../Name='"&Name&"']/text()")
+			bTagFound = True
+			If colNodes.length >0 Then
+				getObjectInfoFromXML = colNodes(0).NodeValue
+			Else
+				getObjectInfoFromXML = False
+				Reporter.ReportEvent micFail, "Object "&name," object "&name&" not found"
+			End If
+		Else
+		   Reporter.ReportEvent micFail,"OR file format","OR file is not well formatted"
+		End If
+	Else
+		Reporter.ReportEvent micFail, "OR file "," OR file "&xmlFile&" not found"
+	End If
+
+	On Error GoTo 0
+	Set colNodes = Nothing
+	Set xmlDoc = Nothing
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' launchApplication is to launch PSFin application
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>09-Nov-2015</datecreated>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">0</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+public Function launchApplication()
+	Dim loginPage, userBox, sUserName, url
+
+	closeAllBrowsersExceptQC
+	If StrComp (GlobalDictionary("Environment"),"FNQA") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNQA")
+	ElseIf 	StrComp (GlobalDictionary("Environment"),"FNREG") = 0 Then
+		url = GlobalDictionary("ApplicationUrl_FNREG")	
+	ElseIf StrComp (GlobalDictionary("Environment"),"FNTST") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNTST")
+	ElseIf StrComp (GlobalDictionary("Environment"),"FNRVTST") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNRVTST")
+	ElseIf StrComp (GlobalDictionary("Environment"),"FNDEV") = 0Then
+	    url = GlobalDictionary("ApplicationUrl_FNDEV") 	
+	Else
+		Call WriteToReport(micFail, "Environment", "Environment not found [" &GlobalDictionary("Environment")&"]", True)
+		ExitTestIteration 
+	End If
+
+	
+'SystemUtil.Run url
+SystemUtil.Run "iexplore.exe", url, , ,3
+
+	Wait 8
+	deleteCookies
+	
+	Dim WshShell
+	
+	Set WshShell = CreateObject("WScript.Shell")    
+	WshShell.run "RunDll32.exe InetCpl.cpl,ClearMyTracksByProcess 8"
+
+	
+	'maximizeBrowser()
+	sUserName = GlobalDictionary("SignInUser")
+	Set userBox = eval(getObjectInfoFromXML("UserName_Edit",objectsFile,"Value"))
+	If userBox.Exist Then
+	   	setValue_WebEdit getObjectInfoFromXML("UserName_Edit",objectsFile,"Value"),sUserName,false,getObjectInfoFromXML("UserName_Edit",objectsFile,"Description")
+	   	setValue_WebEdit getObjectInfoFromXML("Pwd_Edit",objectsFile,"Value"),ENCRYPTEDPASSWORD,true,getObjectInfoFromXML("Pwd_Edit",objectsFile,"Description")
+	   	btn_click getObjectInfoFromXML("Login_BTN",objectsFile,"Value"),getObjectInfoFromXML("Login_BTN",objectsFile,"Description")
+	   	Wait 5
+	   	If Not (isObjectExist(getObjectInfoFromXML("Home_IMG",objectsFile,"Value"),getObjectInfoFromXML("Home_IMG",objectsFile,"Description")) = True) Then
+	    	Call WriteToReport(micFail, "Login failed", "Login is not successful and the url is " & url, True)
+	        ExitTestIteration 
+		Else
+			Call WriteToReport(micPass, "Login is successful","Login is successful and the url is "&url, False)
+	    End If
+	End If
+End Function
+
+''' <summary> 
+''' launchApplication is to launch PSFin application
+''' </summary>
+'''<param>userName</param>
+''' <author>Venu Arigela</author>
+''' <datecreated>09-Nov-2015</datecreated>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">0<s>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'01/30/2019			Stephen King		Added validation at end of function to confirm that we are in the correct environment
+Public Function login(userName)
+	Dim loginPage,userBox,sUserName, url
+	Dim strEnv, strUrl
+
+	If userName = "1" Then
+		WriteToReport micFail, "Username", "Check Data, username is showing as [1]", True
+		ExitTest
+	End If
+	
+	closeAllBrowsersExceptQC
+	If StrComp (GlobalDictionary("Environment"),"FNQA") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNQA")
+	ElseIf StrComp (GlobalDictionary("Environment"),"FNREG") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNREG") 	
+	ElseIf StrComp (GlobalDictionary("Environment"),"FNTST") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNTST")
+	ElseIf StrComp (GlobalDictionary("Environment"),"FNRVTST") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNRVTST")	
+	Else
+		Call WriteToReport(micFail, "Environment", "Environment not found [" &GlobalDictionary("Environment")&"]", True)
+		ExitTestIteration 
+	End If
+
+	SystemUtil.Run url
+	Wait 10
+	deleteCookies
+	Wait 5
+	maximizeBrowser()
+
+	Set userBox = eval(getObjectInfoFromXML("UserName_Edit",objectsFile,"Value"))
+	If userBox.Exist Then
+	   setValue_WebEdit getObjectInfoFromXML("UserName_Edit",objectsFile,"Value"),userName,false,getObjectInfoFromXML("UserName_Edit",objectsFile,"Description")
+	   setValue_WebEdit getObjectInfoFromXML("Pwd_Edit",objectsFile,"Value"),ENCRYPTEDPASSWORD,true,getObjectInfoFromXML("Pwd_Edit",objectsFile,"Description")
+	   btn_click getObjectInfoFromXML("Login_BTN",objectsFile,"Value"),getObjectInfoFromXML("Login_BTN",objectsFile,"Description")
+	   wait 5
+	    If NOT (isObjectExist(getObjectInfoFromXML("Home_IMG",objectsFile,"Value"),getObjectInfoFromXML("Home_IMG",objectsFile,"Description")) = True) Then
+	    	Call WriteToReport(micPass, "Login", "Login is successful", False)
+	        ExitTestIteration
+	    End If
+	End If
+	
+	'Validate our environment due to caching/session issues. Using the first part of the environment URL to compare
+	Select Case UCase(GlobalDictionary("Environment"))
+		Case "FNDEV"
+			strEnv = "psfnapwbpstst1"
+
+		Case "FNREG"
+			strEnv = "psfnapwbregvh1"
+
+		Case "FNQA"
+			strEnv = "psfnqa"
+
+		Case "FNTST"
+			strEnv = "psfnapwbpsdev1"
+
+		Case "FNRVTST"
+			strEnv = "psfnapwbpstst1"
+
+		'If no environment is specified, default to FNREG
+		Case Else
+			strEnv = "psfnapwbregvh1"
+
+	End Select
+
+	'Get our current URL
+	strUrl = Browser("PeopleSoft Browser").GetROProperty("openurl")
+	
+	'Confirm that the environment search string is in the url
+	If InStr(1, strUrl, strEnv, vbTextCompare) > 0 Then
+		WriteToReport micPass, "Page Environment Confirmed ", "Environment string [" & strEnv & "] found in URL [" & strUrl & "].", False
+	Else
+		WriteToReport micFail, "Page Environment Not Confirmed ", "Environment string [" & strEnv & "] was not found in URL [" & strUrl & "].", True
+		ExitTest
+	End If
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' closeAllBrowsersExceptQC is to close all browsers except QC
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>09-Nov-2015</datecreated>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">0< if no records found, else record count</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+Sub closeAllBrowsersExceptQC()
+	Dim oDesc,brsr
+
+	KillProcess()
+	Wait 10
+	'Create a description object
+	Set oDesc = Description.Create
+	oDesc( "micclass" ).Value = "Browser"
+
+	' browsers = Desktop.ChildObjects(oDesc).Count
+	'Close all browsers except Quality Center
+	If Desktop.ChildObjects(oDesc).Count > 0 Then
+		For brsr = 0 to (Desktop.ChildObjects(oDesc).Count-1 )
+			If  Browser("creationtime:="&brsr).exist Then
+				If InStr(1, Browser("creationtime:="&brsr).GetROProperty("name"), "Quality Center") = 0 Then  
+					Browser( "creationtime:=" & brsr).highlight
+					Browser( "creationtime:=" & brsr).close
+				End If
+			End If
+		Next
+	End If
+End sub
+
+'**************************************************************************************************************
+''' <summary> 
+''' deleteCookies is to delete cookies
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>09-Nov-2015</datecreated>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">0< </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+Public Function deleteCookies()
+	Dim oWebUtil
+	Set oWebUtil = CreateObject("Mercury.GUI_WebUtil")
+	oWebUtil.DeleteCookies
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' maximizeBrowser is to delete cookies
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>09-Nov-2015</datecreated>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">0< </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'Function maximizeBrowser()
+'   Dim objpage
+'   set objpage = Browser("creationtime:=0")
+'     On Error resume next
+'     If objpage.Exist Then
+'         width = objPage.Object.parentwindow.screen.width
+'         height = objPage.Object.parentwindow.screen.height
+'         objpage.Object.Parentwindow.moveto 0,0
+'         objpage.Object.Parentwindow.resizeto width,height
+'         Reporter.ReportEvent micPass,"BrowserMaximize","Browser maximized"
+'     else
+'         Reporter.ReportEvent micFail,"BrowserMaximize","Browser/Page object does not exist"
+'     End If
+'     Err.clear
+'End Function
+
+Public Function maximizeBrowser()
+	Dim hwnd, isMaximized, isMaximizable
+
+    'hwnd = Browser("creationtime:=0").Object.hwnd
+	Wait 5
+	hwnd = Browser("creationtime:=0").GetROProperty("hwnd")
+	If Window("hwnd:="&hwnd).GetROProperty("maximized") = True Then
+		isMaximized = True
+		else
+		isMaximized = False
+	End If
+
+	If Window("hwnd:=" & hwnd).GetROProperty("maximizable") = True Then
+	  isMaximizable = True
+	Else
+	  isMaximizable = False
+	End If
+	
+	If isMaximized = False and isMaximizable = True Then
+		Window("hwnd:=" & hwnd).Maximize
+	End If
+End Function
+
+''' <summary> 
+''' SelectMainMenu1 is to select navigation 
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>09-Nov-2015</datecreated>
+''' <param name="sPageStringText" type="string">navigation string </param>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">0< </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'Public Function SelectMainMenu1(sPageStringText)
+'   Dim arrSubMenuItems
+'   Dim bFound
+'   Dim sMenuSelection, nMenuCount, i
+'   Dim workBenchPage
+'
+'	'GEt the menu items to be selected
+'		
+'	if(len(trim(sPageStringText))=0) then
+'	  sMenuSelection = Trim(GlobalDictionary("MainMenuSelection"))
+'	else
+'	  sMenuSelection = sPageStringText
+'	End if 
+'	
+'	arrSubMenuItems = Split(sMenuSelection,">")
+'
+'	bFound = True
+'
+'	nMenuCount = Ubound(arrSubMenuItems)
+'
+'	'Loop through the menu selection provided
+'	For i = 0 to nMenuCount
+'		If Browser("creationtime:=0").Page("index:=1").Link("outertext:="&arrSubMenuItems(i),"index:=0").Exist(5) Then
+'		   Browser("creationtime:=0").Page("index:=1").Link("outertext:="&arrSubMenuItems(i),"index:=0").Click
+'		   wait 3
+'		else
+'			bFound = False
+'			Exit for
+'		End If
+'	Next
+'		
+'	If Not bFound Then
+'		Call WriteToReport(micFail, "Menu option not found.", "The menu option [" & sMenuSelection & "] was not selected.", True)
+'		SelectMainMenu1 = false
+'	Else
+'		Call WriteToReport(micDone, "Menu Option Selected", "Menu option selected was [" & sMenuSelection & "].", True)
+'		SelectMainMenu1 = true
+''		Set workBenchPage = eval(getObjectInfoFromXML("SetID_TXT",objectsFile ,"Value"))
+''		If sPageStringText <> "" Then
+''			'Verify page 
+''			If workBenchPage.Exist(2) Then
+''				Call WriteToReport(micDone, "Page Selection confirmed ", "Page selected was [" & sPageStringText & "].", True)
+''				SelectMainMenu1 = true
+''			else
+''				Call WriteToReport(micFail, "Page Selection failed ", "Page [" & sPageStringText & "] was not selected.", True)
+''				SelectMainMenu1 = false
+''			End If	
+''		End If
+'
+'	End If
+'
+'	'Cleanup
+'	If isArray(arrSubMenuItems) Then Erase arrSubMenuItems
+'
+'End Function
+
+''' <summary> 
+''' SelectMainMenu2 is to select navigation for pages with creation time 1
+''' </summary>
+''' <author>Rama Peela</author>
+''' <datecreated>09-Nov-2015</datecreated>
+''' <param name="sPageStringText" type="string">navigation string </param>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">0< </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+Public Function SelectMainMenu2(sPageStringText)
+   Dim arrSubMenuItems
+   Dim bFound
+   Dim sMenuSelection, nMenuCount, i
+   Dim workBenchPage
+
+	'Get the menu items to be selected
+	If (Len(Trim(sPageStringText))=0) Then
+	  sMenuSelection = Trim(GlobalDictionary("MainMenuSelection"))
+	Else
+	  sMenuSelection = sPageStringText
+	End If
+
+	arrSubMenuItems = Split(sMenuSelection,">")
+	bFound = True
+	nMenuCount = Ubound(arrSubMenuItems)
+
+	'Loop through the menu selection provided
+	For i = 0 To nMenuCount
+		If Browser("creationtime:=1").Page("index:=1").Link("outertext:="&arrSubMenuItems(i),"index:=0").Exist(5) Then
+		   Browser("creationtime:=1").Page("index:=1").Link("outertext:="&arrSubMenuItems(i),"index:=0").Click
+		Else
+			bFound = False
+			Exit For
+		End If
+	Next
+
+	If Not bFound Then
+		Call WriteToReport(micFail, "Menu option not found.", "The menu option [" & sMenuSelection & "] was not selected.", True)
+		SelectMainMenu1 = False
+	Else
+		Call WriteToReport(micDone, "Menu Option Selected", "Menu option selected was [" & sMenuSelection & "].", True)
+		SelectMainMenu2 = True
+
+'		Set workBenchPage = eval(getObjectInfoFromXML("SetID_TXT",objectsFile ,"Value"))
+'		If sPageStringText <> "" Then
+'			'Verify page 
+'			If workBenchPage.Exist(2) Then
+'				Call WriteToReport(micDone, "Page Selection confirmed ", "Page selected was [" & sPageStringText & "].", True)
+'				SelectMainMenu1 = true
+'			else
+'				Call WriteToReport(micFail, "Page Selection failed ", "Page [" & sPageStringText & "] was not selected.", True)
+'				SelectMainMenu1 = false
+'			End If	
+'		End If
+
+	End If
+
+	'Cleanup
+	If isArray(arrSubMenuItems) Then Erase arrSubMenuItems End If
+End Function
+
+''' <summary> 
+''' PSFinLogout is to log out from the applicaiton 
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>09-Nov-2015</datecreated>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">0< </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+Public Function PSFinLogout()
+
+	'closeAllBrowsersExceptQC
+	If Browser("creationtime:=0").page("index:=1").Link("name:=Sign out").Exist(30) Then
+		Browser("creationtime:=0").page("index:=1").Link("name:=Sign out").Click
+	End If
+
+	KillProcess ' to terminate execel 
+End Function
+
+'************************************************************************
+''' <summary> 
+''' setUserFieldValues is to set user field values
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>09-Nov-2015</datecreated>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">0< </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+Public Function setUserFieldValues()
+	Dim custInfoArr
+
+	Call click_Lookup_Img_And_Select_Item("Look up SetID.*", "SP_SETID_CLSVW_SETID", GlobalDictionary("SetID"), "setID")
+	If click_Lookup_Img_And_Select_Item("Look up Unit.*", "SP_BU_CS2_CLSVW_BUSINESS_UNIT", GlobalDictionary("BusinessUnit"), "BusinessUnit") Then
+		custInfoArr = dbFetchCustomerInfo(GlobalDictionary("BusinessUnit"))
+		If NOT IsArrayEmpty(custInfoArr) Then
+			GlobalDictionary("dataAvailable") = True
+			Call click_Lookup_Img_And_Select_Item("Look up Customer.*", "AR_CUST_ALL_VW_CUST_ID", custInfoArr(1),"Customer")
+		Else
+			GlobalDictionary("dataAvailable") = False
+			Call WriteToReport(micDone, "WARNING :Customer info From DB", "DB query returned zero records ", True)
+			Exit Function
+		End If
+
+		btn_click  getObjectInfoFromXML("Search_Btn", objectsFile, "Value"), getObjectInfoFromXML("Search_Btn", objectsFile, "Description")
+		setUserFieldValues = True
+	Else
+	    Call WriteToReport(micFail, "Business Unit " & GlobalDictionary("BusinessUnit") & " did not display on lookup", "Business unit is not displayed", True)
+	    setUserFieldValues = False
+	End If
+End Function
+
+'************************************************************************
+''' <summary> 
+''' setUserFieldValues1 is to set user field values
+''' </summary>
+''' <author>Vikram Enukonda</author>
+''' <datecreated>09-Nov-2015</datecreated>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">0< </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+Public Function setUserFieldValues1()
+	Call click_Lookup_Img_And_Select_Item("Look up SetID.*","SP_SETID_CLSVW_SETID", GlobalDictionary("SetID"),"SetID")
+	Wait 2
+	Call click_Lookup_Img_And_Select_Item("Look up Unit.*","SP_BU_CS2_CLSVW_BUSINESS_UNIT", GlobalDictionary("BusinessUnit"),"BusinessUnit")
+	Wait 2
+	Call click_Lookup_Img_And_Select_Item("Look up Customer.*","AR_CUST_ALL_VW_CUST_ID", GlobalDictionary("Customer"),"Customer")
+	btn_click getObjectInfoFromXML("Search_Btn",objectsFile ,"Value"),getObjectInfoFromXML("Search_Btn",objectsFile ,"Description")
+End Function
+
+''' <summary> 
+''' verifySalesPerson_Billing is to verify salesperson's billing
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>09-Nov-2015</datecreated>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">0< </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+Public Function verifySalesPerson_Billing()
+	Dim bTab2, bTab6, pageObj, salesPerson, billToMedia
+
+	bTab2 = isObjExistNOReport( getObjectInfoFromXML("Detai2_Tab_Items", objectsFile, "Value"), getObjectInfoFromXML("Detai2_Tab_Items", objectsFile, "Description"))
+	bTab6 = isObjExistNOReport( getObjectInfoFromXML("Detail6_Tab_Items", objectsFile, "Value"), getObjectInfoFromXML("Detail6_Tab_Items", objectsFile, "Description"))
+	If (bTab2=True) And (bTab6=True) Then
+		element_Click getObjectInfoFromXML("Detai2_Tab_Items",objectsFile,"Value"),getObjectInfoFromXML("Detai2_Tab_Items",objectsFile,"Description")
+		Set pageObj = Browser("creationtime:=0").page("index:=1")
+		If NOT(countOfElements(pageObj,"Link","html id","html tag","ITEMS.*","A","Items in Detail 2 tab",false) = false) Then
+			salesPerson = countOfElements(pageObj,"WebElement","html id","html tag","ITEM_DSP_VW_SALES_PERSON\$.*","SPAN","Sales person in Detail 2 tab",true)
+			If NOT(salesPerson = false) Then
+				Call WriteToReport(0, "Sales Person in Detail tab 2", "Sales Person info in Detail tab 2 is displayed  ",false)
+			Else
+				Call WriteToReport(micFail, "Sales Person in Detail tab 2", "Sales Person info in Detail tab 2 is not displayed  ",true)
+			End If
+		End If
+
+        '''clicking on Detail 6 tab
+		element_Click getObjectInfoFromXML("Detail6_Tab_Items",objectsFile,"Value"),getObjectInfoFromXML("Detail6_Tab_Items",objectsFile,"Description")
+		Wait 3        
+		If NOT(countOfElements(pageObj,"Link","html id","html tag","ITEMS.*","A","Items in Detail 6 tab", False) = False) Then
+			billToMedia = countOfElements(pageObj, "WebElement", "html id", "html tag", "CDW_AR_CWBBM_VW_BILL_TO_MEDIA.*", "SPAN", "BilltoMedia in Detail 6 tab", True)
+			If NOT(billToMedia = False) Then
+				Call WriteToReport(micPass, "billToMedia in Detail6 tab ", "billToMedia info in Detail tab 6 is displayed  ", False)
+			Else
+				Call WriteToReport(micFail, "billToMedia in Detail6 tab ", "billToMedia info in Detail tab 6 is not displayed  ", True)              	        	   	  
+			End If
+		End If
+    ElseIf IsObjectExist( getObjectInfoFromXML("SHOW_ALL_COLUMNS_IMG",objectsFile,"Value"),getObjectInfoFromXML("SHOW_ALL_COLUMNS_IMG",objectsFile,"Description")) Then
+		img_click getObjectInfoFromXML("SHOW_ALL_COLUMNS_IMG",objectsFile,"Value"),getObjectInfoFromXML("SHOW_ALL_COLUMNS_IMG",objectsFile,"Description")
+		Set pageObj = Browser("creationtime:=0").page("index:=1")
+		If NOT(countOfElements(pageObj,"Link","html id","html tag","ITEMS.*","A","Items in Items tab",false) = false) Then
+			salesPerson = countOfElements(pageObj,"WebElement","html id","html tag","SALES_PERSN_VW_NAME.*","SPAN","Sales person in items",true)
+		   	If NOT(salesPerson = false) Then
+   	    		Call WriteToReport(micPass, "Sales Person in items ", "Sales Person info in items is displayed  ",false)
+	   	  	Else
+	            Call WriteToReport(micFail, "Sales Person in items", "Sales Person info in items is not displayed  ",true)
+		   	End If
+		End If
+
+		If NOT(countOfElements(pageObj,"Link","html id","html tag","ITEMS.*","A","Items in Items tab", False) = False) Then
+			billToMedia = countOfElements(pageObj,"WebElement","html id","html tag","PSXLATITEM_XLATLONGNAME.*","SPAN","BilltoMedia in Items", True)
+			If NOT(billToMedia = False) Then
+				Call WriteToReport(micPass, "billToMedia in items ", "billToMedia info in items is displayed  ", False)
+			Else
+				Call WriteToReport(micFail, "billToMedia in items ", "billToMedia info in items is not displayed  ", True)
+			End If
+		End If
+	End If
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' kill_process Function is to kill processes by it's name
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Nov-2015</datecreated>
+'''<param name="processName" type="string">process name like EXCEl.exe</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"> </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Function kill_process(processName)
+	Dim ps
+
+	For Each ps in getobject("winmgmts:\\.\root\cimv2:win32_process").instances_
+		If UCase(ps.name) = UCase(processName) Then
+			ps.terminate
+		End If
+	Next
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' verifySheetExists Function is to kill processes by it's name
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>09-Feb-2015</datecreated>
+'''<param name="objWorkBook" type="string">Excel Object</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="Boolean">true/false if sheet exists </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function verifySheetExists(objWorkBook)
+    Dim flag,objSheet
+    
+    On error resume next
+    set objSheet = objWorkBook.Sheets.Item(GlobalDictionary("TestName"))
+    verifySheetExists = Err.Number<>0
+    On error goto 0
+     set objSheet = nothing
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' getStatusupdateProcessTime Function is to upload process refresh time
+''' </summary>
+''' <author>Vikram Reddy Enukoda</author>
+''' <datecreated>12-Feb-2016</datecreated>
+'''<param name="objWorkBook" type="string">Excel Object</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="Boolean">true/false if sheet exists </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+' 09/13/2017		Eric Trout	 Added code to pull column number 
+'**************************************************************************************************************
+Public Function getStatusupdateProcessTime(processName,instanceNumber)
+
+    Dim oExcel, oWB, oSheet, getVal,rows,fso,objSht, rowNumber, endingTrans,sColumn
+    Dim oDesc, oTable, runStatus, distributionStatus, startTrans, endTrans, totalTime 
+    'processName = "Process Name"
+    Err.clear
+    On Error Resume Next
+    wait 5
+    ''''''''''''''''''''''''''''''''''''''''''''''''''''
+	Browser("creationtime:=0").Page("index:=1").WebEdit("html id:=PMN_DERIVED_PRCSINSTANCE").Set instanceNumber
+    Browser("creationtime:=0").Page("index:=1").WebEdit("html id:=PMN_FILTER_WRK_WS_OPRID").Set ""
+    Browser("creationtime:=0").Page("index:=1").WebEdit("html id:=PMN_FILTER_WRK_PT_FILTERVALUE").Set "1" 
+    Browser("creationtime:=0").Page("index:=1").WebList("html id:=PMN_FILTER_WRK_PT_FILTERUNIT").Select("Hours")
+    Browser("creationtime:=0").Page("index:=1").WebList("html id:=PMN_FILTER_WRK_RUNSTATUS").Select "#0"
+    Browser("creationtime:=0").Page("index:=1").WebList("html id:=PMN_FILTER_WRK_SERVERNAME").Select "#0"
+    Browser("creationtime:=0").Page("index:=1").WebEdit("html id:=PMN_FILTER_WRK_PRCSNAME").Set ""
+    '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+   	startTrans = now()
+   	endingTrans = now()
+'   	do while DateDiff("s",startTrans,endingTrans) < 310 
+   	do while trim(runStatus) <> "Success"  or trim(distributionStatus) <> "Posted" 
+   		
+  		Dim objbutton
+   		Set objbutton = eval(getObjectInfoFromXML("Refresh_ProcessMonitor_btn",objectsFile ,"Value"))
+   		objbutton.highlight
+   		objbutton.Click
+
+		Set objbutton = nothing
+		wait 2
+   		Set oDesc = Description.Create
+		oDesc("micclass").Value = "WebTable" 
+		oDesc("class").Value = "PSLEVEL1GRID"
+		
+		
+	  If  StrComp (GlobalDictionary("Environment"),"FNQA") = 0  AND GlobalDictionary("CDW_BATCH") = "YES" Then
+			Set oTable = Browser("creationtime:=0").Page("index:=1").PSFrame("html id:=ptifrmtgtframe").WebTable(oDesc)
+			
+			sColumn = GetColumn(oTable, "Run Status")
+			
+			runStatus = oTable.GetCellData(2,sColumn)
+		
+			sColumn = GetColumn(oTable, "Distribution Status")
+			distributionStatus = oTable.GetCellData(2,sColumn)
+	
+			wait 5
+	    Else
+			Set oTable = Browser("creationtime:=0").Page("index:=1").PSFrame("html id:=ptifrmtgtframe").WebTable(oDesc)
+			rowNumber = oTable.GetRowWithCellText(trim(instanceNumber),2,1)
+			If rowNumber = false Then
+					Call WriteToReport (micFail,"Process instance "&instanceNumber,"Process instance "&instanceNumber&" is not displayed ",true)
+			else
+				   sColumn = GetColumn(oTable, "Run Status")
+                   runStatus = oTable.GetCellData(rowNumber,sColumn)
+		
+				sColumn = GetColumn(oTable, "Distribution Status")
+			       distributionStatus = oTable.GetCellData(rowNumber,sColumn)			
+			End If
+			
+			
+
+
+	  End If
+		
+		
+		If trim(runStatus) = "No Success" and trim(distributionStatus) = "Posted"  Then
+			Call WriteToReport (micFail,"Process "&instanceNumber& "Ran into "&runStatus,"",true)
+			endingTrans = now()
+			Browser("PeopleSoft Browser").Page("Process Monitor").PSFrame("Process Monitor").Link("Details").Click
+			If Browser("PeopleSoft Browser").Page("Process Monitor").PSFrame("Process Detail").Link("Message Log").Exist(120) Then
+				Browser("PeopleSoft Browser").Page("Process Monitor").PSFrame("Process Detail").Link("Message Log").Click
+			End If			
+			
+			wait(10)
+			
+			Call WriteToReport (micFail,"Message Log","Process "&instanceNumber& "Ran into "&runStatus,true)
+			Exit Do
+		End If
+		If trim(runStatus) = "Success" and trim(distributionStatus) = "Posted"  Then
+		'	Call WriteToReport (micFail, "Test Case Fails", "", true)
+			endingTrans = now()
+			Exit Do
+		End If
+		Set oDesc = Nothing
+		Set oTable = Nothing
+		endingTrans = now()
+		
+		If DateDiff("s",startTrans,endingTrans) > 430 Then
+				Call WriteToReport (micFail,"Process did not Ran into Success and is not Posted in 7 minutes","",true)
+				Exit Do
+			End If
+   Loop
+'       	If trim(runStatus) = "Warning" Then
+'       		Exit do
+'       	End If
+'       	
+'       	 If trim(runStatus) = "Success" and trim(distributionStatus) = "Posted" Then
+'		     Exit do
+'		 End If
+'   Loop
+   If trim(runStatus) = "Success" and trim(distributionStatus) = "Posted" Then
+      Call WriteToReport (micPass,"Process "&instanceNumber& " Ran into Success and is Posted","",true)
+   	else
+   	    Call WriteToReport (micFail,"Process "&instanceNumber& "did not Ran into Success and is not Posted till now","",true)
+   End If
+   
+   endTrans = now()
+   totalTime = datediff("s", startTrans, endTrans)
+    Call WriteToReport (micDone,"Refreshed Time","Refreshed in " & totalTime & "seconds.",true)
+
+   getStatusupdateProcessTime = runStatus
+
+
+Set fso = CreateObject("Scripting.FileSystemObject")
+Set oExcel=CreateObject("Excel.Application")
+oExcel.DisplayAlerts = false
+Set oWB=oExcel.Workbooks.Open(processTimeUpdate)
+oExcel.Visible=false
+
+ If NOT verifySheetExists(oWB,GlobalDictionary("TestName")) Then
+Set objSht = oWB.Worksheets(GlobalDictionary("TestName"))
+    rows = objSht.UsedRange.Rows.Count
+    objSht.Cells(rows+1,1) = processName
+    objSht.Cells(rows+1,2) = totalTime
+    objSht.Cells(rows+1,3) = Now
+ else
+    Set objWrkSht = oWB.Sheets.Add(oWB.Sheets(oWB.Sheets.Count))
+     objWrkSht.Name = GlobalDictionary("TestName")
+    objWrkSht.Cells(1,1) = "PROCESS NAME"
+    objWrkSht.Cells(1,2) = "JOB COMPLETION TIME IN SECONDS"
+    objWrkSht.Cells(1,3) = "PROCESS RUN TIME STAMP"
+    rows = objWrkSht.UsedRange.Rows.Count
+    objWrkSht.Cells(rows+1,1) = processName
+    objWrkSht.Cells(rows+1,2) = totalTime
+    objWrkSht.Cells(rows+1,3) = Now
+End If
+
+oWB.Save
+oWB.Close
+Set oSheet = nothing
+Set objSht = nothing
+Set objWrkSht = nothing
+Set oWB = nothing
+Set oExcel = nothing
+
+On Error goto 0
+End Function
+
+''' <summary> 
+''' loginCDWBATCH is to login with CDW_BATCH
+''' </summary>
+'''<param>userName</param>
+''' <author>Venu Arigela</author>
+''' <datecreated>09-Nov-2015</datecreated>
+''' <endstate>Completed</endstate>
+''' <returns type="NA">0<s>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'01/30/2019			Stephen King		Added validation at end of function to confirm that we are in the correct environment
+Public Function loginCDWBATCH()
+	Dim loginPage,userBox, url
+	Dim strEnv, strUrl
+
+	GlobalDictionary("CDW_BATCH") = "YES"
+	closeAllBrowsersExceptQC
+	If StrComp (GlobalDictionary("Environment"),"FNQA") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNQA")
+	ElseIf StrComp (GlobalDictionary("Environment"),"FNREG") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNREG") 	
+	ElseIf StrComp (GlobalDictionary("Environment"),"FNTST") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNTST")
+	ElseIf StrComp (GlobalDictionary("Environment"),"FNRVTST") = 0  Then
+		url = GlobalDictionary("ApplicationUrl_FNRVTST")	
+	Else
+		Call WriteToReport(micFail, "Environment", "Environment not found [" &GlobalDictionary("Environment")&"]", True)
+		ExitTestIteration 
+	End If
+
+	SystemUtil.Run url
+	Wait 3
+	deleteCookies
+	maximizeBrowser()
+	Set userBox = Eval(getObjectInfoFromXML("UserName_Edit",objectsFile,"Value"))
+	If userBox.Exist(30) Then
+		setValue_WebEdit getObjectInfoFromXML("UserName_Edit",objectsFile,"Value"), "CDW_BATCH", False, getObjectInfoFromXML("UserName_Edit", objectsFile, "Description")
+		setValue_WebEdit getObjectInfoFromXML("Pwd_Edit", objectsFile, "Value"), CDWBATCHENCRYPTEDPASSWORD, True, getObjectInfoFromXML("Pwd_Edit", objectsFile, "Description")
+		btn_click getObjectInfoFromXML("Login_BTN",objectsFile,"Value"),getObjectInfoFromXML("Login_BTN",objectsFile,"Description")
+		Wait 5
+		If NOT (Browser("creationtime:=0").page("index:=1").Image("alt:=Home").Exist(60)) Then
+			Call WriteToReport(micPass, "Login","Login is  successful", False)
+			ExitTestIteration
+		End If
+	End If
+	
+	'Validate our environment due to caching/session issues. Using the first part of the environment URL to compare
+	Select Case UCase(GlobalDictionary("Environment"))
+		Case "FNDEV"
+			strEnv = "psfnapwbpstst1"
+
+		Case "FNREG"
+			strEnv = "psfnapwbregvh1"
+
+		Case "FNQA"
+			strEnv = "psfnqa"
+
+		Case "FNTST"
+			strEnv = "psfnapwbpsdev1"
+
+		Case "FNRVTST"
+			strEnv = "psfnapwbpstst1"
+
+		'If no environment is specified, default to FNREG
+		Case Else
+			strEnv = "psfnapwbregvh1"
+
+	End Select
+
+	'Get our current URL
+	strUrl = Browser("PeopleSoft Browser").GetROProperty("openurl")
+	
+	'Confirm that the environment search string is in the url
+	If InStr(1, strUrl, strEnv, vbTextCompare) > 0 Then
+		WriteToReport micPass, "Page Environment Confirmed ", "Environment string [" & strEnv & "] found in URL [" & strUrl & "].", False
+	Else
+		WriteToReport micFail, "Page Environment Not Confirmed ", "Environment string [" & strEnv & "] was not found in URL [" & strUrl & "].", True
+		ExitTest
+	End If
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' verifyTCSheet Function is to verify if testcase sheet does exist ot not
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>17-Feb-2015</datecreated>
+''' <param name="excelPath" type="string">Excel file</param>
+''' <param name="sheetName" type="string">sheet name where to update</param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"> updates the value in Excel</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+Public Function verifyTCSheet(excelPath, tcName)
+	Dim oExcel, oWB, oSheet,rows,fso,objSht,colNumber,rowNumber,row,objWrkSht
+	Err.clear
+	On Error Resume Next
+Set fso = CreateObject("Scripting.FileSystemObject")
+Set oExcel=CreateObject("Excel.Application")
+oExcel.DisplayAlerts = false
+Set oWB=oExcel.Workbooks.Open(excelPath)
+oExcel.Visible=false
+
+	  If NOT verifySheetExists(oWB,trim(tcName)) Then
+		    oWB.Worksheets(tcName).delete
+			 Set objSht = oWB.Worksheets.Add
+			 objSht.Name = tcName
+			 objSht.Cells(1,1).value = "TestStatus"
+			objSht.Cells(1,2).value = "stepdescription"
+			objSht.Cells(1,3).value = "Stepdetails"
+			objSht.Cells(1,4).value = "Screenshotpath"
+	  Else		
+	       Set objSht = oWB.Worksheets.Add
+			 objSht.Name = tcName
+			 objSht.Cells(1,1).value = "TestStatus"
+			objSht.Cells(1,2).value = "stepdescription"
+			objSht.Cells(1,3).value = "Stepdetails"
+			objSht.Cells(1,4).value = "Screenshotpath"
+	  End if
+	
+	
+
+	oExcel.ActiveWorkbook.Save
+	oExcel.ActiveWorkbook.Close
+	Set objSht = nothing
+	Set oWB = nothing
+	Set oExcel = nothing
+		Set fso = nothing
+	On error goto 0
+End Function
+
+Public Function rowNumberOfSpecificProcess(processName)
+	
+	 Dim processTable , rowNum ,processnameObj , outerVal , rowNumVal 
+	 Set processnameObj = Browser("creationtime:=0").Page("index:=1").WebElement("innertext:="&processName,"index:=1")
+	 If processnameObj.Exist(60) Then
+	 	 processnameObj.highlight
+		 outerVal = processnameObj.GetROProperty("html id")
+		 rowNum = split(outerVal,"$")(1)
+	  else
+        WriteToReport micFail, "Process "&processName, "Process "&processName&" is not displayed in process scheduler Request", true	  
+	 End If
+	    
+	Set processnameObj = nothing
+	rowNumberOfSpecificProcess = rowNum
+End Function
+
+Public Function verifyItemIDVal(expectedItemID)
+	Dim bFlag , oDesc,objs,countObjs,i
+	
+	Set oDesc = Description.Create
+	oDesc("micClass").value = "WebEdit"
+	'oDesc("html id").value = "PAYMENT_ITEM_ITEM\$.*"
+	oDesc("html id").value = "ITEM\$.*"
+	 Set objs = Browser("creationtime:=0").Page("index:=1").childObjects(oDesc) 
+	countObjs = objs.count
+	bFlag = false
+	For i=0 to countObjs-1
+		
+		If objs(i).getroproperty("default value") = trim(expectedItemID) Then
+			bFlag = true
+			Exit for
+		End If
+	Next
+	 
+	
+	Set oDesc = nothing
+	verifyItemIDVal = bFlag
+End Function
+
+Public Function getRowNumberForNewItem()
+	Dim bFlag, oDesc, objs, countObjs, i, row
+
+	Set oDesc = Description.Create
+	oDesc("micClass").value = "WebEdit"
+	oDesc("html id").value = "ITEM\$.*"
+	Set objs = Browser("creationtime:=0").Page("index:=1").childObjects(oDesc) 
+	countObjs = objs.count
+
+	For i=0 to countObjs-1
+		objs(i).highlight
+		If objs(i).getroproperty("default value") = "" Then
+			row = i
+			Exit For
+		End If
+	Next
+
+	Set oDesc = nothing	
+	getRowNumberForNewItem = row
+End Function
+
+Public Function SelectMainMenu1(navigationLink)
+	Dim arrSubMenuItems, bNavigation , i, sMenuSelection, myPreferences, obj, objs
+	Dim strEnv, strUrl
+
+	bNavigation = true
+	
+	'Get to navigator section
+	If Browser("creationtime:=0").page("index:=1").Image("alt:=Home").Exist(30) Then
+		Browser("creationtime:=0").page("index:=1").Image("alt:=Home").Click 
+		' added to save the recent changes so that warning popup will be closed
+		If Browser("creationtime:=0").Page("index:=1").WebButton("name:=Yes").Exist(7) Then
+	    	Browser("creationtime:=0").Page("index:=1").WebButton("name:=Yes").Click
+	    End If
+	End If 
+
+	If Browser("creationtime:=0").page("index:=1").Image("alt:=Actions List").Exist(10) Then
+		Browser("creationtime:=0").page("index:=1").Image("alt:=Actions List").Click 
+		If Browser("creationtime:=0").Page("index:=1").WebButton("name:=Yes").Exist(5) Then
+	    	Browser("creationtime:=0").Page("index:=1").WebButton("name:=Yes").Click
+	    End If
+		Set obj = Description.Create
+		obj("micClass").value = "Link"
+		obj("name").Value = "My Preferences"
+		
+		Set objs =  Browser("creationtime:=0").page("index:=1").ChildObjects(obj)
+		If objs.count > 1 Then
+		    objs(1).highlight
+			objs(1).click
+			If Browser("creationtime:=0").Page("index:=1").WebButton("name:=No").Exist(5) Then
+	    	   Browser("creationtime:=0").Page("index:=1").WebButton("name:=No").Click   
+	        End If
+	         
+	        If Browser("creationtime:=0").page("index:=1").Image("alt:=NavBar").exist(60)  Then
+			   	Browser("creationtime:=0").page("index:=1").Image("alt:=NavBar").Click 
+			   	If Browser("creationtime:=0").page("index:=1").PSFrame("title:=NavBar").image("file name:=PTNUI_MENU_ICN.*").exist(50) Then
+			   	    Browser("creationtime:=0").page("index:=1").PSFrame("title:=NavBar").image("file name:=PTNUI_MENU_ICN.*").Click
+			   	Else
+                    Call WriteToReport(micFail, "Navigator icon", "Navigator icon was not selected.", True)  
+                    SelectMainMenu1    = false
+                    Exit function                            
+			   	End If
+			Else
+			   	Call WriteToReport(micFail, "NavBar icon", "NavBar icon was not selected.", True)  
+			   	    SelectMainMenu1    = false
+                    Exit function 
+			End If
+		Else
+			If Browser("creationtime:=0").page("index:=1").Link("name:=My Preferences").exist(60) Then
+				Browser("creationtime:=0").page("index:=1").Link("name:=My Preferences").Click
+		    	If Browser("creationtime:=0").page("index:=1").Image("alt:=NavBar").exist(60)  Then
+		   	  		Browser("creationtime:=0").page("index:=1").Image("alt:=NavBar").Click 
+		   	      	If Browser("creationtime:=0").page("index:=1").PSFrame("title:=NavBar").image("file name:=PTNUI_MENU_ICN.*").exist(50) Then
+		   	      	 	Browser("creationtime:=0").page("index:=1").PSFrame("title:=NavBar").image("file name:=PTNUI_MENU_ICN.*").Click
+		   	      	Else
+                       	Call WriteToReport(micFail, "Navigator icon", "Navigator icon was not selected.", True)  
+                            SelectMainMenu1    = false
+                            Exit function                            
+		   	      	End If
+		   	  	Else
+		   	  		Call WriteToReport(micFail, "NavBar icon", "NavBar icon was not selected.", True)  
+		   	       	SelectMainMenu1    = false
+                    Exit function 
+		   		End If
+			Else
+			  	Call WriteToReport(micFail, "My Preferences", "My Preferences was not selected.", True) 
+			    SelectMainMenu1    = false
+                Exit function 
+			End If
+		End If
+    Else
+        If Browser("creationtime:=0").page("index:=1").Image("alt:=NavBar").exist(60)  Then
+			Browser("creationtime:=0").page("index:=1").Image("alt:=NavBar").Click 
+			If Browser("creationtime:=0").page("index:=1").PSFrame("title:=NavBar").image("file name:=PTNUI_MENU_ICN.*").exist(50) Then
+			   	Browser("creationtime:=0").page("index:=1").PSFrame("title:=NavBar").image("file name:=PTNUI_MENU_ICN.*").Click
+			Else
+                Call WriteToReport(micFail, "Navigator icon", "Navigator icon was not selected.", True)  
+                SelectMainMenu1    = false
+                Exit function                            
+			End If
+		Else
+		  	Call WriteToReport(micFail, "NavBar icon", "NavBar icon was not selected.", True)  
+			SelectMainMenu1    = false
+            Exit function 
+		End If
+'          Call WriteToReport(micFail, "Actions List", "Actions List was not selected.", True)
+'          SelectMainMenu1    = false
+'           Exit function 
+	End If
+	   
+	'' to verify if navigate back arrow icon is exist to get to Navigation section. it will present if navigation was already selected prior
+	If Browser("creationtime:=0").page("index:=1").Image("alt:=Back:.*").Exist(8) then
+    	Do while  Browser("creationtime:=0").page("index:=1").Image("alt:=Back:.*").Exist	
+    		Browser("creationtime:=0").page("index:=1").Image("alt:=Back:.*").click
+     	Loop
+	End If
+	'Get the menu items to be selected	
+	If(len(trim(navigationLink))=0) then
+	  	sMenuSelection = Trim(GlobalDictionary("MainMenuSelection"))
+	Else
+	  	sMenuSelection = navigationLink
+	End If 
+	
+	arrSubMenuItems = split(sMenuSelection,">")
+	For i = 0 To UBound(arrSubMenuItems) Step 1
+		If Browser("creationtime:=0").page("index:=1").Link("name:=" & trim(arrSubMenuItems(i))).exist(30) Then
+			Browser("creationtime:=0").page("index:=1").Link("name:=" & trim(arrSubMenuItems(i))).Click
+			Wait 2
+		ElseIf Browser("creationtime:=0").page("index:=1").PSFrame("title:=NavBar").Link("name:=" & trim(arrSubMenuItems(i))).exist(30) Then
+			Browser("creationtime:=0").page("index:=1").PSFrame("title:=NavBar").Link("name:=" & trim(arrSubMenuItems(i))).Click
+			Wait 2
+		Else
+			bNavigation = False
+			Exit For
+		End If
+	Next
+
+	If Not bNavigation Then
+		Call WriteToReport(micFail, "Menu option not found.", "The menu option [" & sMenuSelection & "] was not selected.", True)
+		SelectMainMenu1 = false
+	Else
+		Call WriteToReport(micPass, "Menu Option Selected", "Menu option selected was [" & sMenuSelection & "].", True)
+		SelectMainMenu1 = true
+
+	End If
+
+	'Validate our environment due to caching/session issues. Using the first part of the environment URL to compare
+	Select Case UCase(GlobalDictionary("Environment"))
+		Case "FNDEV"
+			strEnv = "psfnapwbpstst1"
+
+		Case "FNREG"
+			strEnv = "psfnapwbregvh1"
+
+		Case "FNQA"
+			strEnv = "psfnqa"
+
+		Case "FNTST"
+			strEnv = "psfnapwbpsdev1"
+
+		Case "FNRVTST"
+			strEnv = "psfnapwbpstst1"
+
+		'If no environment is specified, default to FNREG
+		Case Else
+			strEnv = "psfnapwbregvh1"
+
+	End Select
+
+	'Get our current URL
+	'strUrl = Browser("PeopleSoft Browser").GetROProperty("openurl")
+	
+	'Confirm that the environment search string is in the url
+	'If InStr(1, strUrl, strEnv, vbTextCompare) > 0 Then
+	'	WriteToReport micPass, "Page Environment Confirmed ", "Environment string [" & strEnv & "] found in URL [" & strUrl & "].", False
+	'Else
+	'	WriteToReport micFail, "Page Environment Not Confirmed ", "Environment string [" & strEnv & "] was not found in URL [" & strUrl & "].", True
+	'	ExitTest
+	'End If
+
+'Cleanup
+	If isArray(arrSubMenuItems) Then Erase arrSubMenuItems
+
+End Function
+
+'Steve King		06/11/2018  Updated html id due to PS upgrade
+Public Function isEmptyItemIDlineExist()
+	Dim bFlag, oDesc, objs, countObjs, i, row
+
+	bFlag = false
+	Set oDesc = Description.Create
+	oDesc("micClass").value = "WebEdit"
+	'oDesc("html id").value = "PAYMENT_ITEM_ITEM\$.*"
+	oDesc("html id").value = "ITEM\$.*"
+	Set objs = Browser("creationtime:=0").Page("index:=1").childObjects(oDesc) 
+	countObjs = objs.count
+	For i=0 to countObjs-1
+		objs(i).highlight
+		If objs(i).getroproperty("default value") = "" Then
+			row = i
+			bFlag = true
+			Exit for
+		End If
+	Next
+
+	Set oDesc = nothing	
+	isEmptyItemIDlineExist = bFlag
+End Function
+
+Public Function isAlphaNumericSpecialChar(word)
+	
+	Dim chars,i, bflag
+	bflag = true
+	If len(word) > 1 Then
+		chars = split(word,"")
+		For i = 0 To ubound(chars) Step 1
+			If chr(chars(i)) = 10 or chr(chars(i)) = 13  Then
+				bflag = false
+				Exit for
+			End If
+		Next
+	 else
+    	 If chr(word) = 10 or chr(word) = 13  Then
+				bflag = false
+				
+			End If
+	End If
+	isAlphaNumericSpecialChar = bflag
+End Function
+
+Public Function unSelectItemID(expectedItemID)
+	Dim bFlag , oDesc,objs,countObjs,i
+	
+	Set oDesc = Description.Create
+	oDesc("micClass").value = "WebEdit"
+	oDesc("html id").value = "PAYMENT_ITEM_ITEM\$.*"
+	
+	 Set objs = Browser("creationtime:=0").Page("index:=1").childObjects(oDesc) 
+	countObjs = objs.count
+	bFlag = false
+	For i=0 to countObjs-1
+		
+		If objs(i).getroproperty("default value") = trim(expectedItemID) Then
+			bFlag = true
+			
+		else
+           Browser("creationtime:=0").page("index:=1").WebCheckBox("html id:=PAYMENT_ITEM_ITEM_SELECTED\$"&i).set "off"		
+		End If
+	Next
+	 
+	
+	Set oDesc = nothing
+	unSelectItemID = bFlag
+End Function
+
+Public Sub moveAlreadyExistingREsultExcelSheet
+	
+	Dim flag,objSheet,fso,oExcel,objWorkBook,resultsPath,tcExcel,moveToPath
+    resultsPath = "K:\AutoRegressionResults\PSF\PSF Fin Regression\Regr_Runs_By_BusinessUnits_DoNotDelete\TestCases\"
+    moveToPath = "K:\AutoRegressionResults\PSF\PSF Fin Regression\Regr_Runs_By_BusinessUnits_DoNotDelete\Archive"
+    On error resume next
+    Set fso = CreateObject("Scripting.FileSystemObject")
+
+    tcExcel = resultsPath&Environment.Value("TestName")&".xlsx"
+    If fso.FileExists(tcExcel) Then
+    	moveToArchive tcExcel,moveToPath,GlobalDictionary("TestName")
+    End If
+    On error goto 0
+    
+End Sub
+
+Public Function moveToArchive(tcExcel,moveToPath,tcname)
+	
+	Dim fso,folder,file
+	 Set fso = CreateObject("Scripting.FileSystemObject")
+	 
+		 folder =Year(Date) & Right("0" & Month(Date), 2) & Right("0" & Day(Date), 2) 
+		 On error resume next
+	if fso.FolderExists(moveToPath&"\"&folder) then
+	    fso.MoveFile tcExcel,moveToPath&"\"&folder&"\"
+	 else
+        fso.CreateFolder(moveToPath&"\"&folder)
+        fso.MoveFile tcExcel,moveToPath&"\"&folder&"\"
+	End if
+ On error goto 0	
+End Function
+
+'''<summary>
+'''Function will go through the provided table and return the column number for the column name provided.
+'''</summary>
+'''<author>Robert Straughn</author>
+'''<datecreated>02-14-2014</datecreated>
+'''<param name="oTable" type="Object">The Table object you want column info from</param>
+'''<param name="sColName"  type="String">Name of the column you want to find </param>
+'''<startstate>CDW Outlet Page</startstate>
+'''<endstate>Table object must be on screen</endstate>
+'''<returns type="Boolean">Returns 0 if successful, otherwise 1</returns>
+'Change Control:
+'Date					Author						Description
+'_________________________________________________________________________________
+Function GetColumn(oTable, sColName)
+
+	Dim aCols
+	Dim i
+
+	'Split the list of columns
+	aCols = Split(oTable.GetROProperty("column names"), ";")
+
+	'Check for the appropriate column name and return the column number. Columns start at 1 so add 1 once the column is found.
+	For i = 0 To uBound(aCols)
+		If Instr(aCols(i), sColName) > 0 Then
+			GetColumn = i + 1
+			Exit Function
+		End If
+	Next
+
+	'If Column isn't found then report fail
+	Call WriteToReport (micFail, "Column Not Found","The column name provided ["& sColName &"] was not found in the table.",TRUE)
+	
+	If IsArray(aCols) Then Erase aCols
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' CheckProcessMontiorStatus() Function will check the run and distribution status of process in Process Monitor
+''' <para>
+''' <note>Required input Parameter = "sProcessName"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>3/30/2015</datecreated>
+''' <startstate>Process Monitor Page</startstate>
+''' <endstate>Process Monitor page</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+
+Public Function CheckProcessMontiorStatus (sProcessName)
+Dim nProcessInstance
+	
+	If Browser("PeopleSoft Browser").Page("ProcessMonitorGeneric").PSFrame("Process Monitor").WebButton("Refresh").Exist (nMAXWAIT) Then
+		with Browser("PeopleSoft Browser").Page("ProcessMonitorGeneric").PSFrame("Process Monitor")
+			wait(nMINWAIT)
+			.WebEdit("ProcessName").Set sProcessName
+			.WebButton("Refresh").Click	
+								
+			nProcessInstance = .WebElement("ProcessInstance").GetROProperty ("innertext")
+			.WebEdit("ProcessInstance").Set nProcessInstance
+			.WebButton("Refresh").Click	
+			WriteToReport micDone, "Process Monitor : " & sProcessName , "Check Run status and Distribution status for process [" & nProcessInstance &"].", false				
+	
+			WaitForObjectStatus Browser("PeopleSoft Browser").Page("ProcessMonitorGeneric").PSFrame("Process Monitor"), "Runstatus", "Success"
+							
+			If .WebElement("Runstatus").GetROProperty("innertext") = "Success" Then
+				WaitForObjectStatus Browser("PeopleSoft Browser").Page("ProcessMonitorGeneric").PSFrame("Process Monitor"), "DistributionStatus", "Posted"
+				If .WebElement("DistributionStatus").GetROProperty("innertext") = "Posted" Then
+					WriteToReport micPass, "Process Monitor", "Completed process sucessfully", false	
+				else
+				    WriteToReport micFail, "Process Monitor", "Unable to successfully post process = [ " & nProcessInstance &"]", false
+				End If
+			Else
+				WriteToReport micFail, "Process Monitor", "Unable to successfully complete process = [ " & nProcessInstance &"]", false
+			End If
+		
+		End With
+	else
+		WriteToReport micFail, "Process Monitor", "Unable to click Refresh to check status", false
+	End If
+	
+
+End function
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' ClickLink() verify if link exists and click on it
+''' <para>
+''' <note>sLinkText is the </note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>5/21/2014</datecreated>
+''' <startstate>Login Page</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+Public Function ClickLink(sLinkText)
+
+Dim bFound
+
+	bFound = FALSE
+
+	'Use descriptive programing to identify link and click it
+	If Browser("PeopleSoft Browser").Page("PSFGEneric").Link("html tag:=A" ,"text:="&sLinkText).Exist(5) Then
+		Browser("PeopleSoft Browser").Page("PSFGEneric").Link("html tag:=A" ,"text:="&sLinkText).Click
+		Call WriteToReport (micDone, "["& sLinkText &"] Link Found","The ["& sLinkText &"] Link was found and clicked successfully.",false)
+		bFound = TRUE
+	Else
+		Call WriteToReport (micFail, "["& sLinkText &"] Link Not Found","The ["& sLinkText &"] Link was not found.",TRUE)
+	End If
+
+	ClickLink = bFound
+
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' SelectNavBar() function to slect the functional area in application.
+''' <para>
+''' <note></note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>6/01/2015</datecreated>
+''' <startstate>PSF is logged in and Home and MainMenu are displayed</startstate>
+''' <endstate> Page selected  in PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'__________
+Public Sub SelectNavBar()
+
+	With Browser("PeopleSoft Browser").Page("PSFGeneric")
+		If .Image("Actions List").Exist (10) Then
+			.Image("Actions List").Click	
+			If .WebElement("My Preferences").Exist (5) Then
+				.WebElement("My Preferences").Click
+				wait(1)
+				.Image("NavBar").Click
+				.PSFrame("NavBar").Image("PTNUI_Navigator").Click
+				'Go back to start to begin selection
+				While .PSFrame("NavBar").Image("Img_Back").Exist(10)  
+					.PSFrame("NavBar").Image("Img_Back").Click
+				Wend
+			End If
+'IE11 
+		elseIf .Image("NavBar").Exist (10) Then
+				.Image("NavBar").Click
+				.PSFrame("NavBar").Image("PTNUI_Navigator").Click
+				'Go back to start to begin selection
+				While .PSFrame("NavBar").Image("Img_Back").Exist(10)  
+					.PSFrame("NavBar").Image("Img_Back").Click
+				Wend
+		else
+			WriteToReport micFail, "NAvBar selection", "Actions List or NavBar not found to select.", True
+		End If
+
+
+	End With
+	
+End Sub
+
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' UserSignIn() Function will log into PSF Application
+''' <para>
+''' <note>Required Excel Input Parameter ="SignInUser " and "SignInPwd"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>5/21/2014</datecreated>
+''' <startstate>Login Page</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+' 4/20/2015					Jolly				Udpate to resolve timings delays in login
+' 9/1/2015					Jolly				Udpates for PSF 9.2
+'__________
+
+Public Function UserSignIn()
+	Dim sUserName, sPassword
+
+	If Browser("PeopleSoft Browser").Page("PSFGeneric").Link("Sign out").Exist Then
+		Browser("PeopleSoft Browser").Page("PSFGeneric").Link("Sign out").Click
+		WriteToReport micDone, "Logged out", "Previous application was logged in and so logged out.", False
+	End If
+
+	sUserName = GlobalDictionary("SignInUser")
+
+	If sUserName = "1" Then
+		WriteToReport micFail, "UserSignIn", "UserNameis["&sUserName&"], Check data.", True
+		ExitTest
+	End IF
+	
+	Browser("PeopleSoft Browser").Page("SignIn").Sync
+	Browser("PeopleSoft Browser").Page("SignIn").WebEdit("UserID").Set sUserName
+	Browser("PeopleSoft Browser").Page("SignIn").WebEdit("Password").SetSecure ENCRYPTEDPASSWORD
+	Browser("PeopleSoft Browser").Page("SignIn").WebButton("SignIn").Click	
+	Browser("PeopleSoft Browser").Sync
+	WriteToReport micDone, "UserSignIn - Login", "Entered data: user=["&sUserName&"] and secure password.", false
+	If Not Browser("PeopleSoft Browser").Page("SignIn").WebElement("ErrorText").Exist (10) Then '
+		Browser("PeopleSoft Browser").Page("PSFGeneric").Sync
+		if Browser("PeopleSoft Browser").Page("PSFGeneric").Link("Sign out").Exist then
+			WriteToReport micDone, "UserSignIn", "Login with user ["&sUserName&"] and password [twotier] was successful.", false
+		Else
+			WriteToReport micFail, "UserSignIn", "Login with user ["&sUserName&"] and password [twotier] was not successful.", True
+		End if
+	Else
+		WriteToReport micFail, "UserSignIn", "Error displayed: ["& 	Browser("PeopleSoft Browser").Page("SignIn").WebElement("ErrorText").GetROProperty("innertext") &"]", True
+		WriteToReport micFail, "UserSignIn", "Login with user ["&sUserName&"] and password ["&sPassword&"] was not successful.", True
+	End If
+
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' UserSignOut() Function will log out of PSF Application
+''' <para>
+''' <note></note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/21/2015</datecreated>
+''' <startstate>Logged in application</startstate>
+''' <endstate></endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+' 
+' __________
+
+Public Function UserSignOut()
+With Browser("PeopleSoft Browser").Page("PSFGeneric")
+	If .Link("Sign out").Exist Then
+		.Link("Sign out").Click
+		If .WebElement("Save Warning").Exist Then
+			.WebButton("No").Click
+		End If
+		WriteToReport micDone, "Logged out", "User was logged out of application.", False
+	else
+		If .Image("Actions List").Exist (10) Then
+			.Image("Actions List").Click	
+			If .WebElement("Signout").Exist (5) Then
+				.WebElement("Signout").click
+			End if
+			If .WebElement("Save Warning").Exist Then
+				.WebButton("No").Click
+			End If
+			WriteToReport micDone, "NavBar Logged out", "User was logged out of application.", False
+		End if
+		WriteToReport micWarning, "Sign out link does not exist", "Check PSF application.", False	
+	End If
+End with
+	Browser("PeopleSoft Browser").CloseAllTabs
+
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' VerifyLink() verify if link exists and return true/false
+''' <para>
+''' <note>sLinkText is the text used to identify link</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>10/1/2014</datecreated>
+''' <startstate>Login Page</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+Public Function VerifyLink(sLinkText)
+
+Dim bFound
+
+	bFound = FALSE
+
+	'Use descriptive programing to identify link and click it
+	If Browser("PeopleSoft Browser").Page("PSFGEneric").Link("html tag:=A","text:="&sLinkText).Exist(5) Then
+		bFound = TRUE
+	Else
+		bFound = FALSE
+	End If
+
+	VerifyLink = bFound
+
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' WaitForObjectStatus() function to slect the functional area in application.
+''' <para>
+''' <note>objWaitFor - represents the object parent for field </note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>8/30/2014</datecreated>
+''' <startstate>PSF is logged in and Home and MainMenu are displayed</startstate>
+''' <endstate> Page selected  in PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'  4/20/206					Jolly 					Updated as process now taking upto 20minutes to finish
+'__________
+public Sub WaitForObjectStatus (objWaitFor, sStatusField, sStatusText)
+	Dim nCount
+	nCount=0
+
+	With objWaitFor
+		While .WebElement(sStatusField).GetROProperty("innertext") <> sStatusText and nCount < 400	
+			wait(nMINWAIT)
+			nCount = nCount+1
+			.WebButton("Refresh").Click
+		Wend
+		If .WebElement(sStatusField).GetROProperty("innertext") = sStatusText Then
+			WriteToReport micDone, "WaitForObjectStatus", "The expected status ["&sStatusText&"] found for field ["& sStatusField&"].", false
+		else
+			WriteToReport micFail, "WaitForObjectStatus", "The expected status ["&sStatusText&"] NOT found for field ["& sStatusField&"].", true
+		End If
+	End With
+	
+End Sub
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' WaitForWebElementExists() function to wait for object the functional area in application.
+''' <para>
+''' <note>objWaitFor - represents the object parent for field </note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>11/20/2014</datecreated>
+''' <startstate>PSF is logged in and Home and MainMenu are displayed</startstate>
+''' <endstate> Page selected  in PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'__________
+public Sub WaitForWebElementExists (objWaitFor, objWaitField, nWaitCycleCount)
+	Dim nCount
+	nCount=0
+	
+	If nWaitCycleCount < 2 Then
+		nWaitCycleCount = 20
+	End If
+	
+	wait(2)
+	With objWaitFor
+		While NOT .WebElement(objWaitField).Exist and nCount < nWaitCycleCount	
+			wait(5)
+			nCount = nCount+1
+		Wend
+		If .WebElement(objWaitField).Exist Then
+			WriteToReport micDone, "WaitForObjectExists", "Web Element object ["& objWaitField &"] found.", false
+		else
+			WriteToReport micFail, "WaitForObjectExists", "Web Element object ["& objWaitField &"] not found.", true
+		End If
+	End With
+	
+End Sub
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' WaitUnTillFieldInnerText() function to wait for text to disappear in a field.
+''' <para>
+''' <note>objWaitFor - represents the object parent for field </note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>11/20/2014</datecreated>
+''' <startstate>PSF is logged in and Home and MainMenu are displayed</startstate>
+''' <endstate> Page selected  in PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'__________
+public Sub WaitUnTillFieldInnerText (objWaitFor, sWebElementField, sElementText)
+	Dim nCount
+	nCount=0
+
+		wait(2)
+	With objWaitFor
+		While .WebElement(sWebElementField).GetROProperty("innertext") = sElementText and nCount < 15	
+			wait(5)
+			nCount = nCount+1
+		Wend
+		If .WebElement(sWebElementField).GetROProperty("innertext") <> sElementText Then
+			WriteToReport micDone, "WaitUnTillFieldInnerText", "The text ["&sElementText&"] no longer for field ["& sWebElementField&"].", false
+		else
+			WriteToReport micFail, "WaitUnTillFieldInnerText", "The text ["&sElementText&"] still in for field ["& sWebElementField&"].", true
+		End If
+	End With
+	
+End Sub
+
+'**********************************************************************************************************************************************************
+''' <summary> Returns data from AllVars in specific format ex $SheetName_Reference</summary>
+''' <author>Eric Trout</author>
+''' <datecreated>9/17/2018</datecreated>
+''' <param name="sReference" type="String">String in format to pull data</param>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <seealso cref="ReadExcelFile"/>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Function GetDataFrmAllVars(sReference)
+	Dim aExcelLocation, sAllVarReference, sAllVarsFile, sParameter, sSheet
+
+	sAllVarsFile =  GlobalDictionary("DataLocation")&GlobalDictionary("AllVars")
+
+	If Left(sReference,1) = "$" Then
+
+		'Determine the location of the data in AllVars
+		sReference = Replace(sReference, "$", "")
+		aExcelLocation = Split(sReference, "_")
+		sSheet = aExcelLocation(0)
+		sParameter = Trim(aExcelLocation(1))
+		sAllVarReference = ReadExcelFile(sAllVarsFile, sSheet, sParameter, 2, 1)
+		If sAllVarReference = micFail Then
+			WriteToResults micFail, "Get Data From All Vars","Data was not found in AllVars."
+			GetDataFrmAllVars  = 1
+		Else
+			GetDataFrmAllVars = sAllVarReference
+		End If
+	Else
+			WriteToResults micFail, "Get Data From All Vars","Check Data format."
+			GetDataFrmAllVars  = 1	
+	End If
+
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> Returns Value with Leading Character given to be width.  Ex 1 with a width of 2 would return 01 if the Chracter is 0</summary>
+''' <author>Eric Trout</author>
+''' <datecreated>10/23/2018</datecreated>
+''' <param name="Value" type="String">String of value you want leading characters for</param>
+''' <param name="Width" type="String">Width you want Value to be</param>
+''' <param name="Char" type="String">Character you want the padding to be</param>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Function Pad(Value, Width, Char)
+	Pad = Right(String(Width, CStr(Char)) & CStr(Value), Width)
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> Finds the row number that has columns containing the given text to look for</summary>
+''' <author>Zach Apple</author>
+''' <datecreated>11/1/2018</datecreated>
+''' <param name="oTable" type="WebTable">Table to go through in search of certain text in any columns of the same row</param>
+''' <param name="arrSearch" type="String array">Array of the search criteria to look for</param>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <returns type="Numeric">Returns row number if successful, otherwise -1</returns>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Function FindRowWithText(oTable, arrSearch)
+	Dim nRowCount, nRow, nCol, i, nFound
+	Dim bFound
+	nFound = 0 '0 is the start
+	'Check that the first param is an object
+	If NOT isObject(oTable) Then
+		WriteToReport micFail, "FindRowWithText", "First Parameter Must be an Object", FALSE
+		FindRowWithText = -1
+		Exit Function
+	End If
+
+	'Check that the second param is an array
+	If NOT IsArrayDimmed(arrSearch) Then
+		WriteToReport micFail, "FindRowWithText", "Second Parameter Must be an Array"
+	End If
+
+	'Check that the table object can be found
+	If NOT oTable.Exist(30) Then
+		WriteToReport micFail, "FindRowWithText", "Could not Locate Table Object on Page", TRUE
+		FindRowWithText = -1
+		Exit Function
+	End If
+
+	'Verify that the row count for the grid is numeric and greater than 0.
+	nRowCount = oTable.RowCount()
+    If NOT IsNumeric(nRowCount) OR NOT nRowCount > 0 Then
+        WriteToReport micFail, "FindRowWithText", "The value for the row count is not numeric or is not greater than zero (0). The value is instead [" & nRowCount & "].", FALSE
+        FindRowWithText = -1
+        Exit Function
+    End If
+    
+    'Loop through the table rows
+    For nRow = 1 To nRowCount
+		'Loop through the search criteria
+    	For i = 0 To uBound(arrSearch)
+    		'Loop through the row's columns
+    		WriteToReport micInfo, "FindRowWithText", oTable.ColumnCount(nRow)&" Column(s) on Row "&nRow, FALSE
+    		For nCol=1 To oTable.ColumnCount(nRow)
+    			'If the criterion is located, track it
+	    		If oTable.GetCellData(nRow, nCol) = arrSearch(i) Then
+	    			nFound = nFound + 1
+	    			WriteToReport micDone, "FindRowWithText", "Found an Instance of Search Criterion ["&arrSearch(i)&"] on Row ["&nRow&"]", FALSE
+	    			Exit For
+	    		End If
+	    	Next
+    	Next
+    	If nFound = UBound(arrSearch)+1 Then '+1 to be the count, not the upper bound.
+			FindRowWithText = nRow
+			WriteToReport micPass, "FindRowWithText", "Found Row ["&nRow&"] with all of the Search Criteria", FALSE
+			bFound = TRUE
+			Exit For
+		Else
+			nFound = 0
+		End If
+    	' If bFound Then
+    	' 	Exit For   		
+    	' End If   	
+    Next
+    If NOT bFound Then
+    	WriteToReport micWarning, "FindRowWithText", "Did Not Find a Row with the Search Criteria", TRUE
+  		FindRowWithText = -1
+    End If
+End Function
+'**********************************************************************************************************************************************************
+''' <summary> Copies all text from the webpage into a variable</summary>
+''' <author>Zach Apple</author>
+''' <datecreated>1/23/2019</datecreated>
+''' <param name="Page" type="Page Object">Page Object to Copy All Text From</param>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <returns type="String">Returns all text as String Variable</returns>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Function CopyPageTextToVariable(Page)
+	CopyPageTextToVariable = Page.GetROProperty("innertext")
+End Function
+'**********************************************************************************************************************************************************
+''' <summary>Returns String of Todays Date, in full mm/dd/yyyy format, with leading zeros for month and date</summary>
+''' <author>Zach Apple</author>
+''' <datecreated>1/28/2019</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <returns type="String">Returns Date with leading zeros as String Variable</returns>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Function DateLeadingZeros
+	DateLeadingZeros = Right("0" & DatePart("m",Date), 2) &"/"& Right("0" & DatePart("d",Date), 2) & "/" & DatePart("yyyy",Date)
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary>Returns String of Argument's Date, in full mm/dd/yyyy format, with leading zeros for month and date</summary>
+''' <author>Zach Apple</author>
+''' <datecreated>1/31/2019</datecreated>
+''' <param name="sDate" type="Date">A Date</param>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <returns type="String">Returns Date with leading zeros as String Variable</returns>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Function AnyDateLeadingZeros(sDate)
+	AnyDateLeadingZeros = Right("0" & DatePart("m",sDate), 2) &"/"& Right("0" & DatePart("d",sDate), 2) & "/" & DatePart("yyyy",sDate)
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary>Returns SQL Format String of Today's Date, in full yyyy/mm/dd format, with leading zeros for month and date</summary>
+''' <author>Zach Apple</author>
+''' <datecreated>2/1/2019</datecreated>
+''' <param name="sDate" type="Date">A Date</param>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <returns type="String">Returns Date with leading zeros as String Variable</returns>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Function SQLDateLeadingZeros
+	SQLDateLeadingZeros = DatePart("yyyy",Date)  & "-" & Right("0" & DatePart("m",Date), 2) &"-"& Right("0" & DatePart("d",Date), 2)
+End Function
+'**********************************************************************************************************************************************************
+''' <summary>Checks if Array is Dimensionalized and Has an UpperBound greater than -1</summary>
+''' <author>Zach Apple</author>
+''' <datecreated>2/5/2019</datecreated>
+''' <param name="ARRAY" type="Array">A variable that should be an array</param>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <returns type="String">True if Valid Array with Data, false otherwise</returns>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Function IsArrayDimmed(ARRAY)
+	Dim ub
+	IsArrayDimmed = FALSE
+
+	If IsArray(ARRAY) Then
+		On Error Resume Next
+		ub = UBound(ARRAY)
+		If (Err.Number = 0) And (ub >= 0) Then 
+			IsArrayDimmed = TRUE
+		End If
+	End If  
+End Function
+'**********************************************************************************************************************************************************
+''' <summary>Returns SQL Format String of Given Date, in full yyyy/mm/dd format, with leading zeros for month and date</summary>
+''' <author>Zach Apple</author>
+''' <datecreated>2/26/2019</datecreated>
+''' <param name="sDate" type="Date">A Date</param>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <returns type="String">Returns Date with leading zeros as String Variable</returns>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Function SQLAnyDateLeadingZeros(sDate)
+	SQLAnyDateLeadingZeros = DatePart("yyyy",sDate)  & "-" & Right("0" & DatePart("m",sDate), 2) &"-"& Right("0" & DatePart("d",sDate), 2)
+End Function
+'**********************************************************************************************************************************************************
+''' <summary>Sets the User's Password to the given text field when needed for authorization reasons</summary>
+''' <author>Zach Apple</author>
+''' <datecreated>4/15/2019</datecreated>
+''' <param name="oWebEdit" type="WedEdit">A WebEdit Object</param>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+''' <returns type="String">Returns Date with leading zeros as String Variable</returns>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'________________________________________________________
+Public Function AuthorizeWithPassword(oWebEdit)
+	'Check that oWebEdit is an Object
+	If NOT isObject(oWebEdit) Then
+		WriteToReport micFail, "AuthorizeWithPassword", "Parameter Must be an Object", FALSE
+		AuthorizeWithPassword = FALSE
+		Exit Function
+	End If
+
+	Call oWebEdit.RefreshObject
+	Call oWebEdit.SetSecure(ENCRYPTEDPASSWORD)
+	WriteToReport micDone, "Set Password Successfully for Authorization", "", FALSE
+	AuthorizeWithPassword = TRUE
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' Shared code to handle the monitoring of our processes
+''' </summary>
+''' <author>Stephen King</author>
+''' <datecreated>October 29, 2018</datecreated>
+''' <startstate>Logged into peoplesoft website as correct user with a batch process having been requested</startstate>
+''' <endstate></endstate>
+''' <returns type="NA"></returns>
+'Precondition:
+'Change Control:
+'Date of Change 	Author 			Description of change
+'______________________________________________________ 
+'**************************************************************************************************************
+Public Function SharedProcessMonitor(functionName)
+	Dim i
+	Dim sValue, sStatus
+
+	SharedProcessMonitor = False
+	
+	With Browser("PeopleSoft Browser").Page("Process Monitor").PSFrame("Process Monitor")
+		If GlobalDictionary("ClearName") = True Then
+			.WebEdit("Name").Set ""
+			.WebButton("Refresh").Click
+			Browser("PeopleSoft Browser").Sync
+		End If
+
+		If GlobalDictionary("ProcessType") <> "" Then
+			.WebList("Type").Set GlobalDictionary("ProcessType")
+			.WebButton("Refresh").Click
+			Browser("PeopleSoft Browser").Sync
+		End If
+
+		If GlobalDictionary("Process") <> "" Then
+			.WebEdit("Process").Set GlobalDictionary("Process")
+			.WebButton("Refresh").Click
+			Browser("PeopleSoft Browser").Sync
+		End If
+
+		If GlobalDictionary("InstanceNumber") <> "" Then
+			Browser("PeopleSoft Browser").Page("ProcessMonitorGeneric").PSFrame("Process Monitor").WebEdit("ProcessInstance").Set GlobalDictionary("InstanceNumber")
+			.WebButton("Refresh").Click
+			Browser("PeopleSoft Browser").Sync
+		End If
+
+		'Filter results from the last 5 minutes, at least until an entry appears
+		Browser("PeopleSoft Browser").Page("Post Journals").PSFrame("Process Monitor").WebList("PMN_FILTER_WRK_PT_FILTERUNIT").Select "Minutes"
+		Browser("PeopleSoft Browser").Page("Post Journals").PSFrame("Process Monitor").WebEdit("FilterValue").Set "5"
+
+		'Check our top process for completion - see SharedProcessJournal for more complete code if needed
+		sValue = Trim(.WebElement("RunStatus").GetROProperty("innertext"))
+	    i = 0
+
+	    'sValue <> "Success" AND sValue <> "Warning" AND sValue <> "No Success" AND sValue <> "Error"
+		'Disable our reporter statement while checking the status so that our logs still open easily and quickly
+		Reporter.Filter = rfDisableAll
+		
+		'Give us 10 minutes to start
+		Do While sValue = ""
+			Wait 10
+	        i = i + 1
+			.WebButton("Refresh").Click
+			Browser("PeopleSoft Browser").Sync
+			sValue = Trim(.WebElement("RunStatus").GetROProperty("innertext"))
+	        If i = 60 Then
+	            Exit Do
+	        End If
+		Loop
+
+		'Once the process is running, we need to account for at least 25 minutes due to GL Receipts
+		Browser("PeopleSoft Browser").Page("Post Journals").PSFrame("Process Monitor").WebEdit("FilterValue").Set "60"
+		i = 0
+		Do While sValue = "Queued" OR sValue = "Processing" OR sValue = "Initiated"
+			Wait 10
+	        i = i + 1
+			.WebButton("Refresh").Click
+			Browser("PeopleSoft Browser").Sync
+			sValue = Trim(.WebElement("RunStatus").GetROProperty("innertext"))
+	        If i = 360 Then
+	            Exit Do
+	        End If
+		Loop
+		Reporter.Filter = rfEnableAll
+
+		'Confirm that our Run Status is success
+		If sValue = "Success" Then
+			WriteToReport micPass, functionName & " - Run Status", "Run status confirmed as Success", False
+			SharedProcessMonitor = sValue
+		ElseIf sValue = "Warning" Then
+			WriteToReport micWarning, functionName & " - Run Status", "Run status confirmed as Warning", False
+			SharedProcessMonitor = sValue	
+		ElseIf sValue = "No Success"  Then
+			WriteToReport micFail, functionName & " - Run Status", "Run status is not confirmed as Success - current run status is [" & sValue & "].", True
+			sStatus = sValue
+		Else	
+			WriteToReport micFail, functionName & " - Run Status", "Run status is not confirmed as Success - current run status is [" & sValue & "].", True
+			ExitTest
+		End If
+
+		'Confirm that our Distribution Status is posted
+		sValue = Trim(.WebElement("DistributionStatus").GetROProperty("innertext"))
+        i = 0
+		Do While sValue = "" OR sValue = "N/A" OR sValue = "Posting"
+			Wait 20
+            i = i + 1
+			.WebButton("Refresh").Click
+			Browser("PeopleSoft Browser").Sync
+			sValue = Trim(.WebElement("DistributionStatus").GetROProperty("innertext"))
+            If i = 30 Then
+                Exit Do
+            End If
+		Loop
+		'Output distribution status
+		If sValue = "Posted" Then
+			WriteToReport micPass, functionName & " - Distribution Status", "Distribution status confirmed as Posted", False
+			SharedProcessMonitor = True
+		Else
+			WriteToReport micFail, functionName & " - Distribution Status", "Distribution status is not confirmed as Posted - current distribution status is " & sValue & "].", True
+		End If
+		
+		If sStatus = "No Success" then
+			If Browser("PeopleSoft Browser").Page("Process Monitor").PSFrame("Process Monitor").Link("Details").Exist(10) Then
+				Browser("PeopleSoft Browser").Page("Process Monitor").PSFrame("Process Monitor").Link("Details").Click			
+			Else
+				WriteToReport micFail, functionName & " Details", "Details object is not showing for Process Instance [" &GlobalDictionary("InstanceNumber")&"]" , True
+				ExitTest			
+			End If
+
+			If Browser("PeopleSoft Browser").Page("Process Monitor").PSFrame("Process Detail").Link("Message Log").Exist(120) Then
+				Browser("PeopleSoft Browser").Page("Process Monitor").PSFrame("Process Detail").Link("Message Log").Click
+			End If		
+			Wait(10)
+			WriteToReport micFail, functionName & " - Run Status", "Run status is not confirmed as Success - current run status is [" & sStatus & "]. For Process Instance [" &GlobalDictionary("InstanceNumber")&"]" , True
+			ExitTest
+		End If
+		
+
+	End With
+	
+End Function

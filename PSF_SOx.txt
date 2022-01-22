@@ -1,0 +1,1738 @@
+'==========================================================
+'PSF Common Function Library
+'Contains commonly used functions for interacting with the PSF application.
+'Changelog: 
+'Date			Author					Description
+
+'______________________________________________________ 
+
+Option Explicit
+
+Const SOXRESULTSFOLDER = "\\mir\qa\AutoRegressionResults\PSF\SOx"  
+Const iSyncTime = "5000000"
+
+
+
+'-Generic functions --- 
+'Name:			SOxCaptureScreenshot
+'Description:	takes a screenshot of the entire  window using a unique date string as a folder name. 
+'Startstate:	N/A
+'Endstate:		N/A
+'Changelog:
+'Date				Author					Description
+'2014-11-21	 Jolly Thomas		Created
+'________________________________________________
+Public sub SOxCapturePSFScreen (sImageName)
+	Dim sDateTimeString 
+	
+	'Get the sytem date and format it for 
+	sDateTimeString = Date()
+	sDateTimeString = Replace(sDateTimeString, "/" ,"") 
+	
+	'Create folder if it doesnt exist
+	AddNewFolder SOXRESULTSFOLDER, sDateTimeString
+
+	'Capture the screen 
+	sDateTimeString = "\"& sDateTimeString & "\"
+	sImageName = SOXRESULTSFOLDER & sDateTimeString & sImageName & ".png"
+		
+	Browser("PeopleSoft Browser").CaptureBitmap sImageName, True
+		
+	WriteToReport micDone, "Capture screenshot done", "Screen shot saved to : [ "& sImageName &"].", false
+		
+End sub
+
+
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' FR14OneLineJE() Will test the SOx control FR14
+'''Parameter1:	sEventStats / Delcares whether the report is a micPass, micFail, etc.
+''' <para>
+''' <note>Required Testcase Inputs are"Account,Department " and "Amount"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>6/21/2014</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Lopgged out Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'  11/21/2014				Jolly					Added fucntion call for capture screenshot
+'  10/5/2014				Jolly					Updated and cleaned up for PeopleSoft 9.2
+Public Function SOxOneLineJE()
+	Dim dtBusinessUnit, dtAccount, dtDepartment, dtAmount 
+	dtBusinessUnit = GlobalDictionary("BusinessUnit")
+	dtAccount = GlobalDictionary("Account")
+	dtDepartment = GlobalDictionary("Department")
+	dtAmount = GlobalDictionary("Amount")	
+	
+	'Step 1 - Login as user
+	LaunchURL
+	UserSignIn
+
+	'Step 2 - Select the menu Main Menu>General Ledger>Journals>Journal Entry>Create/Update Journal Entries
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_GLCreateUpdateJournals")
+	SelectMainMenu ""
+	
+	'Add a Journal header description and use defaults
+	With Browser("PeopleSoft Browser").Page("Create/Update Journal")
+		.PSFrame("TargetContent").WebEdit("Header Business Unit").Set dtBusinessUnit
+		.PSFrame("TargetContent").WebButton("Add").Click
+		WriteToReport micDone, "Journal entry started", "Set Buisness Unit = ["& dtBusinessUnit &"] and clicked Add button", false
+		
+		.PSFrame("TargetContent").WebEdit("Header_DESCRIPTION").Set "Test one side JE"
+		WriteToReport micDone, "Journal entry header", "Set Description = Test one side JE", false
+		
+		.PSFrame("TargetContent").Image("Header_LookupLedgerGroup").Click
+		.PSFrame("LookUp_LedgerGroup").Link("RECORDING").Click
+
+		.PSFrame("TargetContent").Image("Header_LookupSource").Click
+		With .PSFrame("LookUp_Source")
+			.WebEdit("SOURCE_TBL_SOURCE").Set "FNA"
+			.WebButton("Look Up").Click
+			.Link("FNA").Click
+		End With
+		
+		.PSFrame("TargetContent").Link("LinesLink").Click
+		
+		'Add a one line Journal Entry
+		.PSFrame("TargetContent").WebEdit("Account").Set dtAccount
+		.PSFrame("TargetContent").WebEdit("LINE1_DEPTID$0").Set dtDepartment
+		.PSFrame("TargetContent").WebEdit("Foreign Amount").Set dtAmount
+		WriteToReport micDone, "Journal entry done", "Line entry done for Account: [ "& dtAccount &"] Dept: [ "& dtDepartment & "] Amount: [ "& dtAmount &"].", false
+				
+		'Process and then Save the Entry 
+		.PSFrame("TargetContent").WebButton("Lines_Process").Click
+		.PSFrame("TargetContent").Image("Processing... please wait").WaitProperty "visible",false,iSyncTime
+		.WebButton("OK").Click
+
+		.PSFrame("TargetContent").WebButton("Save").Click
+		.PSFrame("TargetContent").WebElement("Saved").WaitProperty "visible",True,iSyncTime
+		WriteToReport micDone, "Journal entry saved", "Processed and saved entry.", false
+		SOxCapturePSFScreen "FR14OneLine"
+				
+		'Verify the Error is generated as expected
+		.PSFrame("TargetContent").WebElement("ErrorsTab").Click
+		wait(2)
+		
+		if .PSFrame("TargetContent").WebElement("JRNL_ERRORS_MESSAGE").Exist then
+			WriteToReport micPass, "Journal is not balanced", "Error showed as expected for this test.", false
+		else
+			WriteToReport micFail, "Journal is not balanced", "Error did not show as expected for this test.", true
+		End if
+		SOxCapturePSFScreen "FR14Error"
+		
+	End With
+	
+	'Signout
+	UserSignOut
+
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' SOxOver5000Test() Will test one part the SOx control FR27
+'''Parameter1:	sEventStats / Delcares whether the report is a micPass, micFail, etc.
+''' <para>
+''' <note>Required Testcase Inputs are "BusinessUnitOver5000, AccountOver5000,DepartmentOver5000" and "AmountOver5000"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>7/21/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'  11/21/2014				Jolly					Added function call for capture screenshot
+'' 11/11/2015				Jolly					Udpated peoplesoft 9.2
+Public Function SOxJEOver5000Test()
+	Dim dtBusinessUnit, dtAccount, dtDepartment, dtAmount
+	Dim arrJournalDetails, sJournalDetails
+	
+	dtBusinessUnit = GlobalDictionary("BusinessUnitOver5000")
+	dtAccount = GlobalDictionary("AccountOver5000")
+	dtDepartment = GlobalDictionary("DepartmentOver5000")
+	dtAmount = GlobalDictionary("AmountOver5000")
+	
+	'Step 1 - Login as user
+	LaunchURL
+	UserSignIn
+
+	'Step 2 - Select the menu Main Menu>General Ledger>Journals>Journal Entry>Create/Update Journal Entries
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_GLCreateUpdateJournals")
+	SelectMainMenu ""
+	
+	sJournalDetails = AddTwoSidedJE (dtBusinessUnit, dtAccount, dtDepartment, dtAmount, "")
+	
+	'VErification 
+	if Browser("PeopleSoft Browser").Page("Create/Update Journal").PSFrame("TargetContent").WebElement("Approval_SupervisorApprovalMsg").Exist then
+		SOxCapturePSFScreen "FR27OverLimit"
+
+		WriteToReport micPass, "Supervisor Approval", "Message showed as expected for this test.", false
+		if Browser("PeopleSoft Browser").Page("Create/Update Journal").PSFrame("TargetContent").WebElement("Approval_Pending Approval").Exist then
+			WriteToReport micPass, "Approval status", "Approval status is Pending Approval for this test.", false
+		Else
+			WriteToReport micFail, "Approval status", "Approval status is not as expected for this test.", true
+
+		End if	
+	Else
+		WriteToReport micFail, "Supervisor Approval", "Message did not show as expected for this test.", true
+	End if 
+
+	UserSignOut
+
+	arrJournalDetails = split (sJournalDetails ,";")
+	GlobalDictionary("JournalID") = arrJournalDetails(0)
+	If UCASE (arrJournalDetails(1)) <> "DEFAULT" Then
+		GlobalDictionary("JEApprover") = arrJournalDetails(1)
+	End If
+
+		
+End Function 
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' SOxUnder5000Test() Will test one part the SOx control FR27
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "BusinessUnitUnder5000, DepartmentUnder5000, AmountUnder5000 " and "AccountUnder5000"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>7/21/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'  11/21/2014				Jolly					Added function call for capture screenshot
+'10/5/2015					Jolly					Updated to test for PeopleSoft9.2
+Public Function SOxJEUnder5000Test()
+	Dim dtBusinessUnit, dtAccount, dtDepartment, dtAmount
+	Dim sApprover, sJournalID
+	
+	dtBusinessUnit = GlobalDictionary("BusinessUnitUnder5000")
+	dtAccount = GlobalDictionary("AccountUnder5000")
+	dtDepartment = GlobalDictionary("DepartmentUnder5000")
+	dtAmount = GlobalDictionary("AmountUnder5000")
+	
+	'Step 1 - Login as user
+	LaunchURL
+	UserSignIn
+
+	'Step 2 - Select the menu Main Menu>General Ledger>Journals>Journal Entry>Create/Update Journal Entries
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_GLCreateUpdateJournals")
+	SelectMainMenu ""
+	
+	sJournalID = AddTwoSidedJE (dtBusinessUnit, dtAccount, dtDepartment, dtAmount, "")
+	
+	'VErification
+	if Browser("PeopleSoft Browser").Page("Create/Update Journal").PSFrame("TargetContent").WebElement("Approval_NoApprovalMsg").Exist then
+		SOxCapturePSFScreen "FR27UnderLimit"
+		WriteToReport micPass, "No Approvals required", "Message showed as expected for this test.", false
+		if Browser("PeopleSoft Browser").Page("Create/Update Journal").PSFrame("TargetContent").WebElement("Approval_Approved to Post").Exist then
+			WriteToReport micPass, "Approval status", "Approval status is as expected.", false
+		Else
+			WriteToReport micFail, "Approval status", "Approval status is not as expected for this test.", true
+		End if	
+	Else
+		WriteToReport micFail, "No Approvals required", "Message did not show as expected for this test.", true
+	End if 
+
+	UserSignOut
+End Function 
+
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' SOxVerifyJEClosedPeriod() Will test one part the SOx control FR15
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "BusinessUnit, Department, Amount " and "Account"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/21/2016</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+
+Public Function SOxVerifyJEClosedPeriod()
+	Dim dtBusinessUnit, dtAccount, dtDepartment, dtAmount
+	Dim sApprover, sJournalID, JEOpenPeriodFrom
+	Dim sYear, sMonth
+	Dim sProduct , sLedgerGroup
+	
+	dtBusinessUnit = GlobalDictionary("BusinessUnit")
+	dtAccount = GlobalDictionary("Account")
+	dtDepartment = GlobalDictionary("Department")
+	dtAmount = GlobalDictionary("Amount")
+	sProduct = "GL"
+	sLedgerGroup = "RECORDING"
+	
+	JEOpenPeriodFrom = dbFetchOpenPeriodFrom(sProduct , dtBusinessUnit, sLedgerGroup)
+	
+	If JEOpenPeriodFrom = 01 Then
+	  sMonth = "12"
+	  sYear = Year - 1
+	else
+	  sMonth = JEOpenPeriodFrom -1 
+	  sYear = Year (Now)
+	End If
+	
+	LaunchURL
+	
+	'Precondition 
+	UserSignIn
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_FinSupplyChnOpenPrdDsply")
+	SelectMainMenu ""
+	 With Browser("PeopleSoft Browser").Page("Open Period Display").PSFrame("TargetContent")
+	 	.WebEdit("PSFT_PRODUCT").Set sProduct
+	 	.WebEdit("BUSINESS_UNIT").Set dtBusinessUnit
+	 	.WebEdit("LEDGER_GROUP").Set sLedgerGroup
+	 	.WebButton("Search").Click
+	 	
+	 	If sMonth = "12" Then
+	 		 If sYear < .WebElement("OPEN_YEAR_FROM_Row1").GetROProperty("outertext") Then
+		 	    WriteToReport micPass, "Closed period found", "Precondition as expected for this test.", false
+			else
+				WriteToReport micFail, "Closed period not found", "Precondition did not show as expected for this test.", true
+			End if
+	 	else
+		 	 If sMonth < .WebElement("OPEN_PERIOD_FROM_Row1").GetROProperty("outertext") Then
+		 	    WriteToReport micPass, "Closed period found", "Precondition as expected for this test.", false
+			else
+				WriteToReport micFail, "Closed period not found", "Precondition did not show as expected for this test.", true
+			End if
+	 	End If
+	 	
+	
+	 End With
+	SOxCapturePSFScreen "FR15OpenPeriods" 
+
+	'Step 1 - Login as user
+	UserSignIn
+
+	'Step 2 - Select NavBar: General Ledger>Journals>Journal Entry>Create/Update Journal Entries
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_GLCreateUpdateJournals")
+	SelectMainMenu ""
+
+	'Steps Add the Journal Entry
+	sJournalID = AddTwoSidedJE (dtBusinessUnit, dtAccount, dtDepartment, dtAmount, "01"&sMonth&sYear)
+
+	With Browser("PeopleSoft Browser").Page("Create/Update Journal")
+		.PSFrame("TargetContent").WebButton("Save").Click
+		.PSFrame("TargetContent").WebElement("Saved").WaitProperty "visible",True,iSyncTime
+		WriteToReport micDone, "Journal entry saved", "Processed and saved entry.", false
+		SOxCapturePSFScreen "FR15_JEEntryClosedPeriod"
+				
+		'Verify the Error is generated as expected
+		.PSFrame("TargetContent").WebElement("ErrorsTab").Click
+		wait(2)
+		
+		if .PSFrame("TargetContent").WebElement("TSE_ErrorMSGS_JEnotopen").Exist then
+			WriteToReport micPass, "Journal is error", "Error showed as expected for this test.", false
+		else
+			WriteToReport micFail, "Journal not in error", "Error did not show as expected for this test.", true
+		End if
+		SOxCapturePSFScreen "FR15_ErrorClosedPeriod"
+	End with
+	UserSignOut
+End Function 
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' AddTwoSidedJE() function called in testing the SOx control FR27
+'''Parameter1:	sEventStats / Delcares whether the report is a micPass, micFail, etc.
+'''Parameter2:	sReportDescription / Report title description
+'''Parameter3: sReportFullDetails / Details of report
+'''Parameter4: bTakeScreenshot / Determines if a screen shot should or should not be taken
+''' <para>
+''' <note>Required Testcase Inputs are "sEventStatus " and "sReportDescription"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>7/21/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'  11/21/2014				Jolly					Added cooments and output statements 
+'10/5/2015					Jolly					Updated to test for PeopleSoft9.2
+Public function AddTwoSidedJE(BusinessUnit, Account, Department, Amount, Journaldate)
+
+Dim  sJournalID
+Dim sApprover, sStatus
+Dim sWarningMessageText, sApproveJEIndiacator
+
+  With Browser("PeopleSoft Browser")
+	With .Page("Create/Update Journal")
+		.PSFrame("TargetContent").WebEdit("Header Business Unit").Set BusinessUnit
+			
+		If Journaldate <> ""  Then
+			Browser("PeopleSoft Browser").Page("Create/Update Journal").PSFrame("TargetContent").WebEdit("Header_JOURNAL_DATE").Set Journaldate
+		End If
+		
+		.PSFrame("TargetContent").WebButton("Add").Click
+		
+		'Added for FA15 as the Journal date is within closed period.
+		If Journaldate <> ""  Then
+		  if Browser("PeopleSoft Browser").Page("PSFGeneric").WebElement("Message").Exist (30) then
+		    wait(2)
+		  	sWarningMessageText = Browser("PeopleSoft Browser").Page("PSFGeneric").WebElement("Alert Msg").GetROProperty ("innertext")
+		  	If Instr (sWarningMessageText, "not within the open period") Then
+		  		WriteToReport micDone, "Journal entry message", "Journal date not within the open period.", false
+		  	else
+		  		WriteToReport micWarning, "Journal entry message", "Did not find message Journal date not within the open period.", false
+		  	End If 
+	
+		  		
+		  End If
+		  Browser("PeopleSoft Browser").Page("Create/Update Journal").WebButton("OK").Click
+	  	  sApproveJEIndiacator = "N"
+	  	else
+	  	  sApproveJEIndiacator = "Y"
+		End if
+		'--- End added section 
+		
+		WriteToReport micDone, "Journal entry started", "Set Buisness Unit = ["& BusinessUnit &"] and clicked Add button", false
+		.PSFrame("TargetContent").WebEdit("Header_DESCRIPTION").Set "Test description"
+		 
+		.PSFrame("TargetContent").Image("Header_LookupLedgerGroup").Click
+		.PSFrame("LookUp_LedgerGroup").Link("RECORDING").Click
+
+		.PSFrame("TargetContent").Image("Header_LookupSource").Click
+		With .PSFrame("LookUp_Source")
+			.WebEdit("SOURCE_TBL_SOURCE").Set "FNA"
+			.WebButton("Look Up").Click
+			.Link("FNA").Click
+		End With
+		WriteToReport micDone, "Journal entry header", "Description = [Test description], Ledger Group = [RECORDING], Source = [FNA].", false
+		wait(2)
+		.PSFrame("TargetContent").Link("LinesLink").Click
+
+ 		'Enter first row 
+		.PSFrame("TargetContent").WebEdit("Account").Set Account
+		.PSFrame("TargetContent").WebEdit("LINE1_DEPTID$0").Set Department
+		.PSFrame("TargetContent").WebEdit("Foreign Amount").Set Amount
+		'Enter the second row 
+		.PSFrame("TargetContent").Image("Lines_Insert").Click
+		.PSFrame("TargetContent").WebEdit("LINE2_ACCOUNT$1").Set Account
+		.PSFrame("TargetContent").WebEdit("LINE2_DEPTID$1").Click
+		.PSFrame("TargetContent").WebEdit("LINE2_DEPTID$1").Set Department
+		
+		WriteToReport micDone, "Journal entry lines", "Entries done for Account: [ "& Account &"] Dept: [ "& Department & "] Amount: [+/- "& Amount &"].", false
+		'Select Edit
+		.PSFrame("TargetContent").WebList("Journal Process").Select "Edit Journal"
+		.PSFrame("TargetContent").WebButton("Lines_Process").Click
+		WriteToReport micDone, "Journal entry process", "Process - Edit Journal", false
+		
+		'Wait till Processing Text on right disappears
+		.PSFrame("TargetContent").Image("Processing... please wait").WaitProperty "visible",false,iSyncTime
+		.WebButton("OK").Click
+		WriteToReport micDone, "Journal entry", "Edit Journal processing and Dismiss dialog done", false
+		'Get journal ID
+		sJournalID = .PSFrame("TargetContent").WebElement("Journal ID").GetROProperty ("innertext")
+		
+		If sApproveJEIndiacator = "Y"  Then ' Condition for JE that dont have error can approve			
+			.PSFrame("TargetContent").Link("ApprovalLink").Click
+			.PSFrame("TargetContent").WebButton("Submit").Click
+			
+			'Wait for indicator of Saved Text on right
+			.PSFrame("TargetContent").WebElement("Saved").WaitProperty "visible",True,iSyncTime
+			WriteToReport micDone, "Journal entry saved", "Select Approval", false
+	
+			If .PSFrame("TargetContent").Image("Expand section Approval").GetROProperty ("visible") = true Then
+				.PSFrame("TargetContent").Image("Expand section Approval").Click
+				sStatus = .PSFrame("TargetContent").WebElement("Approval_Historytable_Status").GetROProperty ("innertext")
+				If UCase(trim(sStatus)) = "PENDING" Then			
+					sApprover = .PSFrame("TargetContent").WebElement("Approval_Historytable_Approver").GetROProperty ("innertext")
+					WriteToReport micDone, "Journal entry approver", "Requires Approval by [" & sApprover & "]", false
+				ElseIf UCase(trim(sStatus))  = "" Then
+					sApprover = ""
+				else
+					sApprover = "default"
+				End If	
+			else
+				sApprover = ""	
+			End If 
+		End If
+
+		
+	End With
+
+  End With
+	If sJournalID <> "" and  IsNumeric (sJournalID)  Then	
+		WriteToReport micDone, "AddTwoSidedJE", "Completed entry  for Journal = [ " & sJournalID &"]", false
+		AddTwoSidedJE = sJournalID & ";" & sApprover
+	else
+		WriteToReport micFail, "AddTwoSidedJE", "Journal entry number is blank or not a number; got  = [ " & sJournalID &"]", false
+		AddTwoSidedJE = "FAIL" 
+	End If
+
+End Function 
+
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' AddTwoSidedJE() function called in testing the SOx control FR27
+'''Parameter1:	sEventStats / Delcares whether the report is a micPass, micFail, etc.
+'''Parameter2:	sReportDescription / Report title description
+'''Parameter3: sReportFullDetails / Details of report
+'''Parameter4: bTakeScreenshot / Determines if a screen shot should or should not be taken
+''' <para>
+''' <note>Required Testcase Inputs are "sEventStatus " and "sReportDescription"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>11/21/2016</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+Public function AddCloseDateJE(BusinessUnit, Account, Department, Amount, Journaldate)
+
+Dim  sJournalID
+Dim sApprover, sStatus
+Dim sWarningMessageText
+
+
+  With Browser("PeopleSoft Browser")
+	With .Page("Create/Update Journal")
+		.PSFrame("TargetContent").WebEdit("Header Business Unit").Set BusinessUnit
+		
+		If Journaldate <> ""  Then
+			Browser("PeopleSoft Browser").Page("Create/Update Journal").PSFrame("TargetContent").WebEdit("Header_JOURNAL_DATE").Set Journaldate
+		End If
+		
+		.PSFrame("TargetContent").WebButton("Add").Click
+		
+		'Added for FA15 as the Journal date is within closed period.
+		If Journaldate <> ""  Then
+		  if Browser("PeopleSoft Browser").Page("PSFGeneric").WebElement("Message").Exist (30) then
+		  	sWarningMessageText = Browser("PeopleSoft Browser").Page("PSFGeneric").WebElement("Alert Msg").GetROProperty ("innertext")
+		  	If Instr (sWarningMessageText, "not within the open period") Then
+		  		WriteToReport micDone, "Journal entry message", "Journal date not within the open period.", false
+		  	else
+		  		WriteToReport micWarning, "Journal entry message", "Did not find message Journal date not within the open period.", false
+		  	End If 
+		  		
+		  End If
+		  Browser("PeopleSoft Browser").Page("Create/Update Journal").WebButton("OK").Click
+
+		End if
+		
+		WriteToReport micDone, "Journal entry started", "Set Buisness Unit = ["& BusinessUnit &"] and clicked Add button", false
+		.PSFrame("TargetContent").WebEdit("Header_DESCRIPTION").Set "Test description"
+		 
+		.PSFrame("TargetContent").Image("Header_LookupLedgerGroup").Click
+		.PSFrame("LookUp_LedgerGroup").Link("RECORDING").Click
+
+		.PSFrame("TargetContent").Image("Header_LookupSource").Click
+		With .PSFrame("LookUp_Source")
+			.WebEdit("SOURCE_TBL_SOURCE").Set "FNA"
+			.WebButton("Look Up").Click
+			.Link("FNA").Click
+		End With
+		WriteToReport micDone, "Journal entry header", "Description = [Test description], Ledger Group = [RECORDING], Source = [FNA].", false
+		wait(2)
+		.PSFrame("TargetContent").Link("LinesLink").Click
+
+ 		'Enter first row 
+		.PSFrame("TargetContent").WebEdit("Account").Set Account
+		.PSFrame("TargetContent").WebEdit("LINE1_DEPTID$0").Set Department
+		.PSFrame("TargetContent").WebEdit("Foreign Amount").Set Amount
+		'Enter the second row 
+		.PSFrame("TargetContent").Image("Lines_Insert").Click
+		.PSFrame("TargetContent").WebEdit("LINE2_ACCOUNT$1").Set Account
+		.PSFrame("TargetContent").WebEdit("LINE2_DEPTID$1").Click
+		.PSFrame("TargetContent").WebEdit("LINE2_DEPTID$1").Set Department
+		
+		WriteToReport micDone, "Journal entry lines", "Entries done for Account: [ "& Account &"] Dept: [ "& Department & "] Amount: [+/- "& Amount &"].", false
+		'Select Edit
+	'	.PSFrame("TargetContent").WebList("Journal Process").Select "Edit Journal"
+	'	.PSFrame("TargetContent").WebButton("Lines_Process").Click
+		.PSFrame("TargetContent").WebButton("Save").Click
+		WriteToReport micDone, "Journal entry ", "Save  - Journal entry", false
+		
+'		'Wait till Processing Text on right disappears
+'		.PSFrame("TargetContent").Image("Processing... please wait").WaitProperty "visible",false,iSyncTime
+'		.WebButton("OK").Click
+'		WriteToReport micDone, "Journal entry", "Edit Journal processing and Dismiss dialog done", false
+'		'Get journal ID
+
+'
+'		.PSFrame("TargetContent").Link("ApprovalLink").Click
+'		.PSFrame("TargetContent").WebButton("Submit").Click
+		
+		'Wait for indicator of Saved Text on right
+		.PSFrame("TargetContent").WebElement("Saved").WaitProperty "visible",True,iSyncTime
+		sJournalID = .PSFrame("TargetContent").WebElement("Journal ID").GetROProperty ("innertext")
+		WriteToReport micDone, "Journal entry saved", "JE saved -" &sJournalID , false
+
+
+		
+	End With
+
+  End With
+
+
+End Function 
+
+'*********************************************************************************************************************************************************
+''' <summary> 
+''' SOXJEVerifyApproval() Will test approval part the SOx control FR27
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "BusinessUnitUnder5000, DepartmentUnder5000, AmountUnder5000 " and "AccountUnder5000"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>7/21/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'  11/21/2014				Jolly					Added function call for capture screenshot
+'  10/5/2015				Jolly					Updated to use generic logout
+Public Function SOXJEVerifyApproval()
+	Dim sJournal, sJEStatus
+
+	GlobalDictionary("SignInUser") = GlobalDictionary("JEApprover") 
+	 sJournal = GlobalDictionary("JournalID") 
+	
+	'Step 1 - Login as user
+	LaunchURL
+	UserSignIn
+
+
+	'Step 2 - Select the menu Main Menu>General Ledger>Journals>Journal Entry>Manage Journal Approval
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_GLManageJournalApproval")
+	SelectMainMenu ""
+	
+	With Browser("PeopleSoft Browser").Page("Manage Journal Approval").PSFrame("Manage GL Journal Approval")
+		.WebEdit("JRNLAPR_JOURNAL_ID").Set sJournal
+		.WebEdit("JRNLAPR_BUSINESS_UNIT_LN").Set ""
+		.WebEdit("JRNLAPR_BUSINESS_UNIT").Set ""
+
+		.WebButton("Search").Click
+		
+		If .Link("FirstLink_JournalID").Exist( 5) Then
+			.Link("FirstLink_JournalID").Click
+    		WriteToReport micDone, "Search Journal", "Found Journal = [ " & sJournal &"]", false
+    	else
+    		WriteToReport micWarning, "Search Journal", "Possible sync issue; not found link for Journal = [ " & sJournal &"]", false
+		End If
+    
+	End With
+
+	
+	With Browser("PeopleSoft Browser").Page("Approvals")
+		.WebButton("Approval").Click
+		.PSFrame("Approve").WebEdit("Comments").Set sJournal
+		.PSFrame("Approve").WebButton("Submit").Click
+
+		wait(5)
+
+		if .Image("Approved").Exist then
+			WriteToReport micPass, "JE VerifyApproval", "Completed Journal Entry approval got status  = [ " & sJEStatus &"]", false
+			SOxCapturePSFScreen "FE27JEApproved"
+		Else
+			WriteToReport micFail, "JE VerifyApproval", "Failed Journal Entry approval got status  = [ " & sJEStatus &"]", true
+		End if
+			
+	End with
+
+	UserSignOut
+
+End Function
+
+
+
+
+'**** FR end ***********'
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' SOxDuplicateInvoice() Will test one part the SOx control AP10
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "BusinessUnit, VendorID " and "InvoiceNo"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>8/25/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'  11/14/2014				Jolly					aded call for WaitForWebElementExists
+'  11/21/2014				Jolly					Added function call for capture screenshot 
+' 10/7/2015				    Jolly					Updated for PeopleSoft 
+Public Function SOxDuplicateInvoice()
+	Dim dtBusinessUnit, dtVendorID, sInvoiceDate, dbInvoiceNo
+	Dim sExpectedMsg , sActualMsg
+	
+	dtBusinessUnit = GlobalDictionary("BusinessUnit")
+	dtVendorID = GlobalDictionary("VendorID")
+
+	'GEt invoice No form db
+	 dbInvoiceNo = Trim (dbFetchMatchInvoice (dtVendorID, "2014-10-01"))
+			
+	'Step 1 - Login as user
+	LaunchURL
+	UserSignIn
+
+	'Step 2 - Select the menu Main Menu
+
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_APVoucherUpd")
+	SelectMainMenu (GetDataFrmAllVars("$Navigation_SubVoucher"))
+	
+	'Select the tab ' Find an Existing Voucher' Enter Business Unit, Enter value in Vendor ID The invoice and Click on search 
+		
+	With Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContent")
+		
+		.WebElement("Find an Existing Value").Click 
+		.WebEdit("Search_BUSINESS_UNIT").Set dtBusinessUnit
+		.WebEdit("Search_VENDOR_ID").Set dtVendorID
+		WriteToReport micDone, "Voucher Find Existing", "Entry values Business = [ " & dtBusinessUnit &"]  Vendor ID = [ " & dtVendorID &"] ", false
+		.WebList("Search_InvoiceSelection").Select "="
+
+		.WebEdit("Search_INVOICE_ID").Set dbInvoiceNo
+	
+		.WebButton("Search").Click
+
+		WriteToReport micDone, "Voucher Search", "Entry values Invoice No = [ " & dbInvoiceNo &"] ", false	
+	End with
+	'Opens to detailed screen 	
+	WaitForWebElementExists Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail"), "Invoice_Date", 20
+
+	sInvoiceDate = Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail").WebElement("Invoice_Date").GetROProperty("innertext")
+	If sInvoiceDate <> "" Then
+		
+		WriteToReport micDone, "Invoice found", "Invoice date ["& sInvoiceDate &"] found.", false
+
+		With Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContent")
+			.WebButton("Return to Search").Click
+			.WebElement("Add a New Value").Click
+			If dtVendorID = "EPSAME" or dtVendorID= "ABDIST" Then
+				.WebEdit("Add_INVOICE_Date").Set sInvoiceDate
+				WriteToReport micDone, "Voucher Entry", "Entry values Invoice Date = [ " & sInvoiceDate &"].", false	
+			End If
+	
+			.WebEdit("Add_BUSINESS_UNIT").Set dtBusinessUnit
+			.WebEdit("Add_INVOICE_Number").Set dbInvoiceNo
+			.WebEdit("Add_VENDOR_ID").Set dtVendorID
+	
+			.WebButton("Add").Click
+			
+			WriteToReport micDone, "Voucher Entry", "Entry values Business = [ " & dtBusinessUnit &"]  Vendor ID = [ " & dtVendorID &"] ", false
+			WriteToReport micDone, "Voucher Entry", "Entry values Invoice No = [ " & dbInvoiceNo &"] ", false	
+		
+		End With
+		
+		With Browser("PeopleSoft Browser").Page("PSFGeneric")
+			If .WebElement("Alert Msg").Exist Then
+				WriteToReport micDone, "Message appeared", "Message box did appear as expected.", false
+				
+				sExpectedMsg = "A duplicate invoice has been detected, according to criteria established for the current voucher"
+
+				sActualMsg = .WebElement("Alert Msg").GetROProperty ("innertext")
+				
+				If InStr (sActualMsg, sExpectedMsg) <> 0 Then
+					WriteToReport micPass, "SOX AP10 pass - Duplicate invoice message", "Message got [" & sActualMsg &"]", false
+					SOxCapturePSFScreen  "AP10"&dtVendorID
+				Else
+					WriteToReport micFail, "Error message does not match", "Message does not match. Actual [ "& sActualMsg &"]  , expected text verified [" & sExpectedMsg & "].", true
+					SOxCapturePSFScreen  "AP10Msgcomparefail"&dtVendorID
+				End If
+	
+				.WebButton("OK").Click
+		
+			Else
+				WriteToReport micFail, "Duplicate invoice  message did not appear", "Message did not show as expected for this test.", true
+				SOxCapturePSFScreen "AP10"&dtVendorID&"failed"
+			End if 
+		End With
+	else		
+		WriteToReport micFail, "Duplicate invoice  test not run", "Verify the query , vendor and other inputs for test.", true
+	End If
+	
+
+	UserSignOut
+End Function 
+
+'****AP12 begin ***********'
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' SoxVerifyVendorDiscount() Will test SOx control AP12Precondition - Verify Vendor is setup for discount					
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "BusinessUnit, VendorID, sSetID "</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/1/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+	'  11/21/2014				Jolly			 Added function call for capture screenshot 
+	' 10/12/2015			Jolly				 Updated for PeopleSoft 9.2
+Public Function SoxVerifyVendorDiscount()
+	Dim dtBusinessUnit, sVendorID, sSetID
+	Dim nCount
+	
+	dtBusinessUnit = GlobalDictionary("BusinessUnit")
+	sVendorID = GlobalDictionary("VendorID")
+	sSetID = GlobalDictionary("SetID")
+	
+	'Step 1 - Login as user
+	LaunchURL
+	UserSignIn
+
+	'Step 2 - Select from the menu Main Menu  
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_SuppAddUpdateSupplier")
+	SelectMainMenu ""
+	
+	'Step 3 - Select the tab ' Find and Existing Value'
+	'Step 4 - Enter value in Set ID
+	'Step 5 - Enter value in Vendor ID
+	with Browser("PeopleSoft Browser").Page("Supplier").PSFrame("TargetContent")
+		.WebElement("Find an Existing Value").Click
+		.WebEdit("SetID").Set sSetID
+		.WebEdit("VendorID").Set sVendorID
+		.WebButton("Search").Click
+		WriteToReport micDone, "Supplier search", "Crieteria used SetID ["& sSetID &"] SupplierID ["& sVendorID &"]", false
+		
+		wait(5)
+
+		'Step 6 - The Vendor details are displayed , select Location tab
+		.WebElement("tabLocation").Click
+		Browser("PeopleSoft Browser").Sync
+		.Link("Location_Payables").Click
+	End with
+	
+	with Browser("PeopleSoft Browser").Page("Supplier").PSFrame("PayableOptions")
+
+		'Step 7 - Click on link Additional Payables Options /Payment Control/ ensure Always take a discount is checked
+		If .Image("Expand section Additional").Exist Then		
+			.Image("Expand section Additional").Click	
+		End If	
+		
+		.WebButton("Expand All").Click
+		wait(1)
+	
+		if .WebCheckBox("AlwaysTakeDiscount").GetROProperty("checked", true) then
+			WriteToReport micPass, "Always take Discount is checked for vendor", "Setup is as expected for this test.", false
+		Else
+			WriteToReport micFail, "Always take Discount is NOT checked for vendor", "Setup not show as expected for this test.", true
+		End if  
+		.WebButton("Cancel").Click
+
+	End with 
+
+UserSignOut 
+
+End Function 
+
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' SoxVerifyVoucher() Will test SOx control AP12Precondition - Verify Vendor is setup for discount					
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "BusinessUnit, VendorID, InvoiceDate " and "InvoiceNo"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/1/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'  11/21/2014				Jolly					Added function call for capture screenshot 
+Public Function SoxVerifyVoucher()
+
+	Dim sVoucherID
+	Dim sDiscountAmt, dtDiscountAmt
+	Dim dtBusinessUnit
+	
+	dtBusinessUnit = GlobalDictionary("BusinessUnit")
+	dtDiscountAmt = GlobalDictionary("DiscountAmount")
+	sVoucherID = "NOTSET"
+	'Step 1 - Login as user
+	LaunchURL
+	
+	UserSignIn
+	
+	sVoucherID = AddVoucher ("DISCOUNT")
+	
+	'If sVoucherID <> "FAIL" Then
+	If sVoucherID <> "FAIL" and sVoucherID <> "" and sVoucherID <> "NOTSET" Then
+		GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_APVoucherUpd")
+		SelectMainMenu (GetDataFrmAllVars("$Navigation_SubVoucher"))
+	
+		With Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContent")
+			
+			.WebElement("Find an Existing Value").Click 
+	
+			.WebEdit("Search_VOUCHER_ID").Set sVoucherID
+	 		
+			.WebButton("Search").Click
+			WriteToReport micDone, "Find existing value", "Searching for voucher = " & sVoucherID, false
+			
+		End with 
+		
+		With Browser("PeopleSoft Browser").Page("VoucherRegularEntry").PSFrame("TargetContentDetail")
+	
+		' Select Payment tab
+		' Verify Discount value in 'Payment Information'
+			.WebElement("tabPayments").Click
+	
+			If .WebEdit("Payment_Discount").Exist (60) Then
+				sDiscountAmt = .WebEdit("Payment_Discount").GetROProperty ("value")
+				WriteToReport micDone, "Voucher found", "Under 'Payments' tab, found amount for Discount = " & sDiscountAmt, false
+				
+				If sDiscountAmt = dtDiscountAmt Then	
+					SOxCapturePSFScreen "AP12_Discount"
+					WriteToReport micPass, "Discount value in 'Payment Information'", "Discount showed as expected for this test. Amount = " & sDiscountAmt, false
+				Else
+					WriteToReport micFail, "Discount value does NOt match", "Discount did not show Expected Amount = [," & dtDiscountAmt &  " ] screen Amount = " & sDiscountAmt, true
+					SOxCapturePSFScreen "AP12_Discountfail"
+				End if 
+			else
+				WriteToReport micFail, "Discount NOT found 'Payment Information'", "Discount field did not show in screen", true
+			End If
+			
+		End With
+		
+		'"select from Main Menu / Accounts Payable /Batch Processes/ Vouchers/ Voucher Posting"
+		'Select Run Control ID
+		'In Post Voucher List , enter Voucher ID
+		'Select Run button
+		' Click on Process Monitor Link verify process completed, Run Status for job is Success
+		'----------------------
+		PostVoucher sVoucherID, dtBusinessUnit 
+
+	End If
+			
+	Browser("PeopleSoft Browser").Page("PSFGeneric").Link("Sign out").Click
+	Browser("PeopleSoft Browser").CloseAllTabs
+
+'Set the output variables
+GlobalDictionary("VoucherID") = sVoucherID
+GlobalDictionary("TestOutputValues") = "VoucherID="&sVoucherID
+End Function 
+
+
+
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' SoxProcessVoucherPayment() Will setup SOx control AP12Precondition - Verify process Voucher Payment					
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "PaymentUser, VoucherID,SignInUser "</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/1/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+
+function SoxProcessVoucherPayment
+	Dim sVoucherID, sUserSignIn, sPayUser
+
+ 	LaunchURL 
+ 
+	sUserSignIn = GlobalDictionary("SignInUser")
+
+' - Login as user with payment rights
+	sPayUser = GlobalDictionary("PaymentUser")
+	GlobalDictionary("SignInUser") = sPayUser
+	UserSignIn 
+	
+
+	sVoucherID = GlobalDictionary("VoucherID")
+	If sVoucherID = "FAIL" Then
+		Exit function  
+	End If
+	wait (20)
+	ExpressPayACHVoucher sVoucherID
+ 	wait (20)
+ 	PostPayment (sVoucherID)
+
+	Browser("PeopleSoft Browser").CloseAllTabs
+
+'Restore defaults
+ GlobalDictionary("SignInUser") = sUserSignIn
+	
+End Function
+
+
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' SOXVerifyVoucherPosting() Will test SOx control AP12 Verify Voucher Posting					
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "BusinessUnit, DiscountAmount, GrossInvoiceAmount, CashDistributionAccount " and "DiscountDistributionAccount"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/1/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'  11/21/2014				Jolly					Added function call for capture screenshot 
+function SOXVerifyVoucherPosting 
+	'Login as user
+	'"Select the menu Main Menu  
+	' Accounts Payable/ Review Accounts Payable Info Vouchers /Accounting Entries"
+	'Enter the Voucher ID, click on Search button
+	'Click on View all link
+	
+	Dim sVoucherID
+	Dim sDiscountAmt, dtDiscountAmt
+	Dim sActualCashAmt , sExpCashAmt
+	Dim sActualCashAccount, sExpCashAccount
+	Dim sActualDiscountAccount, sExpDiscountAccount
+
+	'Assigning variable values
+	sVoucherID = GlobalDictionary("VoucherID")
+	If sVoucherID = "FAIL" Then
+		Exit function  
+	End If
+	
+	dtDiscountAmt = GlobalDictionary("DiscountAmount")
+	sExpCashAmt = GlobalDictionary("GrossInvoiceAmount")-dtDiscountAmt
+	sExpCashAccount = GlobalDictionary("CashDistributionAccount")
+	sExpDiscountAccount = GlobalDictionary("DiscountDistributionAccount")
+	
+	sExpCashAmt = "-" & sExpCashAmt & ".00"
+	dtDiscountAmt = "-" & dtDiscountAmt
+	
+'Login as User
+	LaunchURL 
+	
+	UserSignIn
+
+	SelectSubMenus (GetDataFrmAllVars("$Navigation_SubAcctngEntries"))
+	
+	With Browser("PeopleSoft Browser").Page("Accounting Entries").PSFrame("Accounting Entries")
+		.WebEdit("VCHR_ENTRY_WRK_VOUCHER_ID").Set sVoucherID
+		.WebButton("Search").Click'
+	
+		wait(10)
+		
+		.Link("View All").Click
+		
+		'Verify the amounts are correct
+		sActualCashAmt = .WebElement("PaymentsMainInfoRow2_MONETARY_AMOUNT").GetROProperty("innertext")
+		If sActualCashAmt = sExpCashAmt Then	
+			WriteToReport micPass, "Amount column for cash", "Amount showed as expected for this test. Amount = " & sExpCashAmt, false
+		Else
+			WriteToReport micFail, "Amount column for cash", "Amount did not show. Expected Amount = [," &sExpCashAmt &  " ]screen Amount = " & sActualCashAmt, true
+		End if 
+
+		sDiscountAmt = .WebElement("PaymentsMainInfoRow3_MONETARY_AMOUNT").GetROProperty("innertext")
+		If sDiscountAmt = dtDiscountAmt Then	
+			WriteToReport micPass, "Amount column for discount", "Amount showed as expected for this test. Amount = " & sDiscountAmt, false
+		Else
+			WriteToReport micFail, "Amount column for discount", "Amount did not show Expected Amount = [," & dtDiscountAmt &  " ]screen Amount = " & sDiscountAmt, true
+		End if 
+
+		'For Posting process verify Account column 10044 - cash and 52000 for Discount
+		.WebElement("Payments_Chartfields_TAB").Click
+		SOxCapturePSFScreen "AP12_GLEnteries"
+		
+		sActualCashAccount = .WebElement("PaymentsChartfieldsRow2_FS_ACCOUNT").GetROProperty("innertext")		
+		If sActualCashAccount = sExpCashAccount Then	
+			WriteToReport micPass, "Account column for cash", "Account showed as expected for this test. Account = " & sActualCashAccount, false
+		Else
+			WriteToReport micFail, "Account column for cash", "Account did not show as expected, screen Account = " & sActualCashAccount, true
+		End if 
+
+		sActualDiscountAccount = .WebElement("PaymentsChartfieldsRow3_FS_ACCOUNT").GetROProperty("innertext")
+		
+		If sActualDiscountAccount = sExpDiscountAccount Then	
+			WriteToReport micPass, "Account column for discount", "Account showed as expected for this test. Account = " & sActualDiscountAccount, false
+		Else
+			WriteToReport micFail, "Account column for discount", "Account did not show as expected, screen Account = " & sActualDiscountAccount, true
+		End if 
+		
+	End With
+	
+	Browser("PeopleSoft Browser").Page("PSFGeneric").Link("Sign out").Click
+	Browser("PeopleSoft Browser").CloseAllTabs
+
+End Function
+
+
+
+'****AP12 end ***********'
+
+'****AP09 begin ***********'
+
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' SoxVerifyVendorInvNonInv() Will test SOx control AP12Precondition - Verify Vendor is setup for discount					
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "BusinessUnit, VendorID, sSetID "</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/1/2015/datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+	' 10/12/2015			Jolly				 Updated for PeopleSoft 9.2
+Public Function SoxVerifyVendorInvNonInv()
+	Dim dtBusinessUnit, sVendorID
+	Dim nCount
+	Dim sTestcaseName
+	Dim sSupplierOpt
+	
+	dtBusinessUnit = GlobalDictionary("BusinessUnit")
+	sVendorID = GlobalDictionary("VendorID")
+	sTestcaseName = Environment("TestName")
+
+	'Step  - Select from the menu Main Menu  
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_SuppAddUpdateSupplier")
+	SelectMainMenu ""
+	
+	'Step 3 - Select the tab ' Find and Existing Value'
+	'Step 4 - Enter value in Set ID
+	'Step 5 - Enter value in Vendor ID
+	with Browser("PeopleSoft Browser").Page("Supplier").PSFrame("TargetContent")
+		.WebElement("Find an Existing Value").Click
+		.WebEdit("SetID").Set "SHARE"
+		.WebEdit("VendorID").Set sVendorID
+		.WebButton("Search").Click
+		WriteToReport micDone, "Supplier search", "Crieteria used SetID [ SHARE ] SupplierID ["& sVendorID &"]", false
+		
+		wait(5)
+
+		'Step  - The Vendor details are displayed , select Location tab
+		.WebElement("tabLocation").Click
+		
+		Browser("PeopleSoft Browser").Sync
+		.Link("Location_Payables").Click
+
+	End with 
+	
+	with Browser("PeopleSoft Browser").Page("Supplier").PSFrame("PayableOptions")
+		If .Image("Expand section Supplier").Exist Then		
+			.Image("Expand section Supplier").Click	
+		End If	
+		
+	'	.WebButton("Expand All").Click
+		
+		If .WebElement("SupplierOptionType").Exist (10)  Then
+			sSupplierOpt = .WebElement("SupplierOptionType").GetROProperty("innertext")
+		else
+			WriteToReport micFail, "Vendor value cannot be verified", "Review vendor setup is as expected for this test.", false
+		End If
+		Select Case sSupplierOpt
+			Case "02"
+				If Instr (sTestcaseName, "NonInv")  Then
+					WriteToReport micPass, "Non Inventory vendor", "Setup is as expected for this test.", false
+				else
+					WriteToReport micFail, "Vendor not as expected", "Review vendor setup is as expected for this test.", true
+				End If
+			Case "22", "21" , "16"
+				If Instr (sTestcaseName, "Inventory")  Then
+					WriteToReport micPass, "Inventory vendor", "Setup is as expected for this test.", false
+				else
+					WriteToReport micFail, "Vendor not as expected", "Review vendor setup is as expected for this test.", false
+				End If
+			Case else 
+				WriteToReport micFail, "Vendor not as expected", "Review vendor setup is as expected for this test.", true
+		End Select
+
+		.WebButton("Cancel").Click
+
+	End with 
+ 
+	
+	
+End Function 
+
+
+
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' SOxAP09Voucher() Will test SOx control AP09 Precondition - Enter the check for amount				
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "BusinessUnit, VendorID, InvoiceDate " and "InvoiceNo"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/1/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'  11/21/2014				Jolly					Added function call for capture screenshot 
+Public Function SOxEnterCheck()
+
+	Dim sVoucherID
+	Dim dtBusinessUnit, dtInvPrefix
+	
+	dtBusinessUnit = GlobalDictionary("BusinessUnit")
+	dtInvPrefix = GlobalDictionary("InvoicePrefix")
+	sVoucherID = "NOTSET"
+	'Step 1 - Login as user
+	LaunchURL
+	
+	UserSignIn
+	
+	SoxVerifyVendorInvNonInv
+	
+	sVoucherID = AddVoucher (dtInvPrefix)
+	SOxCapturePSFScreen "AP09_"& dtInvPrefix &"_Voucher"
+	
+	If sVoucherID <> "FAIL" and sVoucherID <> "" and sVoucherID <> "NOTSET"Then
+
+		PostVoucher sVoucherID, dtBusinessUnit 		
+		
+	End If
+	
+	UserSignOut
+	
+	'Set the output variables
+	GlobalDictionary("VoucherID") = sVoucherID
+	GlobalDictionary("TestOutputValues") = "VoucherID="&sVoucherID
+End Function 
+
+
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' SOxVerifyCheck() Will setup precondition and test SOx control AP09  - Expresss payment and Verify check signatures				
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "GrossInvoiceAmount, SignInUser, InvoicePrefix , PaymentUser" and "VoucherID"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/1/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'   11/10/2015				Jolly				Updated for PeopleSoft 9.2
+'   03/30/2016				Jolly 					Changes in OR 
+function SOxVerifyCheck
+	Dim sVoucherID, dtUserSignIn, dtPayUser
+	Dim nCount, bSuccess
+	Dim dtGrossAmt, dtInvPrefix
+	Dim nProcessInstance
+
+	LaunchURL 
+ 	
+ 	dtGrossAmt = GlobalDictionary("GrossInvoiceAmount")
+	dtUserSignIn = GlobalDictionary("SignInUser")
+	dtInvPrefix = GlobalDictionary("InvoicePrefix")
+	
+' - Login as user with payment rights
+	dtPayUser = GlobalDictionary("PaymentUser")
+	GlobalDictionary("SignInUser") = dtPayUser
+	UserSignIn 
+
+	sVoucherID = GlobalDictionary("VoucherID")
+	wait (nMINWAIT)
+	If sVoucherID = "FAIL" Then
+		bSuccess = false
+	else
+		 bSuccess =  LaunchExpressCreatePayment (sVoucherID )
+	End If
+
+	 
+	If bSuccess Then
+	 
+	 	WriteToReport micDone, "Create Payment", "Started Create Payment process.", false
+
+		 with Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("Pay Cycle - Express Payments")
+	 	'Wait for status of Approve for the Pay Cycle	
+	 		If NOT .WebButton("Refresh").Exist (nMAXWAIT) Then
+		 		WriteToReport micFail, "Create Payment: Refresh", "Page not loaded yet", false
+		 		Exit Function
+		 	End If
+	 	
+	 		WaitForObjectStatus Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("Pay Cycle - Express Payments"), "Status", "Approved"		 
+			 If NOT .WebList("PYCYCL_WRK_OVRD_SERVERNAME").Exist (nMAXWAIT) Then
+			 	WriteToReport micFail, "Create Payment: Row", "Page not loaded with row objects", false
+			 	Exit Function
+			 End If
+			.WebList("PYCYCL_WRK_OVRD_SERVERNAME").Select "PSNT1"
+			.WebList("PYCYCL_STATRPT_OUTDESTTYPE").Select "Web"
+			.WebButton("Process1").Click
+			WriteToReport micDone, "Pay cycle", "Servername = PSNT1 and Output destination = Web and clicked 'Process' button'.", false				
+			
+			WaitForObjectStatus Browser("PeopleSoft Browser").Page("Voucher Posting").PSFrame("Pay Cycle - Express Payments"), "Status", "Completed"
+			
+			If NOT .Link("Process Monitor").Exist (nMAXWAIT) Then
+			 	WriteToReport micFail, "Create Payment: Process Monitor", "Cannot find button", false
+			 	Exit Function
+			 End If
+			.Link("Process Monitor").Click
+			
+		End with
+		
+		CheckProcessMontiorStatus ("APY2021X1")
+		WriteToReport micDone, "Express payment", "Processed check payment for invoice [" & dtInvPrefix &"].", false
+		
+		VerifySignatures nProcessInstance, dtInvPrefix , dtGrossAmt
+		
+ 	Else
+		WriteToReport micFail, "Launch Express Payment", "Unable to process payment please review.", false
+		 
+	End If
+	 
+	UserSignOut
+
+'Restore defaults
+ GlobalDictionary("SignInUser") = dtUserSignIn
+	
+End Function
+
+private Function VerifySignatures (nProcessInstance,dtInvPrefix , dtGrossAmt)
+'Public Function VerifySignatures () for unit testing and udpatign signatures 
+'Dim nProcessInstance, dtInvPrefix, dtGrossAmt
+'dtInvPrefix = "NONINV"
+'	nProcessInstance = "2990685"
+'	dtGrossAmt = 10000
+	
+	Dim sDateTimeString , bSuccess
+	
+	'Get the sytem date and format it for 
+	sDateTimeString = Date()
+	sDateTimeString = Replace(sDateTimeString, "/" ,"") 
+	'Create folder if it doesnt exist
+	AddNewFolder SOXRESULTSFOLDER, sDateTimeString
+	sDateTimeString = "\"& sDateTimeString & "\"
+	
+	'Go to review the check 
+	WriteToReport micDone, "Check image verification", "Starting verification of payment checks.", false
+		GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_ReportManager")
+		SelectMainMenu ""
+		
+		With Browser("PeopleSoft Browser").Page("ReportingTools")
+			.PSFrame("Report Distribution Mgr").WebEdit("ProcessInstanceFrom").Set nProcessInstance
+			.PSFrame("Report Distribution Mgr").WebButton("Refresh").Click
+			.PSFrame("Report Distribution Mgr").Link("APY2021X1 - CHK00001AP10PM.pdf").Click
+			wait(5)
+			.PSFrame("Report Index").Link("CHK00001AP10PM.pdf").Click
+			wait(5)
+			WriteToReport micDone, "Open check images", "Opened link CHK00001AP10PM.pdf in Report Manager for process [" & nProcessInstance &"].", false				
+		End With
+			
+		if Browser("CheckDisplay").ActiveX("AdobePDF_Reader").Exist(60) then
+			if Browser("CheckDisplay").ActiveX("AdobePDF_Reader").WinObject("PSFCheck").Exist (30) then 
+				'wait for check to open to capture bimap
+				Browser("CheckDisplay").ActiveX("AdobePDF_Reader").WinObject("PSFCheck").Type micPgUp ' go to top
+				Browser("CheckDisplay").ActiveX("AdobePDF_Reader").CaptureBitmap SOXRESULTSFOLDER & sDateTimeString &"AP09_"& dtInvPrefix &"Inv1.bmp",True
+				Browser("CheckDisplay").ActiveX("AdobePDF_Reader").WinObject("PSFCheck").Type micPgDwn 'scroll to bottom
+				Browser("CheckDisplay").ActiveX("AdobePDF_Reader").WinObject("PSFCheck").Type micPgDwn 'scroll to bottom
+				Browser("CheckDisplay").ActiveX("AdobePDF_Reader").CaptureBitmap SOXRESULTSFOLDER & sDateTimeString & "AP09_"& dtInvPrefix &"Inv2.bmp",True
+
+				If Browser("CheckDisplay").ActiveX("AdobePDF_Reader").InsightObject("objAmount_v1").Exist (5) or Browser("CheckDisplay").ActiveX("AdobePDF_Reader").InsightObject("objAmount_v2").Exist (5) Then								
+					WriteToReport micDone, "Captured check images", "Both top and bottom screenshots of check captured.", false				
+				else
+					WriteToReport micFail, "Capture check images", "Unable to verify capture; review the screenshots.", false
+				End if
+					
+			else
+				WriteToReport micFail, "Open check", "Unable to open check.", false
+			End If	
+			
+				bSuccess = false
+				With Browser("CheckDisplay").ActiveX("AdobePDF_Reader")
+				wait(5)
+					If InStr (dtInvPrefix, "NONINV") = 0 Then
+						if dtGrossAmt < 5000000 then
+							if (.InsightObject("objSignatureFirstline_v1").Exist or .InsightObject("objSignatureFirstline_v2").Exist)  and ( .InsightObject("objSignatureSecondline_v1").Exist) then
+								bSuccess = true
+								WriteToReport micDone, "Signature for invoice", "Signatures shows as expected for this test.", false	
+							Else
+								bSuccess = false
+								WriteToReport micFail, "Signature for invoice", "Signature did NOT show as expected for this test.", true
+							End if
+						else 
+							if NOT .InsightObject("objSignatureFirstline_v1").Exist and NOT .InsightObject("objSignatureFirstline_v2").Exist and NOT .InsightObject("objSignatureSecondline_v1").Exist then
+								bSuccess = true
+								WriteToReport micDone, "Signature for invoice", "Signatures did NOT show as expected for this test.", false	
+							Else
+								WriteToReport micFail, "Signature for invoice", "Signatures shows when NOT expected for this test.", true
+							End if	
+						End If
+					Else 
+						'Check for  signature requirements 
+						if dtGrossAmt < 50000 then
+							'Both signatures are present
+							if (.InsightObject("objSignatureFirstline_v1").Exist  and .InsightObject("objSignatureSecondline_v1").Exist) or (.InsightObject("objSignatureFirstline_v2").Exist  and .InsightObject("objSignatureSecondline_v1").Exist) then
+								bSuccess = true
+								WriteToReport micDone, "Signature for invoice", "Signature did show as expected for this test.", false	
+							Else
+								bSuccess = false
+								WriteToReport micFail, "Signature for invoice", "Toms and Collins signature did NOT show as expected for this test.", true
+							End if
+						Elseif dtGrossAmt > 49999 and dtGrossAmt < 100000 then
+								'One signature is present
+								if (.InsightObject("objSignatureFirstline_v1").Exist or .InsightObject("objSignatureFirstline_v2").Exist)  and NOT (.InsightObject("objSignatureSecondline_v1").Exist) then
+									bSuccess = true
+									WriteToReport micDone, "Signature verification", "Signatures show as expected for this test.", false								
+								Else
+									bSuccess = false
+									WriteToReport micFail, "Signature verification", "Signature does NOT show when expected for this test.", true
+								End if
+						else
+								'Both signature is not present
+								if (NOT .InsightObject("objSignatureFirstline_v1").Exist and NOT .InsightObject("objSignatureSecondline_v1").Exist) or (NOT .InsightObject("objSignatureFirstline_v2").Exist and NOT .InsightObject("objSignatureSecondline_v1").Exist)  then
+									bSuccess = true
+									WriteToReport micDone, "Signature verification", "Signatures do NOT show as expected for this test.", false
+								Else
+									bSuccess = false			
+									WriteToReport micFail, "Signature verification", "Signature shows when NOT expected for this test.", true
+								End if
+						End IF
+					End IF
+				End With
+			
+			Browser("CheckDisplay").Close
+			If bSuccess Then
+				WriteToReport micPass, "Signatures verification", "Signatures are as expected for this test.", false
+			End If
+
+		 Else
+			WriteToReport micFail, "Adobe PDF Report", "Check not found for verification.", true
+		 End If
+	
+
+End Function
+
+'****AP09 end ***********'
+
+'****AP07 begin ***********'
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' SOxGetApprover() Will test SOx control AP07 Precondition - GEt the approval levels for test criteria
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "eProWorkflow_FetchCriteria, Amount, UserID "</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/15/2014</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Logoff of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+' 	9/10/2015 				Jolly					Updated for PSF 9.2
+Public Function SOxGetApprover ()
+
+	Dim dtApprovalWorkFlowReq , dtAmount, dtLevel
+	Dim nRowNumber , arrApprovalWorkFlowReq
+	Dim sRoleName, sUserID, sActualAmount, sUserName
+	Dim nAmountColNo, sRoleText
+	
+	dtApprovalWorkFlowReq = GlobalDictionary("eProWorkflow_FetchCriteria")
+	arrApprovalWorkFlowReq = Split (dtApprovalWorkFlowReq, ";") 'CategoryID;00094
+	dtAmount = GlobalDictionary("Amount")
+	sUserID = GlobalDictionary("UserID")
+	sUserName = GlobalDictionary("UserName")
+	sRoleText = GlobalDictionary("RoleDescriptionText")
+	
+	'Step 1 - Login as user
+	LaunchURL
+	
+	UserSignIn
+	
+	'Step - Select from Main Menu 
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_eProApprovalWorkflowReport")
+	SelectMainMenu ""
+	
+	WriteToReport micDone, "Fetch criteria", "Get user and role for ["&arrApprovalWorkFlowReq(0)& " = "& arrApprovalWorkFlowReq(1) &" ] for amount ["&dtAmount&"] and level [" & dtLevel & "].", false			
+			
+	With Browser("PeopleSoft Browser").Page("Approval Workflow Report").PSFrame("TargetContent")
+		.WebEdit("RunControlID").Set "ApprovalEproWorkflowReport"
+		.WebButton("Search").Click
+		
+		select case UCASE(arrApprovalWorkFlowReq(0))
+			Case "CATEGORYID"
+		 		.WebEdit("CategoryID").Set arrApprovalWorkFlowReq(1)
+		 		nAmountColNo = 8
+		 	Case "ACCOUNT"
+		 		.WebEdit("Account").Set arrApprovalWorkFlowReq(1)
+		 		nAmountColNo = 8
+		 	Case "ACCOUNTDEPT"
+		 		.WebEdit("Account").Set arrApprovalWorkFlowReq(1)
+		 		.WebEdit("Department").Set arrApprovalWorkFlowReq(2)
+		 		nAmountColNo = 7
+		 	Case else
+		 		 WriteToReport micFail, "Get Approver", "Unable to select ePro Workflow using Fetch Criteria.", false	
+		End select
+		'.WebEdit("WFRPT_ROLEUSER").Set sUserID
+
+		.WebButton("Fetch").Click
+		'set the row number for the level
+		nRowNumber = .WebTable("Account").GetRowWithCellText(sUserID)
+		
+		If .WebElement("Detail Values").Exist (2) Then
+		'If its not already selected then select
+			.WebElement("Detail Values").Click	
+			wait(2)			
+		End If
+
+		'Role Name column data
+		sRoleName = .WebTable("Account").GetCellData (nRowNumber, 5)
+		sRoleName = Trim ( sRoleName  ) 
+		SOxCapturePSFScreen "AP07_Role"& arrApprovalWorkFlowReq(0) & sUserName
+
+		If micCellDoesNotExist <> sRoleName Then
+			WriteToReport micDone, "Got Role Name", "Got role ["&sRoleName&"] for user [" & sUserID & "].", false			
+		else
+			WriteToReport micFail, "Role Name cell does not exist", "The role ["&sRoleName&"] for user [" & sUserID & "].", true			
+		End If
+		
+		'Amount column data under Approval SEtup tab
+		.WebElement("ApprovalSetup").Click 
+		wait(2)
+		
+		sActualAmount = trim(.WebTable("Account").GetCellData (nRowNumber, nAmountColNo) )
+		
+	End With
+	
+	If micCellDoesNotExist = sActualAmount Then
+		WriteToReport micFail, "Unable to get Approver", "Got error cell does not exist.", false			
+	else
+		If strcomp (sActualAmount , dtAmount, 0) >= 0 Then
+			WriteToReport micPass, "Get Approver", "The amount for level matches; matched amount ["&dtAmount&"] for user [" & sUserID & "].", false			
+		else
+			WriteToReport micFail, "Get Approver", "The amount for level does NOT match; matched amount ["&dtAmount&"] for user [" & sUserID & "].", true			
+		End If
+	End If
+	
+	'Verification to be done for each role
+	sRoleName = sRoleText & ";" & sRoleName
+	
+	UserSignOut
+
+	'Set the output variables
+	GlobalDictionary("ApprovalRoleLevel") = trim(sRoleName)
+	GlobalDictionary("ApprovalUserName") = trim(sUserName)
+	GlobalDictionary("TestOutputValues") = "ApprovalRoleName="&sRoleName &";ApprovalUserID="&sUserName
+End Function 
+
+'**********************************************************************************************************************************************************
+''' <summary>  
+''' SOxVerifyApprovalLogic() Will test SOx control AP07 - Verify approval routing logic					
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "BusinessUnit, VendorID, InvoiceDate " and "InvoiceNo"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>9/15/2014</datecreated>
+''' <startstate>N</startstate>
+''' <endstate>Home Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'   4/30/2015				Jolly				  Added screenshot capture to gather details on requisition
+' 5/5/2015					Jolly				Updated ACCOUNTDEPT for new changes in workflow
+' 11/10/2015				JOlly				Updated for PeopleSoft 9.2
+function SOxVerifyApprovalLogic
+Dim dtApprovalWorkFlowReq,  dtAmount, dtLevel
+Dim dtVendorID, dtCFDept, dtCFAccount, dtBusinessUnit
+Dim sApprovalRoleLevel, sApprovalUserName, arrApprovalWorkFlowReq, arrApprovalRoleLevel
+Dim sUnitPrice, sQty
+Dim nCount, bSuccess
+Dim sApprovalTableText, dtItemType
+
+	dtApprovalWorkFlowReq = GlobalDictionary("eProWorkflow_FetchCriteria")
+	dtAmount = GlobalDictionary("Amount")
+	dtLevel = GlobalDictionary("Level")
+	dtVendorID = GlobalDictionary("VendorID")
+	dtCFAccount	= GlobalDictionary("ChartField2Account")
+	dtCFDept	= GlobalDictionary("ChartField2Dept")
+	dtBusinessUnit = GlobalDictionary("BusinessUnit")
+	dtItemType	= GlobalDictionary("ItemType")
+	
+	'Test Outputs of precondition
+ 	sApprovalRoleLevel = GlobalDictionary("ApprovalRoleLevel")
+ 	If sApprovalRoleLevel = "" Then
+ 		sApprovalRoleLevel = "ERROR"
+ 	End If
+	sApprovalUserName = GlobalDictionary("ApprovalUserName")
+	arrApprovalRoleLevel = Split (sApprovalRoleLevel, ";") 
+	LaunchURL
+	
+	UserSignIn 
+
+	'Step - Select from Main Menu 
+	GlobalDictionary("MainMenuSelection") = GetDataFrmAllVars("$Navigation_eProRequisition")
+	SelectMainMenu ""
+	with Browser("PeopleSoft Browser").Page("Requisition").PSFrame("ePro Requisitions")
+			
+			arrApprovalWorkFlowReq = Split (dtApprovalWorkFlowReq, ";") 'CategoryID;00094
+
+			bSuccess = AddeProRequitionItem (dtItemType, dtVendorID)
+			
+			.WebButton("Checkout").Click
+						
+			.Image("Expand Section").Click
+			.Image("Expand section Accounting").Click
+									
+			If 	.WebElement("Chartfields2_Tab").Exist Then
+				.WebElement("Chartfields2_Tab").Click
+				WriteToReport micDone, "Requisitions entry", "Adding Account [" & dtCFAccount & "] and Dept [" & dtCFDept &"].", false
+			else
+				WriteToReport micWarning, "Chartfields2", "'Chartfields2' Tab not found in 'Accounting lines'.", false
+			End If
+		
+		 	if .WebEdit("ChartFields2_ACCOUNT").GetROProperty ("value") <> dtCFAccount then
+		 		.WebEdit("ChartFields2_ACCOUNT").Set dtCFAccount
+		 	End if 
+		 	
+		 	if .WebEdit("ChartFields2_DeptID").GetROProperty ("value") <> dtCFDept then
+		 		.WebEdit("ChartFields2_DeptID").Set dtCFDept
+		 	End if 
+		 	
+		 SOxCapturePSFScreen "AP07_Requisition"& arrApprovalWorkFlowReq(0) & sApprovalUserName
+		.WebButton("Save & submit").Click
+			
+		if Browser("PeopleSoft Browser").Page("PSFGeneric").WebElement("Message").Exist (nMAXWAIT)then
+			Browser("PeopleSoft Browser").Page("PSFGeneric").WebButton("OK").Click
+		End if
+		
+		WriteToReport micDone, "Requisitions entry", "Saved requisition for [" & arrApprovalWorkFlowReq(0) &"].", false
+		
+		if 	VerifyLink(sApprovalUserName) then		
+			WriteToReport micPass, "Approval User", "The routing for user exists in path; got user ["&sApprovalUserName&"].", false			
+		else
+			WriteToReport micFail, "Approval User", "The routing for user does NOT exist in path; expected user ["&sApprovalUserName&"].", true			
+		End if 
+		
+		If NOT .WebElement("eProApprovalHeader").Exist Then
+			'If multiple approvals setup then close second one
+			if .Image("Collapse_Nextapproval").Exist then
+				.Image("Collapse_Nextapproval").Click		
+			End if 
+		End If
+		
+		if trim(.WebElement("eProApprovalHeader").GetROProperty("innertext")) = arrApprovalRoleLevel(0) then
+			WriteToReport micPass, "Approval Role", "The routing for level matches; got expected ["& arrApprovalRoleLevel(0) &"]", false			
+		else
+			WriteToReport micFail, "Approval Role", "The routing for level does NOT match; got role ["&.WebElement("eProApprovalHeader").GetROProperty("innertext")&"].", true			
+		End if 
+
+		SOxCapturePSFScreen "AP07_"& arrApprovalWorkFlowReq(0) & sApprovalUserName
+
+		select case UCASE(arrApprovalWorkFlowReq(0))
+			Case "CATEGORYID"
+				if .WebElement("CatRole2Description").Exist (5) then
+					WriteToReport micPass, "Level Description", "The level details exist; got ["& .WebElement("CatRole2Description").GetRoProperty("innertext") &"]", false			
+				else
+					WriteToReport micFail, "Level Description", "The level details does NOT exist.", true			
+				End if 
+			Case "ACCOUNT"
+				if .WebElement("ActRole3Description").Exist (5) then
+					WriteToReport micPass, "Level Description", "The level details exist; got ["& .WebElement("ActRole3Description").GetRoProperty("innertext") &"]", false			
+				else
+					WriteToReport micFail, "Level Description", "The level details does NOT exist.", true			
+				End if
+			Case "ACCOUNTDEPT"
+				sApprovalTableText = .WebTable("ApprovalTable").GetCellData (1,1)
+			
+				if sApprovalTableText= "Account/Dept Approval" then
+					WriteToReport micPass, "Approval Description", "The level details exist; got expected ["& sApprovalTableText &"]", false			
+				else
+					WriteToReport micFail, "Approval Description", "The level 'Account/Dept Approval' does NOT exist; got ["& sApprovalTableText &"]", true			
+				End if
+				
+				sApprovalTableText = .WebTable("ApprovalTable").GetCellData (2,2)
+			
+				if Instr (sApprovalTableText , arrApprovalRoleLevel(1)) > 0 then
+					WriteToReport micPass, "Role Description", "The details got as expected; expected ["& arrApprovalRoleLevel(1) &"]", false			
+				else
+					WriteToReport micFail, "Role Description", "The expected '["& arrApprovalRoleLevel(1) &"]' details does NOT exist; got ["& sApprovalTableText &"]", true			
+				End if
+			Case else
+				 WriteToReport micFail, "Verify Approval Logic", "Unable to verify level/role/approval.", false	
+		End select
+
+	End With
+	
+	UserSignOut
+	
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> 
+''' AddeProRequitionItem() Will add a item/service for REquistiion 
+'''Parameter1:	sItemLink - type to add controls link to click on
+''' <para>
+''' <note>Required Testcase Inputs are"Category,Price, UnitofMeasure,Description " and "SR_Quantity"</note> 
+''' </para>
+''' </summary>
+''' <author>Jolly T</author>
+''' <datecreated>6/21/2014</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Lopgged out Page of PSF Application</endstate>
+'Change Control: 
+'   Date of Change          Author                Description of change
+'  09/16/2015				Jolly				  Added function call for screenshot as per discussion with auditors
+'  11/10/2015				Jolly				  Udpated for Peoplesoft 9.2
+public function AddeProRequitionItem (sItemLink, sVendorID)
+  Dim dtSR_Category, dtSR_Price, dtSR_Quantity, dtSR_UnitofMeasure, dtSR_Description
+
+	'REquisition details
+	dtSR_Category = GlobalDictionary("SR_Category")
+	dtSR_Price	= GlobalDictionary("SR_Price")
+	dtSR_Quantity	= GlobalDictionary("SR_Quantity")
+	dtSR_UnitofMeasure = GlobalDictionary("SR_UnitofMeasure")
+	dtSR_Description	= GlobalDictionary("SR_Description")
+
+With Browser("PeopleSoft Browser").Page("Requisition").PSFrame("ePro Requisitions")
+	
+ 	select case UCase(sItemLink)
+ 		Case "EXPRESS ITEM"
+ 			
+ 			ClickLink ("Express Item Entry")
+			.WebEdit("ExpressItemEntry_Category1").Set dtSR_Category
+			.WebEdit("ExpresssItemEntry_Price1").Set dtSR_Price
+			.WebEdit("ExpressItemEntry_Quantity1").Set dtSR_Quantity
+			.WebEdit("ExpressItemEntry_UOM1").Set dtSR_UnitofMeasure
+			.WebEdit("ExpressItemEntry_Description1").Set dtSR_Description
+			.WebElement("SupplierInformation_Tab").Click
+
+			.WebEdit("ExpressItemEntry_SupplierID1").Set sVendorID
+			SOxCapturePSFScreen "AP07Item_"& sVendorID & "_"  & dtSR_Category
+						
+		Case "SPECIAL REQUEST"
+			ClickLink ("Special Requests")
+			.WebEdit("SpecialRequest_Category").Set dtSR_Category
+			.WebEdit("SpecialRequest_Value").Set dtSR_Price
+			.WebEdit("SpecialRequest_Description").Set dtSR_Description
+			.WebEdit("SpecialRequest_SupplierID").Set sVendorID
+			.WebEdit("ServiceRequest_Quantity").Set dtSR_Quantity
+			.WebEdit("ServiceRequest_UOM").Set dtSR_UnitofMeasure
+			
+			SOxCapturePSFScreen "AP07SpecialRequest_"& sVendorID & "_" & dtSR_Category
+		Case else
+					
+		End select 
+		.WebButton("Add to Cart").Click
+
+End with 
+WriteToReport micDone, "AddeProRequitionItem", "Requisition entry Category = [" & dtSR_Category &"].", false
+AddeProRequitionItem = "done" 
+
+End function 
+
+'****AP07 end ***********'

@@ -1,0 +1,1356 @@
+'**************************************************************************************************************
+''' <summary> 
+''' This file is to generate customized html report 
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>11/25/2015</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns type="NA"> </returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'**************************************************************************************************************
+
+Const adOpenStatic = 3
+Const adLockOptimistic = 3
+Const adCmdText =1
+Const adOpenDynamic = 2
+
+Public DBConnection_Results, DBConnection_Repository, DBConnection_TestData
+Public ResultsFolder
+Public TestStartTime,TestEndTime,StepStartTime,StepEndTime
+Public ExecutionStartTime,ExecutionEndTime
+Public HTMLResultsStreamWriter	
+Public stepExpected,stepActual,StepResult,stepDuration,stepErrDescription,stepScreenshot,stepDescription,mstepResult, stepErrorMessage,ValidateScreenCapture
+Public UserInsertedReport()
+Redim UserInsertedReport(0)
+Public TestScriptName, TestResult1, strManualStepNo
+Public buildDetails
+Public IterationCount, testparameters
+'Public strOutErrorDesc
+
+Public Metrics_TotalExecuted,Metrics_Passed,Metrics_Failed,Metrics_NotRun
+Metrics_TotalExecuted=0
+Metrics_Passed=0
+Metrics_Failed=0
+Metrics_NotRun=0
+Public stepCounter
+stepCounter = 0
+Dim continueExecution
+continueExecution = True
+
+
+'sys db connection
+Public objDBConnection, objDBRecordSet
+
+'#########################################################################
+''' <summary> 
+''' WriteToLog Function is to write the step report
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+ '<param name="strStatus" type="String"></param>
+ '<param name="strDescription" type="String"></param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Function WriteToLog(ByVal strStatus,ByVal strDescription)
+	
+	If not isEmpty(ResultsFolder) Then
+		Call writeLogResult(strStatus, strDescription)
+	End If
+	
+	
+End Function
+
+'#########################################################################
+''' <summary> 
+''' WriteLogFooter Function is to write footer report in html
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Function WriteLogFooter()
+	'end time of the script
+	TestEndTime = Now
+	ReportTestResult
+
+	CompleteReport	  
+	DisposeDBConnection
+	
+End Function
+
+'#########################################################################
+''' <summary> 
+''' InitializeReport Function is to initialize the html report
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Public Function InitializeReport()
+
+'	On Error Resume Next
+	Dim TemplateFile,ResultsDBFile,objFSO, addtimestamp
+	Dim htmlFolderPath	
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+	htmlFolderPath = Environment("HTMLRESULTS_PATH") 
+	ResultsFolder = htmlFolderPath
+	addtimestamp =""&GlobalDictionary("TestName")& "_Results_" &  Year(Date) & "-" & Right("0" & Month(Date), 2) & "-" & Right("0" & Day(Date), 2) & "_" & Replace(FormatDateTime(Time),":","")
+	' Create a new  results folder
+	ResultsFolder = ResultsFolder & "\" & addtimestamp
+	'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+	GlobalDictionary("HtmlResultsPath") = ResultsFolder 
+	objFSO.CreateFolder ResultsFolder
+	
+	If Not objFSO.FolderExists(ResultsFolder) Then
+		InitializeReport = False
+		Exit Function
+	End If
+	
+	' Create a temp excel file to store results
+	Dim objExcel,objWorkbook
+	Set objExcel = CreateObject("Excel.Application")
+	objExcel.Visible = False
+	objExcel.DisplayAlerts = False
+	
+	Set objWorkbook= objExcel.Workbooks.Add()
+	objWorkbook.Worksheets("Sheet1").Name    = "TestResults"
+	objWorkbook.Worksheets("Sheet2").Name    = "StepResults"
+	If Not CreateExcelTables(objWorkbook) Then
+		InitializeReport = False
+		Exit Function
+	End If
+	
+	ResultsDBFile = ResultsFolder & "\TestResults.xls"
+	objWorkbook.saveAs ResultsDBFile,56  
+	objWorkbook.close
+	set objExcel=nothing
+	
+	TemplateFile = Environment("PROJECT_FOLDER") & "\template\ExecutionResults.htm"
+	objFSO.CopyFile TemplateFile, ResultsFolder & "\"
+	If Not objFSO.FileExists(ResultsFolder & "\ExecutionResults.htm") Then
+		InitializeReport = False
+		Exit Function
+	End If
+	
+'	
+	InitializeReport = True
+	ExecutionStartTime = Now
+
+End Function
+
+'#########################################################################
+''' <summary> 
+''' ConnectToExcel Function is to connect to the given Excel through MS DB connection
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+ '<param name="ExcelPath" type="String"></param>
+ '<param name="HDRValue" type="boolean"></param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'11/7/2017        Jolly T		Udpated  to use the latest version
+'##########################################################################
+Public Function ConnectToExcel(ExcelPath,HDRValue)
+
+	On Error Resume Next
+	Err.Clear
+	
+	Dim objConnection,dbProvider,dbSource,dbExtended
+	Set objConnection = CreateObject("ADODB.Connection")
+	'dbProvider =  "Provider=Microsoft.Jet.OLEDB.4.0;"
+	dbProvider =  "Provider=Microsoft.ACE.OLEDB.12.0;"
+	dbSource =  "Data Source=" & ExcelPath & ";"
+	dbExtended =    "Extended Properties=""Excel 8.0;HDR=" & HDRValue & ";"""
+	
+	objConnection.Open dbProvider & dbSource & dbExtended
+	
+	If Err.Number <> 0 Then   
+		MsgBox Err.description
+		ConnectToExcel = ""
+		Set objConnection = Nothing    
+		Exit Function
+	End If
+	Set ConnectToExcel = objConnection
+
+End Function
+
+'#########################################################################
+''' <summary> 
+''' ReportTestResult Function is to report results to html from html
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Public Sub ReportTestResult()
+			 
+	On Error Resume Next
+	Err.Clear
+
+	Dim strSQL,objCommand,FieldList,ValuesList
+
+	FieldList = "(TestScript,TestResult,TestDuration)"
+	ValuesList =  "'" & TestScriptName & "','" & TestResult1 & "','" & GetExecutionTime(TestStartTime,TestEndTime) & "'"
+
+	Set objCommand = CreateObject("ADODB.Command") 
+	Set objCommand.ActiveConnection = DBConnection_Results
+
+	objCommand.CommandText = "INSERT INTO [TestResults$] " & FieldList & " Values (" & ValuesList & ")"
+	objCommand.Execute , , adCmdText
+
+	If Err.Number <> 0 Then   
+			 MsgBox Err.Description
+			 Set objCommand = Nothing    
+			 Exit Sub
+	End If
+	Set objCommand = Nothing 
+
+End Sub
+
+'#########################################################################
+''' <summary> 
+''' KillProcess Function is to kill the excel process
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Function KillProcess()
+
+	On Error Resume Next 
+	Set objWMIService = GetObject("winmgmts:{impersonationLevel=impersonate}" & "!\\.\root\cimv2")
+	
+	Set colProcess = objWMIService.ExecQuery ("Select * From Win32_Process")
+	For Each objProcess in colProcess
+	  If LCase(objProcess.Name) = LCase("excel.exe") Then
+	     'objWshShell.Run "TASKKILL /F /T /IM " & objProcess.Name, 0, False
+	     objProcess.Terminate()
+	  End If
+	Next
+	
+End Function
+
+
+'#########################################################################
+''' <summary> 
+''' WriteResultLog Function is to write the reporter for every step in html report
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+ '<param name="testcaseNumber" type="String"></param>
+ '<param name="stepDescription" type="String"></param>
+ '<param name="result" type="String"></param>
+ '<param name="screenshotRequired" type="Boolean"></param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Sub WriteResultLog(ByVal testcaseNumber, ByVal stepDescription, ByVal result, ByVal screenshotRequired)
+
+	On Error Resume Next
+	Err.Clear
+	
+	If isEmpty(ResultsFolder) Then
+		Exit Sub
+	End If
+	
+	If UCase(result) = "INFO" Then
+		strManualStepNo = ""
+	Else
+		strManualStepNo = testcaseNumber
+	End If
+	
+	If UCase(result) = "FAILED" Then
+		Iteration_Result="Failed"
+		mstepResult = "Failed"
+		TestResult1 = "Failed"
+		screenshotRequired = true
+	End If	
+	StepResult = result
+	mstepResult = result
+	
+	If screenshotRequired Then
+		'Capture screenshot
+		Environment.value("blnAttachScreenshot")="TRUE"
+		stepScreenshot = ResultsFolder & "\" & TestScriptName & "_" & testcaseNumber & "_" & Hour(Time) & Minute(Time) & Second(Time) & ".png" 
+		Desktop.CaptureBitmap stepScreenshot
+	Else
+		Environment.value("blnAttachScreenshot")="FALSE"
+	End If
+	
+	StepActual = stepDescription
+	
+	If Environment.value("blnAttachScreenshot")="TRUE" Then
+		ValidateScreenCapture="TRUE"
+	Else
+		ValidateScreenCapture="FALSE"
+	End If	
+	
+	stepDuration = GetExecutionTime(StepStartTime,StepEndTime)
+	Call ReportResult1()
+	stepScreenshot = ""
+	stepActual = ""
+	stepResult = ""
+End Sub
+
+'#########################################################################
+''' <summary> 
+''' GetExecutionTime Function is to return execution time
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+ '<param name="StartTime" type="date"></param>
+  '<param name="EndTime" type="date"></param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Public Function GetExecutionTime(StartTime,EndTime)
+	GetExecutionTime = datediff("s",StartTime,EndTime)
+End Function
+
+'#########################################################################
+''' <summary> 
+''' ReportResult1 Function is to report result from excel
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Public Sub ReportResult1()
+			 
+	On Error Resume Next
+	Err.Clear
+	
+	If not isObject(DBConnection_Results) Then
+		Print "No result folder"
+		Exit Sub
+	End If
+	
+	Dim strSQL,objCommand,FieldList,ValuesList,intbreakUpDescription,intbreakUpExpected,intbreakUpActual,breakup
+	Dim breakUpActual()
+	Dim breakUpDescription()
+	Dim breakUpExpected()
+	stepActual = " " & stepActual & vbLf & stepErrorMessage
+	stepActual = Right(stepActual,Len(stepActual)-1)
+	intbreakUpDescription=0
+	intbreakUpExpected=0
+	intbreakUpActual=0
+	If Instr(1,strManualStepNo,".") Then
+			stepDescription=""
+			stepExpected=""
+			
+	End If
+	
+	stepActual=Replace(stepActual,vbLf,"(*)")
+	stepActual=Replace(stepActual,"'","(-)")      
+	       					
+	FieldList = "(TestScript,ManualStep,StepDescription,Expected,Actual,Result,Duration,Screenshot,Iteration,ValidateScreenCapture,breakUpDescription,breakUpExpected,breakUpActual)"
+	'** To ignore logging the Description and expected result in case of substeps e.g. Step 1.1 
+	
+	If IsEmpty(ValidateScreenCapture) Then
+		ValidateScreenCapture=""
+	End If
+	
+	
+
+	stepDescription = ""
+	stepExpected = ""
+	CurrentIteration = "1"
+	If intbreakUpDescription=0 And intbreakUpExpected=0 And intbreakUpActual=0 Then
+		
+	
+		ValuesList =  "'" & TestScriptName &  "','" & strManualStepNo & "','" & stepDescription & "','" & stepExpected & _
+								 "','" & stepActual & "','" & StepResult & "','" & stepDuration & "','" & stepScreenshot & "','" & CurrentIteration & "','" & ValidateScreenCapture & "','"&intbreakUpDescription & "','" &intbreakUpExpected& "','" &intbreakUpActual& "'"
+	
+		Set objCommand = CreateObject("ADODB.Command") 
+		Set objCommand.ActiveConnection = DBConnection_Results
+	
+		objCommand.CommandText = "INSERT INTO [StepResults$] " & FieldList & " Values (" & ValuesList & ")"
+		objCommand.Execute , ,adCmdText
+		Err.Clear
+		
+	Else
+		Set objCommand = CreateObject("ADODB.Command") 
+		Set objCommand.ActiveConnection = DBConnection_Results
+		Dim iMax
+		iMax=0
+		If iMax<intbreakUpDescription Then
+			iMax=intbreakUpDescription
+		End If
+		If iMax<intbreakUpExpected Then
+			iMax=intbreakUpExpected
+		End If
+		If iMax<intbreakUpActual Then
+			iMax=intbreakUpActual
+		End If
+		
+		ReDim Preserve breakUpDescription(iMax)
+		ReDim Preserve breakUpExpected(iMax)
+		ReDim Preserve breakUpActual(iMax)
+		
+		Dim StartDescriptionappend
+		For StartDescriptionappend = 0 To iMax-1
+			If intbreakUpDescription=0 And StartDescriptionappend = 0 Then
+				breakUpDescription(StartDescriptionappend)=stepDescription
+			End If
+			If intbreakUpExpected=0 And StartDescriptionappend = 0 Then
+				breakUpExpected(StartDescriptionappend)=stepExpected
+			End If
+			If intbreakUpActual=0 And StartDescriptionappend = 0 Then
+				breakUpActual(StartDescriptionappend)=stepActual
+			End If
+			ValuesList =  "'" & TestScriptName &  "','" & strManualStepNo & "','" & breakUpDescription(StartDescriptionappend) & "','" & breakUpExpected(StartDescriptionappend) & _
+								 "','" & breakUpActual(StartDescriptionappend) & "','" & mstepResult & "','" & stepDuration & "','" & stepScreenshot & "','" & CurrentIteration & "','" & ValidateScreenCapture & "','"&intbreakUpDescription & "','" &intbreakUpExpected& "','" &intbreakUpActual& "'"
+	
+			objCommand.CommandText = "INSERT INTO [StepResults$] " & FieldList & " Values (" & ValuesList & ")"
+			objCommand.Execute , ,adCmdText
+		Next
+	End If
+	
+	Dim i
+	For i = 1 To ubound(UserInsertedReport)
+		objCommand.CommandText = UserInsertedReport(i)
+		objCommand.Execute , ,adCmdText
+	Next
+	Redim UserInsertedReport(0)
+	
+	If Err.Number <> 0 Then   
+			 Print Err.Description
+			 Set objCommand = Nothing    
+			 Exit Sub
+	End If
+	Set objCommand = Nothing    
+
+End Sub
+
+'#########################################################################
+''' <summary> 
+''' reporterEvent Function is to return execution time
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+ '<param name="StartTime" type="date"></param>
+  '<param name="EndTime" type="date"></param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Function reporterEvent(myStepNo, myDes, myExp, myAct, myResult, withSnapshot)
+	On error resume next
+	Err.clear
+	If lcase(myResult) <> "passed" Then
+		Iteration_Result="Failed"
+		TestResult1 = "Failed"
+	End If
+	Dim FieldList, myDuration, zero, ValidateScreenCapture, ValuesList
+	FieldList = "(TestScript,ManualStep,StepDescription,Expected,Actual,Result,Duration,Screenshot,Iteration,ValidateScreenCapture,breakUpDescription,breakUpExpected,breakUpActual)"
+
+	myDuration = "0"
+	zero = "0"
+	if lcase(withSnapshot) = "yes" then
+		withSnapshot = "TRUE"
+	End if
+	ValidateScreenCapture = UCASE(withSnapshot)
+
+	Dim mySnapshot
+	If ValidateScreenCapture = "TRUE" Then
+		mySnapshot = ResultsFolder & "\" & TestScriptName & "_" & strManualStepNo & "_" & Hour(Time) & Minute(Time) & Second(Time) & ".png"
+		Desktop.CaptureBitmap mySnapshot
+		wait 1		
+	End If	
+	ValuesList =  "'" & TestScriptName &  "','" & myStepNo & "','" & myDes & "','" & myExp & _
+			"','" & myAct & "','" & myResult & "','" & myDuration & "','" & mySnapshot & "','" & _
+			CurrentIteration & "','" & ValidateScreenCapture & "','"&zero & "','" &zero& "','" &zero& "'"
+	
+	redim preserve UserInsertedReport(ubound(UserInsertedReport)+1)
+	UserInsertedReport(ubound(UserInsertedReport)) = "INSERT INTO [StepResults$] " & FieldList & " Values (" & ValuesList & ")"
+			
+	If Err.Number <> 0 Then
+		Print Err.Description
+	End If
+End Function
+
+
+'#########################################################################
+''' <summary> 
+''' CompleteReport Function is to export final report to html from excel
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Public Sub CompleteReport
+
+	On Error Resume Next
+	Dim strFile,objFSO
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+	
+	ExecutionEndTime = Now
+	AddTestResultToHTML
+	DBConnection_Results.Close
+	Set DBConnection_Results = Nothing
+	
+	If AddNameToReportFile = "" Then
+		AddNameToReportFile = TestScriptName
+	End If
+	
+	strFile = ResultsFolder & "\ExecutionResults_BatchRun.htm"
+	objFSO.MoveFile ResultsFolder & "\ExecutionResults.htm",strFile
+	Wait 2
+	
+	strFile = ResultsFolder & "\TestResults.xls"
+	objFSO.DeleteFile strFile,True 
+
+End Sub
+
+
+'#########################################################################
+''' <summary> 
+''' DisposeDBConnection sub is to kill DB connection
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Public Sub DisposeDBConnection()
+
+	On Error Resume Next
+	DBConnection_Results.Close
+	Set DBConnection_Results = Nothing
+	DBConnection_Repository.Close
+	Set DBConnection_Repository = Nothing
+	DBConnection_TestData.Close
+	Set DBConnection_TestData = Nothing
+	
+End Sub
+
+'#########################################################################
+''' <summary> 
+''' AddTestResultToHTML sub is to export html results 
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Public Sub AddTestResultToHTML()
+
+	On Error Resume Next
+	Err.Clear
+	Dim strSQL,rs,strFile,objFSO
+	Dim Count_TC,Count_Passed,Count_Failed,Count_NotRun
+	Count_TC = 0
+	Count_Passed = 0
+	Count_Failed = 0
+	Count_NotRun = 0
+	
+	Const ForAppending = 8
+	
+	' Open Execution Results.htm file
+	strFile = ResultsFolder & "\ExecutionResults.htm"
+					
+	set objFSO = CreateObject("Scripting.FileSystemObject")					
+	set HTMLResultsStreamWriter = objFSO.OpenTextFile(strFile, ForAppending, True)
+	
+	'Get Test results
+	strSQL = "SELECT * FROM [TestResults$]"
+	Set rs = CreateObject("ADODB.Recordset")
+	rs.Open strSQL, DBConnection_Results, adOpenStatic, adLockOptimistic, adCmdText
+	
+	If rs.RecordCount <> 0 Then
+		
+	
+	Do While not rs.eof
+	
+			Dim tName,tResult,tDuration
+			tName = rs.Fields.Item("TestScript").Value
+			tResult = rs.Fields.Item("TestResult").Value
+			tDuration = rs.Fields.Item("TestDuration").Value
+	
+			If IsNull(tName)Then
+			Else
+				Print tResult
+				If LCase(tResult) = "passed" Then
+					Count_Passed = Count_Passed + 1
+				ElseIf LCase(tResult) = "failed" Then
+					Count_Failed = Count_Failed + 1
+				ElseIf tResult = "Not Run" Then
+					Count_NotRun = Count_NotRun + 1
+				End If
+				Count_TC = Count_TC + 1
+				Call AddStepResultsToHTML(tName,tResult,tDuration,Count_TC)
+			End If
+			rs.MoveNext 
+		Loop
+	End If
+	'finish the HTML Report
+	HTMLResultsStreamWriter.WriteLine("</table>" & vbLf)
+	HTMLResultsStreamWriter.WriteLine("<input type=""hidden"" id =""hdpassed"" value ="""&Metrics_Passed&""" />" & vbLf &_
+															  "<input type=""hidden"" id =""hdfailed"" value="""&Metrics_Failed&""" />" & vbLf &_
+															  "<input type=""hidden"" id =""hdTotal"" value="""&Metrics_TotalExecuted&""" />" & vbLf)
+	HTMLResultsStreamWriter.WriteLine("</body>  </html>")
+	HTMLResultsStreamWriter.Close()
+	HTMLResultsStreamWriter = Nothing
+	Set rs = Nothing
+	
+	ReplaceSummary CINT(Count_Passed),CINT(Count_Failed),CINT(Count_TC),CINT(Metrics_Passed),CINT(Metrics_Failed),CINT(Metrics_NotRun),CINT(Metrics_TotalExecuted)
+	
+	If Err.Number <> 0 Then   
+		
+			 Err.Clear
+			 Exit Sub
+	End If
+
+End Sub
+
+'#########################################################################
+''' <summary> 
+''' AddStepResultsToHTML Function is to add step results to hrml report
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+ '<param name="TestScript" type="string"></param>
+  '<param name="TResult" type="string"></param>
+  '<param name="TDuration" type="date"></param>
+    '<param name="Count_TC" type="numeric"></param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Public Sub AddStepResultsToHTML(TestScript,TResult,TDuration,Count_TC)
+				 
+					On Error Resume Next
+					Err.Clear
+
+					Dim strSQL,rs
+					'Get Iteration results
+					strSQL = "SELECT Iteration FROM [StepResults$] where TestScript='" & TestScript & "' GROUP BY Iteration"
+					Set rs = CreateObject("ADODB.Recordset")
+					rs.Open strSQL, DBConnection_Results, adOpenStatic, adLockOptimistic, adCmdText
+
+					Dim bgColor,strHyperLnk 
+			
+					If Count_TC Mod 2 = 1 Then
+						bgColor = "#FFFFFF"
+					Else
+						bgColor = "#D6EBFC"
+					End If
+			
+					Dim failColor
+			
+					If TResult = "Passed" Then
+						'failColor = "#000000" 
+						failColor = "#008000"
+					ElseIf TResult = "Failed" Then
+						failColor = "#FF0000"
+					ElseIf TResult = "Not Run" Then
+						failColor = "#FF0000"
+					End If
+             
+					'Write full test result
+					HTMLResultsStreamWriter.Write(_
+						"<tr>" & vbLf &_
+						"<td id=""main" & Count_TC & """ style=""vertical-align: middle; text-align: center; font-family: Calibri; padding: 0px; margin: 0px; background-color: " & bgColor & ";""> " &_
+							"&nbsp;<a href=""javascript:void(0)"" onclick=""toggle(" & Count_TC & ", 'open')"" class=""style7"">+</a>&nbsp;</td>" & vbLf &_
+						 "<td style=""vertical-align: middle; text-align: center; font-family: Calibri; padding: 0px; margin: 0px; background-color: " & bgColor & ";""> " &_
+							  Count_TC & "</td>" & vbLf &_
+						 "<td style=""vertical-align: middle; text-align: center; font-family: Calibri; padding: 0px; margin: 0px; background-color: " & bgColor & ";""> " &_
+							TestScript & "</td>" & vbLf &_
+						 "<td style=""vertical-align: middle; text-align: center; font-family: Calibri; padding: 0px; margin: 0px; background-color: " & bgColor & "; color: " & failColor & ";""> " &_
+							TResult & "</td>" & vbLf &_
+						 "<td style=""vertical-align: middle; text-align: center; font-family: Calibri; padding: 0px; margin: 0px; background-color: " & bgColor & ";""> " &_
+						  TDuration & "</td>" & vbLf &_
+						"</tr>" & vbLf)
+			
+					HTMLResultsStreamWriter.WriteLine(_
+						 "<tr> " & vbLf &_
+						 "<td colspan=""6"" style=""vertical-align: middle; text-align: center; font-family: Calibri;  margin: 0px; background-color: #FFFFFF;""  > " & vbLf &_
+						 "<div  id=""subItem" & Count_TC & """ style=""display :none "" width=""100%"">")
+			
+					Do While not rs.eof
+
+							'create header for the sub table
+							HTMLResultsStreamWriter.WriteLine("<p></p>")
+							Dim citeration
+							citeration = rs.Fields.Item("Iteration").Value
+
+
+							HTMLResultsStreamWriter.WriteLine(_
+								"<table align=""center"" style=""border-style: ridge; border-width: 2px; width:95%;"" cellpadding=""0"" cellspacing=""0"" > " & vbLf &_
+								"<tr>" & vbLf &_
+								   "<th width=""15%"" style=""border-style: solid; border-width: 1px; background-color: #00B5F0"">Test Step</th> " & vbLf &_
+								   "<th width=""20%"" style=""border-style: solid; border-width: 1px; background-color: #00B5F0"">Status </th> " & vbLf &_
+								   "<th style=""border-style: solid; border-width: 1px; background-color: #00B5F0"">Actual Result</th> " & vbLf &_
+							   "</tr>" & vbLf)
+
+
+						    Dim rs_new
+							'Add step results one by one 
+							strSQL = "SELECT * FROM [StepResults$] WHERE TestScript='" & TestScript & "' And Iteration='" & citeration & "'"
+							Set rs_new = CreateObject("ADODB.Recordset")
+							rs_new.Open strSQL, DBConnection_Results, adOpenStatic, adLockOptimistic, adCmdText
+							
+							Do While not rs_new.eof
+								Dim sResult,failDesc,AttachScreen
+								Dim intbreakUpDes,strFullDescription,intStartbreakUpDes
+								Dim intbreakUpExp,strFullExpected
+								Dim intbreakUpAct,strFullActual
+							   ' Add step results to the sub table
+							    If rs_new.Fields.Item("breakUpDescription").Value=0 And rs_new.Fields.Item("breakUpExpected").Value=0 And rs_new.Fields.Item("breakUpActual").Value=0 Then
+							    		
+							    		
+										Dim stepDesc
+										stepDesc = rs_new.Fields.Item("ManualStep").Value
+										if instr(stepDesc,"Running") > 0 or instr(stepDesc, "###") > 0 then
+											HTMLResultsStreamWriter.WriteLine(_
+											"<tr>" & vbLf &_
+													   "<td  style=""border-style: solid; border-width: 1px;""><b> " &_
+														   rs_new.Fields.Item("ManualStep").Value & "</b></td>" & vbLf)
+										Else
+											HTMLResultsStreamWriter.WriteLine(_
+											"<tr>" & vbLf &_
+													   "<td  style=""border-style: solid; border-width: 1px;""> " &_
+														   rs_new.Fields.Item("ManualStep").Value & "</td>" & vbLf)
+										end if
+										
+							     
+										'Dim sResult 
+										sResult = rs_new.Fields.Item("Result").Value
+										'Dim failDesc
+										failDesc = rs_new.Fields.Item("Actual").Value
+										failDesc=Replace(failDesc,"(*)","<br>")
+										failDesc=Replace(failDesc,"(-)","'")
+										'Dim AttachScreen
+										AttachScreen=rs_new.Fields.Item("ValidateScreenCapture").Value
+										
+										If Not Cstr(failDesc) = "" Then
+											failDesc = Replace(Cstr(failDesc),vbLf,"<br>")
+										End If
+										
+										If UCase(sResult) = "PASS" Then
+											If AttachScreen="TRUE" Then
+'													
+												HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; border-width: 1px;"" > " &_
+													   "<a style=""color:#008000;"" href= """ & CreateObject("Scripting.FileSystemObject").GetFileName(rs_new.Fields.Item("Screenshot").Value) & """ target=""_blank"">Pass</a> </td>" & vbLf)
+												HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; text-align: left; border-width: 1px;color:#008000;""> " &_
+														failDesc & "</td>" & vbLf & "</tr>" & vbLf)
+											Else
+											
+												HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; border-width: 1px;color:#008000;""  > " &_
+													  sResult & "</td>" & vbLf)
+												HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; text-align: left; border-width: 1px;""> " &_
+														failDesc & "</td>" & vbLf & "</tr>" & vbLf)
+											End If
+											
+											Metrics_Passed = Metrics_Passed + 1
+										ElseIf UCase(sResult) = "FAIL" Then
+											If rs_new.Fields.Item("Screenshot").Value<>"FALSE" Then	
+												strHyperLnk="<a style=""color:#FF0000;"" href= """ & CreateObject("Scripting.FileSystemObject").GetFileName(rs_new.Fields.Item("Screenshot").Value) & """  target=""_blank"">" & sResult & "</a> </td>" 
+											Else
+												strHyperLnk= sResult & "</td>"
+											End If
+											
+											HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; border-width: 1px; color:#FF0000;"" > " & strHyperLnk & vbLf)
+											HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; text-align: left; border-width: 1px;color:#FF0000;""> " &_
+												failDesc & "</td>" & vbLf & "</tr>" & vbLf)
+
+											Metrics_Failed = Metrics_Failed + 1
+										Else
+											If rs_new.Fields.Item("Screenshot").Value<>"FALSE" Then	
+												strHyperLnk="<a style=""color:#646464;"" href= """ & CreateObject("Scripting.FileSystemObject").GetFileName(rs_new.Fields.Item("Screenshot").Value) & """  target=""_blank"">" & sResult & "</a> </td>" 
+											Else
+												strHyperLnk= sResult & "</td>"
+											End If
+											
+											HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; border-width: 1px; color:#646464;"" > " & strHyperLnk & vbLf)
+											If instr(lcase(failDesc), "testcase") > 0 or instr(lcase(failDesc), "test case") > 0 Then
+												HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; text-align: left; border-width: 1px;""> <b>" &_
+												failDesc & "</b></td>" & vbLf & "</tr>" & vbLf)
+											Else
+												HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; text-align: left; border-width: 1px;""> " &_
+												failDesc & "</td>" & vbLf & "</tr>" & vbLf)
+											End If											
+										End If
+										rs_new.MoveNext 
+								Else
+
+										intbreakUpDes=Cint(rs_new.Fields.Item("breakUpDescription").Value)
+										intbreakUpExp=Cint(rs_new.Fields.Item("breakUpExpected").Value)
+										intbreakUpAct=Cint(rs_new.Fields.Item("breakUpActual").Value)
+										Dim iMax
+										iMax=0
+										If iMax<intbreakUpDes Then
+											iMax=intbreakUpDes
+										End If
+										If iMax<intbreakUpExp Then
+											iMax=intbreakUpExp
+										End If
+										If iMax<intbreakUpAct Then
+											iMax=intbreakUpAct
+										End If
+										strFullDescription=""
+										strFullExpected=""
+										strFullActual=""
+										For intStartbreakUpDes = 1 To iMax
+											
+											strFullActual=strFullActual & rs_new.Fields.Item("Actual").Value
+											If intStartbreakUpDes=1 Then
+												sResult = rs_new.Fields.Item("Result").Value
+											
+												AttachScreen=rs_new.Fields.Item("ValidateScreenCapture").Value
+												Dim strManualStep
+												Dim strExpectedResult
+												Dim strScreenShot
+												
+												strManualStep=rs_new.Fields.Item("ManualStep").Value
+												
+												strScreenShot=rs_new.Fields.Item("Screenshot").Value
+											End If
+											rs_new.MoveNext 
+										Next
+										failDesc=strFullActual
+								
+										failDesc=Replace(failDesc,"(*)","<br>")
+										failDesc=Replace(failDesc,"(-)","'")
+							     		HTMLResultsStreamWriter.WriteLine(_
+											"<tr>" & vbLf &_
+													   "<td  style=""border-style: solid; border-width: 1px;""> " &_
+														   strManualStep & "</td>" & vbLf)
+
+										
+										
+										If Not Cstr(failDesc) = "" Then
+											failDesc = Replace(Cstr(failDesc),vbLf,"<br>")
+										End If
+		
+										If UCase(sResult) = "PASS" Then
+											If AttachScreen="TRUE" Then
+												HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; border-width: 1px;"" > " &_
+													   "<a style=""color:#008000;"" href= """ & CreateObject("Scripting.FileSystemObject").GetFileName(strScreenShot) & """>Passed</a> </td>" & vbLf)
+												HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; text-align: left; border-width: 1px;color:#008000;""> " &_
+														failDesc & "</td>" & vbLf & "</tr>" & vbLf)
+											Else
+											
+												HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; border-width: 1px;"" > " &_
+													  sResult & "</td>" & vbLf)
+												HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; text-align: left; border-width: 1px;""> " &_
+														failDesc & "</td>" & vbLf & "</tr>" & vbLf)
+											End If
+											
+											Metrics_Passed = Metrics_Passed + 1
+												
+										ElseIf UCase(sResult) = "FAIL" Then
+											If rs_new.Fields.Item("Screenshot").Value<>"FALSE" Then	
+												strHyperLnk="<a style=""color:#FF0000;"" href= """ & CreateObject("Scripting.FileSystemObject").GetFileName(rs_new.Fields.Item("Screenshot").Value) & """  target=""_blank"">" & sResult & "</a> </td>" 
+											Else
+												strHyperLnk= sResult & "</td>"
+											End If
+											HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; border-width: 1px; color:#FF0000;"" > " & strHyperLnk & vbLf)
+											HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; text-align: left; border-width: 1px;color:#FF0000;""> " &_
+												failDesc & "</td>" & vbLf & "</tr>" & vbLf)
+												
+											Metrics_Failed = Metrics_Failed + 1
+										Else
+											If rs_new.Fields.Item("Screenshot").Value<>"FALSE" Then	
+												strHyperLnk="<a style=""color:#646464;"" href= """ & CreateObject("Scripting.FileSystemObject").GetFileName(rs_new.Fields.Item("Screenshot").Value) & """  target=""_blank"">" & sResult & "</a> </td>" 
+											Else
+												strHyperLnk= sResult & "</td>"
+											End If
+											HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; border-width: 1px; color:#646464;"" > " & strHyperLnk & vbLf)
+											HTMLResultsStreamWriter.WriteLine("<td style=""border-style: solid; text-align: left; border-width: 1px;""> " &_
+												failDesc & "</td>" & vbLf & "</tr>" & vbLf)
+										End If
+										 
+								End If
+							Loop
+							rs_new.Close 
+							Set rs_new = Nothing    
+							HTMLResultsStreamWriter.WriteLine("</table>" & vbLf &_
+							"</div>" & vbLf)
+							rs.MoveNext 
+ 					Loop
+					rs.Close
+					Set rs = Nothing    
+					
+					'finish the sub table
+					HTMLResultsStreamWriter.WriteLine("<p></p>" & vbLf & "</td> </tr>")
+					Metrics_TotalExecuted = Metrics_Passed + Metrics_Failed
+					If Err.Number <> 0 Then   
+							 
+							 Err.Clear
+							 Exit Sub
+					End If
+
+
+End Sub
+
+'#########################################################################
+''' <summary> 
+''' ReplaceSummary Function is to add step results in html header 
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+ '<param name="script_Passed" type="string"></param>
+  '<param name="script_Failed" type="string"></param>
+  '<param name="total_scripts" type="int"></param>
+    '<param name="Count_Passed" type="numeric"></param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Public Sub ReplaceSummary(script_Passed, script_Failed, total_scripts, Count_Passed, Count_Failed,Count_NotRun,Total_TC)
+	On Error Resume Next
+	
+	Dim objFSO,objTextFile,strFile,strText
+	Const ForReading = 1
+	Const ForWriting = 2
+	
+	' Open Execution Results.htm file
+	strFile = ResultsFolder & "\ExecutionResults.htm"
+		set objFSO = CreateObject("Scripting.FileSystemObject")					
+	Set objTextFile = objFSO.OpenTextFile(strFile, ForReading)
+	strText = objTextFile.ReadAll
+	
+	'calculate total execution time
+	totalExecSeconds = GetExecutionTime(ExecutionStartTime, ExecutionEndTime)
+	totalHours = totalExecSeconds \ 3600
+	totalExecSeconds = totalExecSeconds Mod 3600
+	totalMinutes = totalExecSeconds \ 60 
+	totalSeconds = totalExecSeconds Mod 60
+	
+	Print totalHours
+	Print totalMinutes
+	Print totalSeconds
+	
+	totExecTime = totalHours & " hr(s) " & totalMinutes & " min(s) " & totalSeconds & " sec(s)"
+		
+	strText = Replace(strText,"&amp;Host&amp;", Environment.Value("LocalHostName"))
+	strText = Replace(strText,"&amp;TC NAME&amp;", ""&GlobalDictionary("TestName"))
+	strText = Replace(strText,"&amp;TC Spec IDs&amp;",""&GlobalDictionary("combinedTCSpecs"))
+	strText = Replace(strText,"&amp;Start Time&amp;", ExecutionStartTime)
+'	strText = Replace(strText,"&amp;End Time&amp;", ExecutionEndTime)
+	strText = Replace(strText,"&amp;Execution Duration&amp;", totExecTime)
+	
+	strText = Replace(strText,"&amp;Total TC&amp;", total_scripts)
+	strText = Replace(strText,"&amp;Passed&amp;", script_Passed)
+	strText = Replace(strText,"&amp;Failed&amp;", script_Failed)
+	
+	objTextFile.Close
+	Set objTextFile = Nothing
+	
+	Set objTextFile = objFSO.OpenTextFile(strFile, ForWriting)
+	objTextFile.Write strText
+	objTextFile.Close
+	Set objTextFile = Nothing
+	
+	
+	Environment.Value("Total_TC")=Total_TC
+	Environment.Value("Count_Passed")=Count_Passed
+	Environment.Value("Count_Failed")=Count_Failed
+	
+	
+	If Err.Number <> 0 Then   
+			 MsgBox err.description
+			 Err.Clear
+			 Exit Sub
+	End If
+End Sub
+
+'#########################################################################
+''' <summary> 
+''' CreateExcelTables Function is to created table in the given workbook
+''' </summary>
+''' <author>Venu Arigela</author>
+''' <datecreated>21-Dec-2015</datecreated>
+ '<param name="inpWorkbook" type="string"></param>
+''' <startstate>NA</startstate>
+''' <endstate>Completed</endstate>
+''' <returns>NA</returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'##########################################################################
+Public Function CreateExcelTables(inpWorkbook)
+ 
+					On Error Resume Next
+
+					Dim inpWorksheet
+					Set inpWorksheet = inpWorkbook.Worksheets(1)
+					inpWorksheet.Cells(1,1) = "TestScript"
+					inpWorksheet.Cells(1,2) = "TestResult"
+					inpWorksheet.Cells(1,3) = "TestDuration"
+
+					Set inpWorksheet = inpWorkbook.Worksheets(2)
+					inpWorksheet.Cells(1,1) = "TestScript"
+					inpWorksheet.Cells(1,2) = "ManualStep"
+					inpWorksheet.Cells(1,3) = "StepDescription"
+					inpWorksheet.Cells(1,4) = "Expected"
+					inpWorksheet.Cells(1,5) = "Actual"
+					inpWorksheet.Cells(1,6) = "Result"
+					inpWorksheet.Cells(1,7) = "Duration"
+					inpWorksheet.Cells(1,8) = "Screenshot"
+					inpWorksheet.Cells(1,9) = "Iteration"
+					inpWorksheet.Cells(1,10) = "ValidateScreenCapture"
+					'to accomodate more than 255 characters in html report
+					inpWorksheet.Cells(1,11) = "breakUpDescription"
+					inpWorksheet.Cells(1,12) = "breakUpExpected"
+					inpWorksheet.Cells(1,13) = "breakUpActual"
+					If Err.Number <> 0 Then   
+							 MsgBox Err.description
+							 CreateExcelTables = False
+							 Exit Function
+					End If
+					CreateExcelTables = True
+
+End Function
+
+Public Function InitializeRepository()
+
+	On Error Resume Next
+	Dim RepositoryFile,objFSO
+	
+	RepositoryFile = Environment("REPOSITORYFILE_PATH")
+	If RepositoryFile = "" Then
+		InitializeRepository = True
+		Exit Function
+	End If
+	
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+	If Not objFSO.FileExists(RepositoryFile) Then
+		InitializeRepository = False
+		Exit Function
+	End If
+	
+	' Connect to the excel database
+	Set DBConnection_Repository = ConnectToExcel(RepositoryFile,"YES")
+	If Not DBConnection_Repository.State = 1 Then
+		InitializeRepository = False
+		Exit Function
+	End If
+	
+	If Err.Number <> 0 Then   
+		MsgBox Err.Description
+		Err.Clear 
+		InitializeRepository = false
+		Exit Function
+	End If 
+	
+	InitializeRepository = True
+
+End Function
+
+Public Function InitializeTestData()
+
+	On Error Resume Next
+	Dim TestDataFile,objFSO
+	
+	TestDataFile = Environment("TESTDATA_PATH")
+	If TestDataFile = "" Then
+		InitializeTestData = True
+		Exit Function
+	End If
+	
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+	If Not objFSO.FileExists(TestDataFile) Then
+		InitializeTestData = False
+		Exit Function
+	End If
+	
+	' Connect to the excel database
+	Set DBConnection_TestData = ConnectToExcel(TestDataFile,"YES")
+	If Not DBConnection_TestData.State = 1 Then
+		InitializeTestData = False
+		Exit Function
+	End If
+	
+	If Err.Number <> 0 Then   
+		MsgBox Err.Description
+		Err.Clear 
+		InitializeTestData = false
+		Exit Function
+	End If 
+	
+	InitializeTestData = True
+
+End Function
+
+
+Public Function GetTestDataIterations()
+
+	On Error Resume Next
+	Err.Clear
+		
+	Dim TestSheet
+	TestSheet = "[" & TestScriptName & "$]"
+	
+	Dim strSQL,rs
+	Set rs= CreateObject("ADODB.Recordset")
+	strSQL = "SELECT * FROM " & TestSheet & " where Run = 'Y'"
+	rs.Open strSQL, DBConnection_TestData, adOpenStatic, adLockOptimistic, adCmdText
+	
+	If Err.Number <> 0 Then   
+		Msgbox "Error while executing the SQL." & Err.Description
+		GetTestDataIterations = false
+		Set rs = nothing
+		Exit Function
+	End If 
+	
+	IterationCount = rs.RecordCount
+	
+	rs.Close
+	Set rs = nothing
+	GetTestDataIterations = true
+
+End Function
+
+
+
+
+
+Public Function RetrieveTestData(ByVal iterationNo)
+
+	On Error Resume Next
+	Err.Clear
+	
+	Dim strSQL,rs, colCount,col
+	Set rs= CreateObject("ADODB.Recordset")
+	
+	Dim TestSheet
+	TestSheet = "[" & TestScriptName & "$]"
+	
+	strSQL = "SELECT * FROM " & TestSheet & " where Run = 'Y'"
+	rs.Open strSQL, DBConnection_TestData, adOpenStatic, adLockOptimistic, adCmdText				
+	
+	If Err.Number <> 0  Then   
+		Msgbox "Error while executing the SQL." & Err.Description
+		RetrieveTestData = false
+		Set rs = nothing
+		Exit Function
+	End If 
+	
+	If rs.RecordCount < 1 Then
+		RetrieveTestData = false
+		Set rs = nothing
+		Exit Function
+	End If
+	
+	rs.Move iterationNo-1,1
+		If Err.Number <> 0  Then   
+		Msgbox "Error while executing the SQL." & Err.Description
+		RetrieveTestData = false
+		Set rs = nothing
+		Exit Function
+	End If 
+	colCount=rs.Fields.Count
+	Dim fieldNames
+	fieldNames = rs.fields
+	
+	For col =2 To colCount
+	
+		Print fieldNames(col)
+
+	Next
+	
+	rs.Close
+	Set rs = nothing
+	RetrieveTestData = True
+
+End Function
+
+
+
+Function writeLogResult1(ByVal result,ByVal stepDescription)
+	
+	On Error Resume Next
+	If UCase(result) <> "INFO" Then
+		stepCounter = stepCounter + 1
+		strManualStepNo = "TC" & stepCounter
+	Else
+		strManualStepNo = ""
+	End If
+	
+'	strManualStepNo = testcaseNumber
+	If UCase(result) = "FAIL" Then
+		Iteration_Result="Failed"
+		mstepResult = "Failed"
+		TestResult1 = "Failed"
+		screenshotRequired = true		
+	End If	
+	StepResult = result
+	mstepResult = result
+	If screenshotRequired Then
+		'Capture screenshot
+		Environment.value("blnAttachScreenshot")="TRUE"
+		stepScreenshot = ResultsFolder & "\" & TestScriptName & "_" & testcaseNumber & "_" & Hour(Time) & Minute(Time) & Second(Time) & ".png" 
+		Desktop.CaptureBitmap stepScreenshot
+	Else
+		Environment.value("blnAttachScreenshot")="FALSE"
+	End If
+	
+	If len(stepDescription) > 255 Then
+		stepDescription = mid(stepDescription, 1, 254)
+	End If
+	StepActual = stepDescription
+	
+	If Environment.value("blnAttachScreenshot")="TRUE" Then
+		ValidateScreenCapture="TRUE"
+	Else
+		ValidateScreenCapture="FALSE"
+	End If	
+	
+	stepDuration = GetExecutionTime(StepStartTime,StepEndTime)
+	Call ReportResult1()
+	stepScreenshot = ""
+	stepActual = ""
+	stepResult = ""
+End Function
+
+
+Function writeLogResult(ByVal result,ByVal stepDescription,Byval tcStepDesc)
+	
+	On Error Resume Next
+
+	
+	strManualStepNo = tcStepDesc
+	If UCase(result) = "FAIL" Then
+		Iteration_Result="Failed"
+		mstepResult = "Failed"
+		TestResult1 = "Failed"
+		screenshotRequired = true		
+	End If	
+	StepResult = result
+	mstepResult = result
+	If screenshotRequired Then
+		'Capture screenshot
+		Environment.value("blnAttachScreenshot")="TRUE"
+		stepScreenshot = ResultsFolder & "\" & TestScriptName & "_" & testcaseNumber & "_" & Hour(Time) & Minute(Time) & Second(Time) & ".png" 
+		Desktop.CaptureBitmap stepScreenshot
+	Else
+		Environment.value("blnAttachScreenshot")="FALSE"
+	End If
+	
+	If len(stepDescription) > 255 Then
+		stepDescription = mid(stepDescription, 1, 254)
+	End If
+	StepActual = stepDescription
+	
+	If Environment.value("blnAttachScreenshot")="TRUE" Then
+		ValidateScreenCapture="TRUE"
+	Else
+		ValidateScreenCapture="FALSE"
+	End If	
+	
+	stepDuration = GetExecutionTime(StepStartTime,StepEndTime)
+	Call ReportResult1()
+	stepScreenshot = ""
+	stepActual = ""
+	stepResult = ""
+End Function
+
+
+
+
+Function Initialization()
+	Reporter.ReportEvent micPass,"Initialization", "Function called"
+	strOutTestName = ""
+	strOutLogsPath = ""
+	strOutLogFile = ""
+	intStepVerificationFailCount = 0
+	intStepVerificationPassCount = 0
+	Err.Clear
+	On Error Resume Next
+	
+	strFullTestName = GlobalDictionary("TestName")
+	strOutTestName= strFullTestName 
+	strTestLocation = Environment.Value("TestDir")	'Get test script location
+	
+	'Check if enviroment variable exists
+	vTemp = Environment("logsInExecutionLogsFolder")
+	If Err.Number <> 0 Then
+		IsEnvVarEmpty = "TRUE"
+	End If
+	Err.Clear
+	'Create FileSystemObject
+	htmlFolderPath = Environment("HTMLRESULTS_PATH")
+	If err.Description <> "" Then
+		Environment("HTMLRESULTS_PATH") = Environment.Value("PROJECT_FOLDER") & "Reports"
+		Err.Clear
+	End If
+	
+	Set fso = CreateObject("Scripting.FileSystemObject")	
+	
+	InitializeReport
+	ExecutionStartTime = now()
+	
+	Environment.Value("TestCaseName") = strOutTestName
+	Environment.Value("LogFileName") = strOutLogFile
+	'***************************************************************venu*************************************************
+	Environment("HTMLRESULTS_PATH") = Environment.Value("PROJECT_FOLDER") & "Reports"
+
+	
+	ResultsDBFile = ResultsFolder & "\TestResults.xls"
+
+	Set DBConnection_Results = ConnectToExcel(ResultsDBFile,"YES")
+	If Not DBConnection_Results.State = 1 Then
+		InitializeReport = False
+		Exit Function
+	End If
+	
+	TestScriptName = strFullTestName	'ScriptName
+	TestResult1 = "Passed"
+	'start time of the script
+	TestStartTime = Now
+	'***************************************************************venu*************************************************
+	On Error GoTo 0
+	Set fso = Nothing
+End Function

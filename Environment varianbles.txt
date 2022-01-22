@@ -1,0 +1,133 @@
+<?xml version="1.0"?>
+<Environment_Variables>
+  <Variable>
+  <Environment_Variable>AllVars</Environment_Variable>
+  <Value>AllVars.xls</Value>
+  <Description>Environment_Variable of the AllVars excel file</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>AutoLocal</Environment_Variable>
+  <Value>C:\AutoSource_Prod\PSFIN\autolocal\</Value>
+  <Description>Location for output files and temporary files</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>PROJECT_FOLDER</Environment_Variable>
+  <Value>C:\AutoSource_Prod\PSFIN\autolocal\</Value>
+  <Description>Location for output files and temporary files</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>DataLocation</Environment_Variable>
+  <Value>local</Value>
+  <Description>Set to "Default" if using datasheets located in "C:\AutoSource_Prod\PSF\Data". Set to "Shared" if using datasheets located in "k:\AutoSource_Prodi\PSF\Data - DO_NOT_DELETE"</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>DEBUG</Environment_Variable>
+  <Value/>
+  <Description>Placeholder to be filled in during test run</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>DebugTimer</Environment_Variable>
+  <Value/>
+  <Description>Placeholder to be filled in during test run</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>LastFunctionEnd</Environment_Variable>
+  <Value/>
+  <Description>Placeholder to be filled in during test run</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>PrintLog</Environment_Variable>
+  <Value>FALSE</Value>
+  <Description>determines whether test status messages should be written to the print log regardless of whether the test is run from QC or locally</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>QTPVisible</Environment_Variable>
+  <Value>TRUE</Value>
+  <Description>QTP setting during the test execution. Set to TRUE or FALSE</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>Environment</Environment_Variable>
+  <Value>FNREG</Value>
+  <Description>Testing Environment</Description>
+</Variable>
+<Variable>
+<Environment_Variable>ApplicationUrl_FNDEV</Environment_Variable>
+  <Value>https://psfnapwbpstst1.corp.cdw.com:1450/psp/fnrvdev/?cmd=login</Value>
+  <Description>Url for FNDEV used to Launch application</Description>
+</Variable>
+<Variable>
+<Environment_Variable>ApplicationUrl_FNREG</Environment_Variable>
+  <Value>https://psfnapwbregvh1.corp.cdw.com:444/psp/fnreg/?cmd=login</Value>
+  <Description>Url for FNREG used to Launch application</Description>
+</Variable>
+<Variable>
+<Environment_Variable>ApplicationUrl_FNQA</Environment_Variable>
+  <Value>https://psfnqa.corp.cdw.com/psp/fnqa/EMPLOYEE/ERP/h/?tab=DEFAULT&amp;cmd=login</Value>
+  <Description>Url used to Launch application</Description>
+</Variable>
+<Variable>
+<Environment_Variable>ApplicationUrl_FNTST</Environment_Variable>
+  <Value>https://psfnapwbpsdev1.corp.cdw.com:448/psp/fntst/EMPLOYEE/ERP/h/?tab=DEFAULT&amp;cmd=login</Value>
+  <Description>Url used to Launch application</Description>
+</Variable>
+<Variable>
+<Environment_Variable>ApplicationUrl_FNRVTST</Environment_Variable>
+  <Value>https://psfnapwbpstst1.corp.cdw.com:1500/psp/fnrvtst/?cmd=login&amp;languageCd=ENG</Value>
+  <Description>Url used to Launch application</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>TestFlowAction</Environment_Variable>
+  <Value>TestFlows.xls</Value>
+  <Description>If set to "Default" then excel file used is TestFlow.xls , else one specified in action - that contains all of the tests,  datasheet locations and test flow</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>TestStart</Environment_Variable>
+  <Value></Value>
+  <Description>To be filled in during test run</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>Iteration</Environment_Variable>
+  <Value></Value>
+  <Description>To be filled in during test run</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>DBEnvironment_Variable</Environment_Variable>
+  <Value></Value>
+  <Description>Environment_Variable of the DB</Description>
+</Variable>
+ <Variable>
+<Environment_Variable>DBPassword</Environment_Variable>
+  <Value></Value>
+  <Description>DB password</Description>
+</Variable>
+<Variable>
+<Environment_Variable>RevRecInputFolder</Environment_Variable>
+  <Value>\\mir\qa\AutoRegressionResults\RevPro\PSF_GL DONotMODIFY\</Value>
+  <Description>Test Data Local Path</Description>
+</Variable>
+<Variable>
+<Environment_Variable>TestDataNetworkPathPart1</Environment_Variable>
+  <Value>\\rmsearch\PSFN\</Value>
+  <Description>Test Data Network Path</Description>
+</Variable>
+<Variable>
+<Environment_Variable>TestDataNetworkPathPart2</Environment_Variable>
+  <Value>\Journals\RevPro\</Value>
+  <Description>Test Data Network Path</Description>
+</Variable>
+<Variable>
+<Environment_Variable>SharedTransactionIdFile_OLD</Environment_Variable>
+  <Value>\\mir\qa\AutoSource_Prod\PSFinUFT\Data\TransactionIDs.xls</Value>
+  <Description>Shared file on the network drive which contains the updated Transaction IDs</Description>
+</Variable>
+<Variable>
+<Environment_Variable>SharedTransactionIdFile</Environment_Variable>
+  <Value>\\mir\qa\AutoRegressionResults\RevPro\PSF_GL DONotMODIFY\TransactionIDs.xls</Value>
+  <Description>Shared file on the network drive which contains the updated Transaction IDs</Description>
+</Variable>
+<Variable>
+<Environment_Variable>RevProOutputFolder</Environment_Variable>
+  <Value>\\mir\qa\AutoRegressionResults\RevPro\REVPRO_DOWNLOAD\Old\</Value>
+  <Description>Processed file location on the network. Previously \\mir\qa\Automation\Projects\RevPro\Results\ if needed for testing</Description>
+</Variable>
+ </Environment_Variables>

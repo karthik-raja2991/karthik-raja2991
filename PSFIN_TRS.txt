@@ -1,0 +1,4088 @@
+'==========================================================
+'PSFIN Treasury Function Library
+'Contains commonly used functions for Treasury in the PSFin application.
+'Changelog: 
+'Date			Author					Description
+'______________________________________________________ 
+Option Explicit
+'**************************************************************************************************************
+''' <summary> 
+''' Captures a Deal 1.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function CaptureDeal
+	'Navigate to Capture Deals > Deals
+	If SelectMainMenu1(GlobalDictionary("TRSDeals")) Then
+		WriteToReport micPass, "Deals Page", "Navigation to Deals Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Deals Page", "Navigation to Deals page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("Deals").PSFrame("TargetContent")
+		'Click Add a New Value
+		.Link("AddANewValue").Click
+		WriteToReport micDone, "Clicked Add a New Value", "Link Clicked", FALSE
+
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Instrument Type
+		.WebEdit("InstrType").Set GlobalDictionary("InstrType")
+		WriteToReport micDone, "Set Instrument Type: "&GlobalDictionary("InstrType"), "Instrument Type Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set Transaction Date
+		.WebEdit("TransactionDate").Set DateLeadingZeros
+		WriteToReport micDone, "Set Transaction Date: "&DateLeadingZeros, "Transaction Date Set", FALSE
+
+		'Set Settlement Date
+		.WebEdit("SettlementDate").Set DateLeadingZeros
+		WriteToReport micDone, "Set Settlement Date: "&DateLeadingZeros, "Settlement Date Set", FALSE
+
+		'Set Issue Date
+		.WebEdit("IssueDate").Set DateLeadingZeros
+		WriteToReport micDone, "Set Issue Date: "&DateLeadingZeros, "Issue Date Set", FALSE
+
+		'Set Term
+		.WebEdit("Term").Set GlobalDictionary("Term")
+		WriteToReport micDone, "Set Term: "&GlobalDictionary("Term"), "Term Set", FALSE
+
+		'If the Weekend/Business Holiday Warning appears, Click OK
+		If Browser("PeopleSoft Browser").Page("Deals").WebButton("NonBusinessDayYes").Exist(5) Then
+			Browser("PeopleSoft Browser").Page("Deals").WebButton("NonBusinessDayYes").Click
+			WriteToReport micDone, "Accepted Warning to Move Maturity Date to a Business Day after the Weekend/Business Holiday it would have Fallen On", "Warning Accepted", FALSE
+		End If
+
+		'Report the Maturity Date
+		WriteToReport micDone, "Maturity Date Calculated after Entering Term: "&.WebEdit("MaturityDate").GetROProperty("value"), "Reported Maturity Date", FALSE
+
+		'Set Coupon Start Date
+		.WebEdit("CouponStartDate").Set DateLeadingZeros
+		WriteToReport micDone, "Set Coupon Start Date: "&DateLeadingZeros, "Coupon Start Date Set", FALSE
+
+		'Select Rate Type
+		.WebList("RateType").Select GlobalDictionary("RateType")
+		WriteToReport micDone, "Selected Rate Type: "&GlobalDictionary("RateType"), "Rate Type Selected", FALSE
+
+		'Set Rate
+		.WebEdit("Rate").Set GlobalDictionary("Rate")
+		WriteToReport micDone, "Set Rate: "&GlobalDictionary("Rate"), "Rate Set", FALSE
+
+		'Clear Reset Index
+		.WebEdit("ResetIndex").Set ""
+		WriteToReport micDone, "Cleared the Reset Index Field", "Reset Index Cleared", FALSE
+
+		'Unselect any Margin Operator Option
+		.WebList("MarginOperator").Deselect .WebList("MarginOperator").GetROProperty("value")
+		WriteToReport micDone, "Cleared the Margin Operator Selection", "Margin Operator Cleared", FALSE
+
+		'Select Day Count Basis
+		.WebList("DayCountBasis").Select GlobalDictionary("DayCtBasis")
+		WriteToReport micDone, "Selected Day Count Basis: "&GlobalDictionary("DayCtBasis"), "Day Count Basis Selected", FALSE
+
+		'Select Interest Calculation
+		.WebList("InterestCalculation").Select GlobalDictionary("IntCalc")
+		WriteToReport micDone, "Selected Interest Calculation: "&GlobalDictionary("IntCalc"), "Interest Calculation Selected", FALSE
+
+		'Set Par Amount
+		.WebEdit("ParAmount").Set GlobalDictionary("ParAmt")
+		WriteToReport micDone, "Set Par Amount: "&GlobalDictionary("ParAmt"), "Par Amount Set", FALSE
+
+		'Set Currency
+		.WebEdit("Currency").Set GlobalDictionary("Currency")
+		WriteToReport micDone, "Set Currency: "&GlobalDictionary("Currency"), "Currency Set", FALSE
+
+		'Set Settlement Amount
+		.WebEdit("SettlementAmount").Set GlobalDictionary("SettAmt")
+		WriteToReport micDone, "Set Settlement Amount: "&GlobalDictionary("SettAmt"), "Settlement Amount Set", FALSE
+
+		'Set Price % of Par
+		.WebEdit("Price%OfPar").Set GlobalDictionary("Price%OfPar")
+		WriteToReport micDone, "Set Price % of Par: "&GlobalDictionary("Price%OfPar"), "Price % of Par Set", FALSE
+
+		'Select Discount/Premium Method
+		.WebList("Disc/Prem").Select GlobalDictionary("Disc/Prem")
+		WriteToReport micDone, "Set Discount/Premium: "&GlobalDictionary("Disc/Prem"), "Discount/Premium Set", FALSE
+
+		'Select Amort Method
+		.WebList("AmortMethod").Select GlobalDictionary("AmortMethod")
+		WriteToReport micDone, "Selected Amort Method: "&GlobalDictionary("AmortMethod"), "Amort Method Selected", FALSE
+
+		'Set Portfolio
+		.WebEdit("Portfolio").Set GlobalDictionary("Portfolio")
+		WriteToReport micDone, "Set Portfolio: "&GlobalDictionary("Portfolio"), "Portfolio Set", FALSE
+
+		'Select Accounting Treatment
+		.WebList("AcctgTreatment").Select GlobalDictionary("AcctgTreatment")
+		WriteToReport micDone, "Selected Accounting Treatment: "&GlobalDictionary("AcctgTreatment"), "Accounting Treatment Selected", FALSE
+
+		'Set Counterparty
+		.WebEdit("Counterparty").Set GlobalDictionary("Counterparty")
+		WriteToReport micDone, "Set Counterparty: "&GlobalDictionary("Counterparty"), "Counterparty Set", FALSE
+
+		'Set Issuer
+		.WebEdit("Issuer").Set GlobalDictionary("Issuer")
+		WriteToReport micDone, "Set Issuer: "&GlobalDictionary("Issuer"), "Issuer Set", FALSE
+
+		'Set Guarantor
+		If Trim(.WebEdit("Guarantor").GetROProperty("value")) <> GlobalDictionary("Guarantor") Then
+			.WebEdit("Guarantor").Set GlobalDictionary("Guarantor")
+			WriteToReport micDone, "Set Guarantor: "&GlobalDictionary("Guarantor"), "Guarantor Set", FALSE
+		Else
+			WriteToReport micDone, "Guarantor Already Set to "&.WebEdit("Guarantor").GetROProperty("value"), "Field Populated after Issuer Set", FALSE
+		End If
+
+		'Select Deal Status
+		.WebList("DealStatus").Select GlobalDictionary("DealStatus")
+		WriteToReport micDone, "Selected Deal Status: "&GlobalDictionary("DealStatus"), "Deal Status Selected", FALSE
+
+		'Click Settlement Instructions Tab
+		.WebElement("SettlementInstructions").Click
+		WriteToReport micDone, "Clicked the Settlement Instructions Tab", "Tab Clicked", FALSE
+
+		'--Check default values for:
+
+		'Our Settle Thru SetID
+		.WebEdit("OurSettleThruSetID").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set Our Settle Thru SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+
+		'Our Settle Thru Bank
+		.WebEdit("OurSettleThruBank").Set GlobalDictionary("Bank")
+		WriteToReport micDone, "Set Our Settle Thru Bank: "&GlobalDictionary("Bank"), "Bank Set", FALSE
+
+		'Our Settle Thru Account
+		.WebEdit("OurSettleThruAccount").Set GlobalDictionary("Account")
+		WriteToReport micDone, "Set Our Settle Thru Account: "&GlobalDictionary("Account"), "Account Set", FALSE
+
+		'Payment Method (Payment Info)
+		.WebList("PmtInfoPmtMethod").Select GlobalDictionary("PmtMethod")
+		WriteToReport micDone, "Set Payment Information Payment Method: "&GlobalDictionary("PmtMethod"), "Payment Method Selected", FALSE
+
+		'Layout (Payment Info)
+		.WebEdit("PmtInfoLayout").Set GlobalDictionary("Layout")
+		WriteToReport micDone, "Set Payment Information Layout: "&GlobalDictionary("Layout"), "Layout Set", FALSE
+
+		'Our Settle Into SetID
+		.WebEdit("OurSettleIntoSetID").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set Our Settle Into SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+
+		'Our Settle Into Bank
+		.WebEdit("OurSettleIntoBank").Set GlobalDictionary("Bank")
+		WriteToReport micDone, "Set Our Settle Into Bank: "&GlobalDictionary("Bank"), "Bank Set", FALSE
+
+		'Our Settle Into Account
+		.WebEdit("OurSettleIntoAccount").Set GlobalDictionary("Account")
+		WriteToReport micDone, "Set Our Settle Into Account: "&GlobalDictionary("Account"), "Account Set", FALSE
+
+		'Payment Method (Receipt Info)
+		.WebList("RcptInfoPmtMethod").Select GlobalDictionary("PmtMethod")
+		WriteToReport micDone, "Set Receipt Information Payment Method: "&GlobalDictionary("PmtMethod"), "Payment Method Selected", FALSE
+
+		'Layout (Receipt Info)
+		.WebEdit("RcptInfoLayout").Set GlobalDictionary("Layout")
+		WriteToReport micDone, "Set Receipt Information Layout: "&GlobalDictionary("Layout"), "Layout Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		Browser("PeopleSoft Browser").Sync
+		Wait 5
+
+		'Note the Deal ID
+		If GlobalDictionary.Exists("DealID") Then
+       		GlobalDictionary.Remove("DealID")
+    	End If
+    	GlobalDictionary.Add "DealID", .WebElement("DealID").GetROProperty("innertext")
+    	WriteToReport micDone, "Deal Created with ID: "&GlobalDictionary("DealID"), "Deal ID Stored", FALSE
+
+    	'Click back to Deal Detail Tab
+    	.WebElement("DealDetail").Click
+    	WriteToReport micDone, "Clicked Deal Detail Tab", "Tab Clicked", FALSE
+
+    	'Click Cashflows Button
+    	.WebButton("Cashflows").Click
+    	WriteToReport micDone, "Clicked Cashflows Button", "Button Clicked", FALSE
+	End With
+	Call ReviewIntPmtDates
+	If GlobalDictionary("SaveForLater") = "TRUE" Then
+		Dim oExcel, oFSO, oWorkbook, oSheet
+		Set oExcel = CreateObject("Excel.Application")
+		Set oFSO = CreateObject("Scripting.FileSystemObject")
+		'Delete the old deal file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\DealID.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\DealID.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\DealID.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "DealID"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("DealID")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\DealID", 56)
+		WriteToReport micPass, "Deal ID Saved for Later Test", "Deal ID Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\DealID.xls", FALSE
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Reviews Cashflow Payment Dates for a Deal 1.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate>End of CaptureDeal</startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Private Function ReviewIntPmtDates
+	Dim i, bFoundAll
+	Const SETT_DATE = 1
+	Const AMT_COL = 3
+	bFoundAll = TRUE
+
+	With Browser("PeopleSoft Browser").Page("Deals").PSFrame("Cashflows")
+		'Wait for it to load
+		If NOT .WebTable("Details").Exist(30) Then
+			WriteToReport micFail, "Cashflows Window Took too Long to Appear", "Table Not Shown Under 30 Seconds", TRUE
+			ExitTest
+		End If
+
+		'Click View All if needed
+		If .Link("ViewAll").Exist(5) Then
+			.Link("ViewAll").Click
+			WriteToReport micDone, "Clicked the View All Link", "Link Clicked", FALSE
+		End If
+
+		'Check each row against DB
+		For i=1 To .WebTable("Details").GetROProperty("rows")
+			bFoundAll = bFoundAll AND dbCheckCashflowEntry(GlobalDictionary("DealID"), Trim(.WebTable("Details").Cell(i, SETT_DATE).GetROProperty("innertext")), Trim(.WebTable("Details").Cell(i, AMT_COL).GetROProperty("innertext")))
+		Next
+
+		If bFoundAll Then
+			WriteToReport micPass, "Found all the Rows from the Cashflows Window in the Database", "All Rows Found", FALSE
+		Else
+			WriteToReport micFail, "At Least One Row from Cashflows Window Not Found in Database", "At Least One Row Not Found", TRUE
+			ExitTest
+		End If
+
+		'Click Return
+		.WebButton("Return").Click
+		WriteToReport micDone, "Clicked the Return Button", "Button Clicked", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Approves a Deal 1.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ApproveDeal
+	Const APPROVED = "Deal Approved"
+	Call Login(GlobalDictionary("ApproverSignIn"))
+
+	'Navigate to Worklist
+	If SelectMainMenu1(GlobalDictionary("Worklist")) Then
+		WriteToReport micPass, "Worklist Page", "Navigation to Worklist Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Worklist Page", "Navigation to Worklist page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	'Find and Click link for the DealID
+	Call Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebElement("Link").SetTOProperty("innertext", ".*"&GlobalDictionary("DealID")&".*")
+	If Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebElement("Link").Exist(10) Then
+		Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebElement("Link").Click
+		WriteToReport micDone, "Clicked the Worklist Item for Deal: "&GlobalDictionary("DealID"), "Deal Found", FALSE
+	Else
+		WriteToReport micFail, "Did not Find the Worklist Item for Deal: "&GlobalDictionary("DealID"), "Deal Not Found", TRUE
+		ExitTest
+	End If
+
+
+	With Browser("PeopleSoft Browser").Page("Preview/ApproveDeals").PSFrame("TargetContent")
+		'Click Approve
+		.WebButton("Approve").Click
+		WriteToReport micDone, "Clicked the Approve Button", "Button Clicked", FALSE
+
+		Browser("PeopleSoft Browser").Sync
+		
+		'Verify Status
+		If Trim(.WebList("ApprovalStatus").GetROProperty("value")) <> APPROVED Then
+			WriteToReport micFail, "Status is Not: "&APPROVED, "Deal "&GlobalDictionary("DealID")&" Not Approved", TRUE
+			ExitTest
+		Else
+			WriteToReport micPass, "Status is: "&APPROVED, "Deal "&GlobalDictionary("DealID")&" Approved", FALSE
+		End If
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Reviews Estimated Accruals 1.02 Will not Exit Early
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+Public Function ReviewEstIntAccr
+	Dim i
+	Dim bDaily, bWeekly, bMonthly, bQuarterly
+	Dim sYear, sPeriod, sFromDate, sToDate, sAccInt
+	Const DAILY = "Daily"
+	Const WEEKLY = "Weekly"
+	Const MONTHLY = "Monthly"
+	Const QUARTERLY = "Quarterly"
+	Const DD_TABLE = "PS_TRX_ACCINT_DD_V"
+	Const WW_TABLE = "PS_TRX_ACCINT_WW_V"
+	Const MM_TABLE = "PS_TRX_ACCINT_MM_V"
+	Const QQ_TABLE = "PS_TRX_ACCINT_QQ_V"
+	Const YEAR_COL = 1
+	Const PERIOD_COL = 2
+	Const FROM_DATE = 3
+	Const TO_DATE = 4
+	Const ACC_INT = 6
+	bDaily = TRUE
+	bWeekly = TRUE
+	bMonthly = TRUE
+	bQuarterly = TRUE
+
+	'Navigate to Estimated Interest Accruals
+	If SelectMainMenu1(GlobalDictionary("TRSEstimatedInterestAccruals")) Then
+		WriteToReport micPass, "Estimated Interest Accruals Page", "Navigation to Estimated Interest Accruals Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Estimated Interest Accruals Page", "Navigation to Estimated Interest Accruals page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("EstimatedInterestAccruals").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Deal ID
+		.WebEdit("DealID").Set GlobalDictionary("DealID")
+		WriteToReport micDone, "Set Deal ID: "&GlobalDictionary("DealID"), "Deal ID Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		Browser("PeopleSoft Browser").Sync
+
+		'Daily - TODAY
+			'Set From Date
+			.WebEdit("FromDate").Set DateLeadingZeros
+			WriteToReport micDone, "Set From Date: "& DateLeadingZeros, "From Date Set", FALSE
+
+			'Set To Date
+			.WebEdit("ToDate").Set DateLeadingZeros
+			WriteToReport micDone, "Set To Date: "& DateLeadingZeros, "To Date Set", FALSE
+
+			'Set Period
+			.WebList("Periods").Select DAILY
+			WriteToReport micDone, "Selected Period: "& DAILY, "Period Selected", FALSE
+
+			'Click Fetch Interest
+			.WebButton("FetchInterest").Click
+			WriteToReport micDone, "Clicked the Fetch Interest Button", "Button Clicked", FALSE
+			.WebTable("EIA_Table").RefreshObject
+
+			'Check table rows against DB
+			For i=1 To .WebTable("EIA_Table").GetROProperty("rows")
+				sYear = Trim(.WebTable("EIA_Table").Cell(i, YEAR_COL).GetROProperty("innertext"))
+				sPeriod = Trim(.WebTable("EIA_Table").Cell(i, PERIOD_COL).GetROProperty("innertext"))
+				sFromDate = Trim(.WebTable("EIA_Table").Cell(i, FROM_DATE).GetROProperty("innertext"))
+				sToDate = Trim(.WebTable("EIA_Table").Cell(i, TO_DATE).GetROProperty("innertext"))
+				sAccInt = Replace(Trim(.WebTable("EIA_Table").Cell(i, ACC_INT).GetROProperty("innertext")), ",", "")
+				bDaily = bDaily AND dbCheckEstIntAccr(DD_TABLE, sYear, sPeriod, sFromDate, sToDate, GlobalDictionary("DealID"), sAccInt)
+			Next
+
+		'Weekly - THIS MONTH
+			'Set From Date
+			.WebEdit("FromDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)) 'First Day of the Month
+			WriteToReport micDone, "Set From Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "From Date Set", FALSE
+
+			'Set To Date
+			.WebEdit("ToDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)) 'Last Day of the Month
+			WriteToReport micDone, "Set To Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "To Date Set", FALSE
+
+			'Set Period
+			.WebList("Periods").Select WEEKLY
+			WriteToReport micDone, "Selected Period: "& WEEKLY, "Period Selected", FALSE
+
+			'Click Fetch Interest
+			.WebButton("FetchInterest").Click
+			WriteToReport micDone, "Clicked the Fetch Interest Button", "Button Clicked", FALSE
+			.WebTable("EIA_Table").RefreshObject
+
+			'Check table rows against DB
+			For i=1 To .WebTable("EIA_Table").GetROProperty("rows")
+				sYear = Trim(.WebTable("EIA_Table").Cell(i, YEAR_COL).GetROProperty("innertext"))
+				sPeriod = Trim(.WebTable("EIA_Table").Cell(i, PERIOD_COL).GetROProperty("innertext"))
+				sFromDate = Trim(.WebTable("EIA_Table").Cell(i, FROM_DATE).GetROProperty("innertext"))
+				sToDate = Trim(.WebTable("EIA_Table").Cell(i, TO_DATE).GetROProperty("innertext"))
+				sAccInt = Replace(Trim(.WebTable("EIA_Table").Cell(i, ACC_INT).GetROProperty("innertext")), ",", "")
+				bWeekly = bWeekly AND dbCheckEstIntAccr(WW_TABLE, sYear, sPeriod, sFromDate, sToDate, GlobalDictionary("DealID"), sAccInt)
+			Next
+
+		'Monthly - THIS MONTH
+			'Set From Date
+			.WebEdit("FromDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)) 'First Day of the Month
+			WriteToReport micDone, "Set From Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "From Date Set", FALSE
+
+			'Set To Date
+			.WebEdit("ToDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)) 'Last Day of the Month
+			WriteToReport micDone, "Set To Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "To Date Set", FALSE
+
+			'Set Period
+			.WebList("Periods").Select MONTHLY
+			WriteToReport micDone, "Selected Period: "& MONTHLY, "Period Selected", FALSE
+
+			'Click Fetch Interest
+			.WebButton("FetchInterest").Click
+			WriteToReport micDone, "Clicked the Fetch Interest Button", "Button Clicked", FALSE
+			.WebTable("EIA_Table").RefreshObject
+
+			'Check table rows against DB
+			For i=1 To .WebTable("EIA_Table").GetROProperty("rows")
+				sYear = Trim(.WebTable("EIA_Table").Cell(i, YEAR_COL).GetROProperty("innertext"))
+				sPeriod = Trim(.WebTable("EIA_Table").Cell(i, PERIOD_COL).GetROProperty("innertext"))
+				sFromDate = Trim(.WebTable("EIA_Table").Cell(i, FROM_DATE).GetROProperty("innertext"))
+				sToDate = Trim(.WebTable("EIA_Table").Cell(i, TO_DATE).GetROProperty("innertext"))
+				sAccInt = Replace(Trim(.WebTable("EIA_Table").Cell(i, ACC_INT).GetROProperty("innertext")), ",", "")
+				bMonthly = bMonthly AND dbCheckEstIntAccr(MM_TABLE, sYear, sPeriod, sFromDate, sToDate, GlobalDictionary("DealID"), sAccInt)
+			Next
+
+		'QUARTERLY - THIS YEAR
+			'Set From Date
+			.WebEdit("FromDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1, 1)) 'First Date of the Year
+			WriteToReport micDone, "Set From Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), 1, 1)), "From Date Set", FALSE
+
+			'Set To Date
+			.WebEdit("ToDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 12, 31)) 'Last Day of the Year
+			WriteToReport micDone, "Set To Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), 12, 31)), "To Date Set", FALSE
+
+			'Set Period
+			.WebList("Periods").Select QUARTERLY
+			WriteToReport micDone, "Selected Period: "& QUARTERLY, "Period Selected", FALSE
+
+			'Click Fetch Interest
+			.WebButton("FetchInterest").Click
+			WriteToReport micDone, "Clicked the Fetch Interest Button", "Button Clicked", FALSE
+			.WebTable("EIA_Table").RefreshObject
+
+			'Check table rows against DB
+			For i=1 To .WebTable("EIA_Table").GetROProperty("rows")
+				sYear = Trim(.WebTable("EIA_Table").Cell(i, YEAR_COL).GetROProperty("innertext"))
+				sPeriod = Trim(.WebTable("EIA_Table").Cell(i, PERIOD_COL).GetROProperty("innertext"))
+				sFromDate = Trim(.WebTable("EIA_Table").Cell(i, FROM_DATE).GetROProperty("innertext"))
+				sToDate = Trim(.WebTable("EIA_Table").Cell(i, TO_DATE).GetROProperty("innertext"))
+				sAccInt = Replace(Trim(.WebTable("EIA_Table").Cell(i, ACC_INT).GetROProperty("innertext")), ",", "")
+				bQuarterly = bQuarterly AND dbCheckEstIntAccr(QQ_TABLE, sYear, sPeriod, sFromDate, sToDate, GlobalDictionary("DealID"), sAccInt)
+			Next
+
+		If bDaily Then
+			WriteToReport micPass, "Found the Estimated Interest Accrual for Today", "Accrual Found", FALSE
+		Else
+			WriteToReport micFail, "Did not Find the Estimated Interest Accrual for Today", "Accrual Not Found", FALSE
+		End If
+
+		If bWeekly Then
+			WriteToReport micPass, "Found the Estimated Interest Accrual for Weeks in This Month", "Accrual Found", FALSE
+		Else
+			WriteToReport micFail, "Did not Find the Estimated Interest Accrual for Weeks in This Month", "Accrual Not Found", FALSE
+		End If
+
+		If bMonthly Then
+			WriteToReport micPass, "Found the Estimated Interest Accrual for This Month", "Accrual Found", FALSE
+		Else
+			WriteToReport micFail, "Did not Find the Estimated Interest Accrual for This Month", "Accrual Not Found", FALSE
+		End If
+
+		If bQuarterly Then
+			WriteToReport micPass, "Found the Estimated Interest Accrual for This Year's Quarters", "Accrual Found", FALSE
+		Else
+			WriteToReport micFail, "Did not Find the Estimated Interest Accrual for This Year's Quarters", "Accrual Not Found", FALSE
+		End If
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Defines an Instrument 1.03
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function DefineInstrument
+	Dim nRandom
+	'Navigate to Define Instruments
+	If SelectMainMenu1(GlobalDictionary("TRSDefineInstruments")) Then
+		WriteToReport micPass, "Define Instruments Page", "Navigation to Define Instruments Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Define Instruments Page", "Navigation to Define Instruments page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("DefineInstruments").PSFrame("TargetContent")
+		'Click Add a New Value
+		.Link("AddANewValue").Click
+		WriteToReport micDone, "Clicked the Add a New Value Link", "Link Clicked", FALSE
+
+		'Set SetID
+		.WebEdit("SetID").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+
+		'Set Instrument Type - add random number suffix
+		Randomize
+		nRandom = CStr(Round(1000*Rnd))
+		.WebEdit("InstrType").Set GlobalDictionary("InstrType")&nRandom
+		WriteToReport micDone, "Set Instrument Type: "&GlobalDictionary("InstrType")&nRandom, "Instrument Type Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set Description
+		.WebEdit("Desc").Set GlobalDictionary("Desc")
+		WriteToReport micDone, "Set Description: "&GlobalDictionary("Desc"), "Description Set", FALSE
+
+		'Select Interest Base Type
+		.WebList("IntBaseType").Select GlobalDictionary("IntBaseType")
+		WriteToReport micDone, "Selected Interest Base Type: "&GlobalDictionary("IntBaseType"), "Interest Base Type Selected", FALSE
+
+		'Select Debt/Investment
+		If NOT .WebList("Debt/Investment").Exist(15) Then
+			WriteToReport micFail, "After Selecting Interest Base Type "&GlobalDictionary("IntBaseType")&", the Page Took too Long to Load Changes", "Changes to page form took too long to load", TRUE  
+			ExitTest
+		End If
+		.WebList("Debt/Investment").Select GlobalDictionary("Debt/Investment")
+		WriteToReport micDone, "Selected Debt/Investment: "&GlobalDictionary("Debt/Investment"), "Debt/Investment Selected", FALSE
+
+		'Select Rate Type
+		.WebList("RateType").Select GlobalDictionary("RateType")
+		WriteToReport micDone, "Selected Rate Type: "&GlobalDictionary("RateType"), "Rate Type Set", FALSE 
+
+		'Select Margin Operator
+		.WebList("MarginOperator").Select GlobalDictionary("MarginOperator")
+		WriteToReport micDone, "Selected Margin Operator: "&GlobalDictionary("MarginOperator"), "Margin Operator Selected", FALSE
+
+		'Set Reset Index
+		.WebEdit("ResetIndex").Set GlobalDictionary("ResetIndex")
+		WriteToReport micDone, "Set Reset Index: "&GlobalDictionary("ResetIndex"), "Reset Index Set", FALSE
+
+		'Select Day Count Basis
+		.WebList("DayCountBasis").Select GlobalDictionary("DayCtBasis")
+		WriteToReport micDone, "Selected Day Count Basis: "&GlobalDictionary("DayCtBasis"), "Day Count Basis Selected", FALSE
+
+		'Select Interest Calculation
+		.WebList("IntCalc").Select GlobalDictionary("IntCalc")
+		WriteToReport micDone, "Selected Interest Calculation: "&GlobalDictionary("IntCalc"), "Interest Calculation Selected", FALSE
+
+		'Set Currency
+		.WebEdit("Currency").Set GlobalDictionary("Currency")
+		WriteToReport micDone, "Set Currency: "&GlobalDictionary("Currency"), "Currency Set", FALSE
+
+		'Select Discount/Premium
+		.WebList("Disc/Prem").Select GlobalDictionary("Disc/Prem")
+		WriteToReport micDone, "Selected Discount/Premium: "&GlobalDictionary("Disc/Prem"), "Discount/Premium Selected", FALSE
+
+		'Check Repeat Interest Dates checkbox
+		If .WebCheckBox("RepeatIntDates").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("RepeatIntDates").Click
+			WriteToReport micDone, "Clicked the Checkbox for Repeat Interest Dates", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Repeat Interest Dates Already Checked", "No Action Taken", FALSE
+		End If
+
+		'Select Interest Frequency
+		.WebList("IntFreq").Select GlobalDictionary("IntFreq")
+		WriteToReport micDone, "Selected Interest Frequency: "&GlobalDictionary("IntFreq"), "Interest Frequency Selected", FALSE
+
+		'Select Reset Frequency
+		If NOT .WebList("ResetFreq").Exist(15) Then
+			WriteToReport micDone, "Reset Frequency List Did Not Appear Under Rate Type: "&GlobalDictionary("RateType"), "Reset Frequency List Not Displayed, Check Rate Type", TRUE
+		End If
+		.WebList("ResetFreq").Select GlobalDictionary("ResetFreq")
+		WriteToReport micDone, "Selected Reset Frequency: "&GlobalDictionary("ResetFreq"), "Reset Frequency Selected", FALSE
+
+		'Select Business Day Convention
+		.WebList("BusDayConv").Select GlobalDictionary("BusDayConv")
+		WriteToReport micDone, "Selected Business Day Convention: "&GlobalDictionary("BusDayConv"), "Business Day Convention Selected", FALSE
+
+		'Click Day Counted Interest
+		If .WebRadioGroup("DayCountedInterest").GetROProperty("value") = "N" Then
+			.WebRadioGroup("DayCountedInterest").Click
+			WriteToReport micDone, "Clicked the Button for Day Counted Interest", "Button Clicked", FALSE
+		Else
+			WriteToReport micDone, "Day Counted Interest Button Already Clicked", "No Action Taken", FALSE
+		End If
+
+		'Select Interest Dates
+		.WebList("IntDates").Select GlobalDictionary("IntDates")
+		WriteToReport micDone, "Selected Interest Dates: "&GlobalDictionary("IntDates"), "Interest Dates Selected", FALSE 
+
+		'Click Forwards from Issue Date
+		.WebElement("FwdsFrmIssDate").Click
+		WriteToReport micDone, "Clicked the Forwards from Issue Date Rule", "Rule Clicked", FALSE
+
+		'Select Payment Date
+		.WebList("PmtDate").Select GlobalDictionary("PmtDate")
+		WriteToReport micDone, "Selected Payment Date: "&GlobalDictionary("PmtDate"), "Payment Date Selected", FALSE
+
+		'Select Reset Date
+		.WebList("ResetDate").Select GlobalDictionary("ResetDate")
+		WriteToReport micDone, "Selected Reset Date: "&GlobalDictionary("ResetDate"), "Reset Date Selected", FALSE
+
+		'Set +/- Reset Days
+		.WebEdit("+/-ResetDays").Set GlobalDictionary("ResetDays")
+		WriteToReport micDone, "Set the +/- Reset Days: "&GlobalDictionary("ResetDays"), "Reset Days Set", FALSE
+
+		'Select Accounting Treatment
+		.WebList("AcctgTreatment").Select GlobalDictionary("AcctgTreatment")
+		WriteToReport micDone, "Selected Accounting Treatment: "&GlobalDictionary("AcctgTreatment"), "Accounting Treatment Selected", FALSE
+
+		'Set Portfolio
+		.WebEdit("Portfolio").Set GlobalDictionary("Portfolio")
+		WriteToReport micDone, "Set Portfolio: "&GlobalDictionary("Portfolio"), "Portfolio Set", FALSE
+
+		'Set Counterparty
+		.WebEdit("Counterparty").Set GlobalDictionary("Counterparty")
+		WriteToReport micDone, "Set Counterparty: "&GlobalDictionary("Counterparty"), "Counterparty Set", FALSE
+
+		'Check that the Net Deal Settlement Cashflows box is checked.
+		If .WebCheckBox("NetDealSettCshflws").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("NetDealSettCshflws").Click
+			WriteToReport micDone, "Clicked the Checkbox for Net Deal Settlement Cashflows", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Net Deal Settlement Cashflows Already Checked", "No Action Taken", FALSE
+		End If
+
+		'Click the Accounting Templates Tab
+		.WebElement("AcctgTemplates").Click
+		WriteToReport micDone, "Clicked the Accounting Templates Tab", "Tab Clicked", FALSE
+
+		'Set Sell/Buyback
+		.WebEdit("Sell/Buyback").Set GlobalDictionary("Sell/Buyback")
+		WriteToReport micDone, "Set Sell/Buyback: "&GlobalDictionary("Sell/Buyback"), "Sell/Buyback Set", FALSE
+
+		'Click Include in Accounting for Sell/Buyback
+		.WebCheckBox("SellBuybackCheck").Click
+		WriteToReport micDone, "Clicked the Sell/Buyback Include in Accounting Box", "Box Checked", FALSE
+
+		'Set Initial Payment
+		.WebEdit("InitPmt").Set GlobalDictionary("InitPmt")
+		WriteToReport micDone, "Set Initial Payment: "&GlobalDictionary("InitPmt"), "Initial Payment Set", FALSE
+
+		'Click Include in Accounting for Initial Payment
+		.WebCheckBox("InitPmtCheck").Click
+		WriteToReport micDone, "Clicked the Initial Payment Include in Accounting Box", "Box Checked", FALSE
+
+		'Set Maturity Payment
+		.WebEdit("MatPmt").Set GlobalDictionary("MatPmt")
+		WriteToReport micDone, "Set Maturity Payment: "&GlobalDictionary("MatPmt"), "Maturity Payment Set", FALSE
+
+		'Click Include in Accounting for Maturity Payment
+		.WebCheckBox("MatPmtCheck").Click
+		WriteToReport micDone, "Clicked the Maturity Payment Include in Accounting Box", "Box Checked", FALSE
+
+		'Set Period Payment
+		.WebEdit("PerPmt").Set GlobalDictionary("PerPmt")
+		WriteToReport micDone, "Set Period Payment: "&GlobalDictionary("PerPmt"), "Period Payment Set", FALSE
+
+		'Click Include in Accounting for Period Payment
+		.WebCheckBox("PerPmtCheck").Click
+		WriteToReport micDone, "Clicked the Period Payment Include in Accounting Box", "Box Checked", FALSE
+
+		'Set Interest Accrual
+		.WebEdit("IntAccr").Set GlobalDictionary("IntAccr")
+		WriteToReport micDone, "Set Interest Accrual: "&GlobalDictionary("IntAccr"), "Interest Accrual Set", FALSE
+
+		'Click Include in Accounting for Interest Accrual
+		.WebCheckBox("IntAccrCheck").Click
+		WriteToReport micDone, "Clicked the Interest Accrual Include in Accounting Box", "Box Checked", FALSE
+
+		'Set Interest Principal Payment
+		.WebEdit("IntPrinPmt").Set GlobalDictionary("IntPrinPmt")
+		WriteToReport micDone, "Set Initial Principal Payment: "&GlobalDictionary("IntPrinPmt"), "Initial Principal Payment Set", FALSE
+
+		'Click Include in Accounting for Interest Principal Payment
+		.WebCheckBox("IntPrinPmtCheck").Click
+		WriteToReport micDone, "Clicked the Initial Principal Payment Include in Accounting Box", "Box Checked", FALSE
+
+		'Click Include in Accounting for Amortize Adj of Carrying
+		.WebCheckBox("AmortAdjCarrying").Click
+		WriteToReport micDone, "Clicked the Amort Adj of Carrying Include in Accounting Box", "Box Checked", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Runs Automated Accounting Process 1.04/6.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AutoAccounting
+	Dim nRandom
+	Const TR_AUTO_ACC = "TR_Auto_Acctg"
+	Const PROCNAME = "TR_ACCTG"
+	'Navigate to Automated Accounting
+	If SelectMainMenu1(GlobalDictionary("TRSAutomatedAccounting")) Then
+		WriteToReport micPass, "Automated Accounting Page", "Navigation to Automated Accounting Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Automated Accounting Page", "Navigation to Automated Accounting page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AutomatedAccounting").PSFrame("TargetContent")
+		'Click Add a New Value
+		.Link("AddANewValue").Click
+		WriteToReport micDone, "Clicked Add a New Value", "Link Clicked", FALSE
+
+		'Set Run Control ID
+		Randomize
+		nRandom = CStr(Round(10000*Rnd))
+		.WebEdit("RunControlID").Set TR_AUTO_ACC&nRandom
+		WriteToReport micDone, "Set Run Control ID: "&TR_AUTO_ACC&nRandom, "Run Control ID Set", FALSE 
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Combo Template
+		.WebEdit("ComboTemp").Set GlobalDictionary("ComboTemp")
+		WriteToReport micDone, "Set Combo Template: "&GlobalDictionary("ComboTemp"), "Combo Template Set", FALSE
+
+		'Clear Acctg Events End Date
+		.WebEdit("AcctgEventsEndDt").Set ""
+		WriteToReport micDone, "Cleared Acctg Events End Date", "Date Cleared", FALSE
+
+		'Set Fiscal Year
+		.WebEdit("FiscalYear").Set Year(Now)
+		WriteToReport micDone, "Set Fiscal Year: "&Year(Now), "Fiscal Year Set", FALSE
+
+		'Set Period
+		.WebEdit("Period").Set Month(Now)
+		WriteToReport micDone, "Set Period: "&Month(Now), "Period Set", FALSE
+
+		If GlobalDictionary("All") <> "TRUE" Then
+			'Uncheck All Sources
+			If .WebCheckBox("AllSources").GetROProperty("checked") = 1 Then '1 is checked, 0 is cleared
+				.WebCheckBox("AllSources").Click
+				WriteToReport micDone, "Clicked the Checkbox for All Sources to Uncheck", "Checkbox Unchecked", FALSE
+			Else
+				WriteToReport micDone, "Checkbox for All Sources Already Unchecked", "No Action Taken", FALSE
+			End If
+
+			'Check Deals
+			If .WebCheckBox("Deals").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+				.WebCheckBox("Deals").Click
+				WriteToReport micDone, "Clicked the Checkbox for Deals", "Checkbox Checked", FALSE
+			Else
+				WriteToReport micDone, "Checkbox for Deals Already Checked", "No Action Taken", FALSE
+			End If
+
+			'Uncheck All Accruals
+			If .WebCheckBox("AllAccruals").GetROProperty("checked") = 1 Then '1 is checked, 0 is cleared
+				.WebCheckBox("AllAccruals").Click
+				WriteToReport micDone, "Clicked the Checkbox for All Accruals to Uncheck", "Checkbox Unchecked", FALSE
+			Else
+				WriteToReport micDone, "Checkbox for All Accruals Already Unchecked", "No Action Taken", FALSE
+			End If
+			
+			'Set Instrument Type
+			.WebEdit("InstrType").Set GlobalDictionary("InstrType")
+			WriteToReport micDone, "Set Instrument Type: "&GlobalDictionary("InstrType"), "Instrument Type Set", FALSE
+
+			'Set Deal ID
+			.WebEdit("DealID").Set GlobalDictionary("DealID")
+			WriteToReport micDone, "Set Deal ID: "&GlobalDictionary("DealID"), "Deal ID Set", FALSE
+		Else
+			'Check All Sources
+			If .WebCheckBox("AllSources").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+				.WebCheckBox("AllSources").Click
+				WriteToReport micDone, "Clicked the Checkbox for All Sources", "Checkbox Checked", FALSE
+			Else
+				WriteToReport micDone, "Checkbox for All Sources Already Checked", "No Action Taken", FALSE
+			End If
+		End If
+		
+		'Click Run
+		.WebButton("Run").Click
+		WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+		'Verify Process Checked
+		If Browser("PeopleSoft Browser").Page("AutomatedAccounting").PSFrame("ProcSchedReq").WebCheckBox("TR_Auto_Acctg").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			Browser("PeopleSoft Browser").Page("AutomatedAccounting").PSFrame("ProcSchedReq").WebCheckBox("TR_Auto_Acctg").Click
+			WriteToReport micDone, "Clicked the Checkbox for Treasury Automated Accounting", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Treasury Automated Accounting Already Checked", "No Action Taken", FALSE
+		End If
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("AutomatedAccounting").PSFrame("ProcSchedReq").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Click Process Monitor
+		.Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+	End With 
+	
+	'Monitor until Success/Posted
+	Call CheckProcessMontiorStatus(PROCNAME)
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Reviews Accounting Events for the Month 1.05
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ReviewAccountingEvents
+	Dim i
+	Dim bFirst
+	Dim sDate, sEventID, sSourceCode
+	Const DATE_COL = 3
+	Const ID_COL = 2
+	bFirst = TRUE
+	'Navigate to Accounting Events
+	If SelectMainMenu1(GlobalDictionary("TRSAccountingEvents")) Then
+		WriteToReport micPass, "Accounting Events Page", "Navigation to Accounting Events Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Accounting Events Page", "Navigation to Accounting Events page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AccountingEvents").PSFrame("TargetContent")
+		'Set Business Unit
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Select Source Code
+		.WebList("SourceCode").Select GlobalDictionary("SourceCode")
+		WriteToReport micDone, "Selected Source Code: "&GlobalDictionary("SourceCode"), "Source Code Selected", FALSE
+		Select Case GlobalDictionary("SourceCode")
+			Case "Deals"
+				sSourceCode = "D"
+			Case Else
+				WriteToReport micFail, "Source Code Not Recognized", "Please check or add case for: "&GlobalDictionary("SourceCode"), TRUE
+				ExitTest
+		End Select
+
+		'Set From Date
+		.WebEdit("FromDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)) 'First Day of the Month
+		WriteToReport micDone, "Set From Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "From Date Set", FALSE
+
+		'Set To Date
+		.WebEdit("ToDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)) 'Last Day of the Month
+		WriteToReport micDone, "Set To Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "To Date Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Verify Table against DB on Event ID, Event Date, and Accounting Template
+		If .Link("ViewAll").Exist(5) Then
+			.Link("ViewAll").Click
+		End If
+
+		Do
+			If NOT bFirst AND .WebButton(">Next").Exist(5) Then
+				.WebButton(">Next").Click
+				WriteToReport micDone, "Clicked the > Button to Show More Entries", "Button Clicked", FALSE
+			End If
+			.WebTable("Events").RefreshObject
+			For i=1 To .WebTable("Events").GetROProperty("rows")
+				sDate = Trim(.WebTable("Events").Cell(i, DATE_COL).GetROProperty("innertext"))
+				sEventID = Trim(.WebTable("Events").Cell(i, ID_COL).GetROProperty("innertext"))
+				If dbCheckAcctgEntry(sDate, sEventID, sSourceCode, FALSE) Then
+					WriteToReport micPass, "Found Shown Entry for Event ID ["&sEventID&"] in the Database", "Entry Found", FALSE
+				Else
+					WriteToReport micFail, "Did Not Find Entry for Event ID ["&sEventID&"] in the Database", "Entry Not Found", TRUE
+				End If
+			Next
+			bFirst = FALSE
+		Loop Until NOT .WebButton(">Next").Exist(5)		
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Reviews Accounting Summary for the Month 1.06/6.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ReviewAccountingSummary
+	Dim i
+	Dim bFirst
+	Dim sDate, sSourceCode, sAmt, sEventID
+	Const DATE_COL = 2
+	Const EVENTID_COL = 9
+	Const ACCTID_COL = 2
+	Const AMT_COL = 6
+	bFirst = TRUE
+
+	'Navigate to Accounting Summary
+	If SelectMainMenu1(GlobalDictionary("TRSAccountingSummary")) Then
+		WriteToReport micPass, "Accounting Summary Page", "Navigation to Accounting Summary Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Accounting Summary Page", "Navigation to Accounting Summary page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AccountingSummary").PSFrame("TargetContent")
+		'Set Business Unit
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		If GlobalDictionary.Exists("SourceCode") Then
+			'Select Source Code
+			.WebList("SourceCode").Select GlobalDictionary("SourceCode")
+			WriteToReport micDone, "Selected Source Code: "&GlobalDictionary("SourceCode"), "Source Code Selected", FALSE
+			Select Case GlobalDictionary("SourceCode")
+				Case "Deals"
+					sSourceCode = "D"
+				Case Else
+					WriteToReport micFail, "Source Code Not Recognized", "Please check or add case for: "&GlobalDictionary("SourceCode"), TRUE
+					ExitTest
+			End Select
+		End If
+			
+		'Set From Date
+		.WebEdit("FromDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)) 'First Day of the Month
+		WriteToReport micDone, "Set From Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "From Date Set", FALSE
+
+		'Set To Date
+		.WebEdit("ToDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)) 'Last Day of the Month
+		WriteToReport micDone, "Set To Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "To Date Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+		Wait 5
+
+		.WebTable("SummaryLeftSide").RefreshObject
+		.WebTable("SummaryRightSide").RefreshObject
+		If .WebTable("SummaryLeftSide").GetROProperty("rows") = 1 AND Trim(.WebTable("SummaryLeftSide").Cell(1, ACCTID_COL).GetROProperty("innertext")) = "" Then
+			WriteToReport micFail, "No Rows in Table", "No rows to check", TRUE
+			ExitTest
+		End If
+
+		'Verify Table against DB on Accounting ID, Accounting Date, Monetary Amount, and Accounting Template
+		If .Link("ViewAll").Exist(5) Then
+			.Link("ViewAll").Click
+		End If
+
+		Do
+			If NOT bFirst AND .WebButton(">Next").Exist(5) Then
+				.WebButton(">Next").Click
+				WriteToReport micDone, "Clicked the > Button to Show More Entries", "Button Clicked", FALSE
+			End If
+			.WebTable("SummaryLeftSide").RefreshObject
+			.WebTable("SummaryRightSide").RefreshObject
+			
+			For i=1 To .WebTable("SummaryLeftSide").GetROProperty("rows")
+				sDate = Trim(.WebTable("SummaryRightSide").Cell(i, DATE_COL).GetROProperty("innertext"))
+				sEventID = Trim(.WebTable("SummaryRightSide").Cell(i, EVENTID_COL).GetROProperty("innertext"))
+				sAmt = Trim(Replace(.WebTable("SummaryRightSide").Cell(i, AMT_COL).GetROProperty("innertext"),",", ""))
+				If dbCheckAcctgSumm(sDate, sSourceCode, sAmt, sEventID, FALSE) Then
+					WriteToReport micPass, "Found Shown Summary for Event ID ["&sEventID&"] in the Database", "Summary Found", FALSE
+				Else
+					WriteToReport micFail, "Did Not Find Summary for Event ID ["&sEventID&"] in the Database", "Summary Not Found", TRUE
+				End If
+			Next
+			bFirst = FALSE
+		Loop Until NOT .WebButton(">Next").Exist(5)
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Paydown a Deal (Requires DealID from 1.01) 1.07
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function PaydownDeal
+	Dim nOrig, nNewAmt
+	'Navigate to Capture Deals > Deals
+	If SelectMainMenu1(GlobalDictionary("TRSDeals")) Then
+		WriteToReport micPass, "Deals Page", "Navigation to Deals Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Deals Page", "Navigation to Deals page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("Deals").PSFrame("TargetContent")
+		'Click Find an Existing Value, if needed
+		If .Link("FindAnExistingValue").Exist(5) Then
+			.Link("FindAnExistingValue").Click
+			WriteToReport micDone, "Clicked Find an Existing Value", "Link Clicked", FALSE
+		End If
+
+		'Set BU
+		.WebEdit("FindByBusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Search Business  Unit Field: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Deal ID
+		.WebEdit("DealID").Set GlobalDictionary("DealID")
+		WriteToReport micDone, "Set Deal ID: "&GlobalDictionary("DealID"), "Deal ID Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Click Interest Dates Link
+		If .Link("InterestDates").Exist(30) Then
+			.Link("InterestDates").Click
+			WriteToReport micDone, "Clicked the Interest Dates Link", "Link Clicked", FALSE
+		Else
+			WriteToReport micFail, "Did Not Find Interest Dates Link", "Page took too long to load", TRUE
+			ExitTest
+		End If
+
+		If NOT Browser("PeopleSoft Browser").Page("Deals").PSFrame("DatesDetail").Exist(30) Then
+			WriteToReport micFail, "Popup for Dates Detail Took Too Long to Appear", "Popup Took Longer than 30 Seconds", TRUE
+			ExitTest
+		End If
+
+		'Note Principal Balance
+		nOrig = CDbl(Browser("PeopleSoft Browser").Page("Deals").PSFrame("DatesDetail").WebEdit("FirstRowPrincipalBalance").GetROProperty("value"))
+		WriteToReport micDone, "The Original Principal Balance is: "&nOrig, "Stored Original Balance", FALSE
+
+		'Expand Add Principal Paydown/Drawdown
+		Browser("PeopleSoft Browser").Page("Deals").PSFrame("DatesDetail").Image("ExpandAddPrincipalP/D").Click
+		WriteToReport micDone, "Clicked to Expand Add Principal Paydown/Drawdown", "Area Expanded", FALSE
+
+		'Select Payment Type
+		Browser("PeopleSoft Browser").Page("Deals").PSFrame("DatesDetail").WebList("PaymentType").Select GlobalDictionary("PaymentType")
+		WriteToReport micDone, "Selected Payment Type: "&GlobalDictionary("PaymentType"), "Payment Type Selected", FALSE
+
+		'Set Amount
+		Browser("PeopleSoft Browser").Page("Deals").PSFrame("DatesDetail").WebEdit("PrincipalAmount").Set GlobalDictionary("PaydownAmt")
+		WriteToReport micDone, "Set Principal Amount: "&GlobalDictionary("PaydownAmt"), "Amount Set", FALSE
+
+		'Set Date: End of Month
+		Browser("PeopleSoft Browser").Page("Deals").PSFrame("DatesDetail").WebEdit("PaymentDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)) 'Last Day of the Month
+		WriteToReport micDone, "Set Payment Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "To Date Set", FALSE
+
+		'Click Add Paydown/Drawdown
+		Browser("PeopleSoft Browser").Page("Deals").PSFrame("DatesDetail").WebButton("AddPaydown/Drawdown").Click
+		WriteToReport micDone, "Clicked the Add Paydown/Drawdown Button", "Button Clicked", FALSE
+
+		'If Weekend/Holiday Warning appears, click Yes
+		If Browser("PeopleSoft Browser").Page("Deals").WebButton("NonBusinessDayYes").Exist(5) Then
+			Browser("PeopleSoft Browser").Page("Deals").WebButton("NonBusinessDayYes").Click
+			WriteToReport micDone, "Accepted Warning to Move Payment Date to a Business Day after the Weekend/Business Holiday it would have Fallen On", "Warning Accepted", FALSE
+		End If
+
+		Browser("PeopleSoft Browser").Page("Deals").PSFrame("DatesDetail").WebEdit("FirstRowPrincipalBalance").RefreshObject
+
+		nNewAmt = CDbl(Browser("PeopleSoft Browser").Page("Deals").PSFrame("DatesDetail").WebEdit("FirstRowPrincipalBalance").GetROProperty("value"))
+		If nNewAmt = nOrig + CDbl(GlobalDictionary("PaydownAmt")) Then
+			WriteToReport micDone, "Added the Paydown; Principal is Now: "&nNewAmt, "Paydown Added", FALSE
+		Else
+			WriteToReport micFail, "Paydown Not Added", "Paydown Missing", TRUE
+			ExitTest
+		End If
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("Deals").PSFrame("DatesDetail").WebButton("OK").Click
+		WriteToReport micDone, "Clicked OK Button", "Button Clicked", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Verifies the Paydown of a Deal (Requires DealID from 1.01) 1.07b
+''' Must be after 1.04
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function VerifyPaydown
+	If dbCheckAcctgEntry(AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), GlobalDictionary("DealID"), "D", TRUE) Then
+		WriteToReport micPass, "Found the Corresponding Accounting Entry for the Paydown to Deal ID ["&GlobalDictionary("DealID")&"] in the Database", "Entry Found", FALSE
+	Else
+		WriteToReport micFail, "Did not Find any Corresponding Accounting Entry for the Paydown to Deal ID ["&GlobalDictionary("DealID")&"]", "No Entry Found", TRUE
+		ExitTest
+	End If
+
+	If dbCheckAcctgSumm(AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "", GlobalDictionary("PaydownAmt"), GlobalDictionary("DealID"), TRUE) Then
+		WriteToReport micPass, "Found Shown Summary for Deal ID ["&GlobalDictionary("DealID")&"] in the Database", "Summary Found", FALSE
+	Else
+		WriteToReport micFail, "Did Not Find Summary for Deal ID ["&GlobalDictionary("DealID")&"] in the Database", "Summary Not Found", TRUE
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Runs Queries to Excel, verifies file header (if applicable) 2.00
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function RunTRSQueries
+	Dim i, j
+	Dim arrTemp
+	Dim oExcel, oFSO, oWorkbook, oSheet
+	Set oExcel = CreateObject("Excel.Application")
+	Set oFSO = CreateObject("Scripting.FileSystemObject")
+	'Navigate to Query Viewer
+	If SelectMainMenu1(GlobalDictionary("QueryViewer")) Then
+		WriteToReport micPass, "Query Viewer Page", "Navigation to Query Viewer Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Query Viewer Page", "Navigation to Query Viewer page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("Query Viewer").PSFrame("Query Viewer")
+		For i=1 To GlobalDictionary("QueryCount")
+			'Delete the old file, it it exists
+			If oFSO.FileExists(GlobalDictionary("FileLocation") & GlobalDictionary("FileName"&i)) Then
+				oFSO.DeleteFile(GlobalDictionary("FileLocation") & GlobalDictionary("FileName"&i))
+				WriteToReport micDone, "Deleted File", GlobalDictionary("FileLocation") & GlobalDictionary("FileName"&i), FALSE
+			End If
+
+			.WebEdit("SearchText").Set GlobalDictionary("Query"&i)
+			WriteToReport micDone, "Running Query: "& GlobalDictionary("Query"&i), "", FALSE
+
+			.WebButton("Search").Click
+			WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+			Wait 5
+
+			.Link("Excel").Click
+			WriteToReport micDone, "Clicked the Excel Link", "Link Clicked", FALSE
+
+			Browser("PeopleSoft Browser NewTab").Sync
+			Browser("PeopleSoft Browser NewTab").RefreshObject
+			Browser("PeopleSoft Browser NewTab").Page("Query").RefreshObject
+			Wait 5
+
+			Select Case GlobalDictionary("Query"&i)
+				Case "CDW_GL_ACCOUNT_BAL_YTD"
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("FiscalYear").RefreshObject
+					If NOT Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("FiscalYear").Exist(30) Then
+						WriteToReport micFail, "Failed to Identify Fiscal Year", "Check Timing", TRUE
+						ExitTest
+					End If
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("FiscalYear").Set Year(Now)
+					WriteToReport micDone, "Set Fiscal Year: "&Year(Now), "Fiscal Year Set", FALSE
+
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("Period").RefreshObject
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("Period").Set Month(Now)
+					WriteToReport micDone, "Set Period: "&Month(Now), "Period Set", FALSE
+
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+					WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "Business Unit Set", FALSE
+
+				Case "CDW_PAYMENTS_BY_BANK"
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("BankCode").RefreshObject
+					If NOT Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("BankCode").Exist(30) Then
+						WriteToReport micFail, "Failed to Identify Bank Code", "Check Timing", TRUE
+						ExitTest
+					End If
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("BankCode").Set GlobalDictionary("BankCode")
+					WriteToReport micDone, "Set Bank Code: "&GlobalDictionary("BankCode"), "Bank Code Set", FALSE
+
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("PaymentDate").Set DateLeadingZeros
+					WriteToReport micDone, "Set Payment Date: "&DateLeadingZeros, "Payment Date Set", FALSE
+
+				Case "CDW_TR_ACCRUALS_BY_DEAL"
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("BusinessUnit").RefreshObject
+					If NOT Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("BusinessUnit").Exist(30) Then
+						WriteToReport micFail, "Failed to Identify Business Unit", "Check Timing", TRUE
+						ExitTest
+					End If
+					
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+					WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "Business Unit Set", FALSE
+
+					'Set From Date
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("AcctgDateFrom").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)) 'First Day of the Month
+					WriteToReport micDone, "Set From Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "From Date Set", FALSE
+			
+					'Set To Date
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("AcctgDateTo").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)) 'Last Day of the Month
+					WriteToReport micDone, "Set To Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "To Date Set", FALSE
+
+				Case "CDW_TR_ACCTG_ENTRIES", "CDW_TR_CF_ACCTG_DIFF", "CDW_BB_CREDITCARDS_ARBI"
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("DateFromBind1").RefreshObject
+					'Set From Date
+					If NOT Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("DateFromBind1").Exist(30) Then
+						WriteToReport micFail, "Failed to Identify Date From", "Check Timing", TRUE
+						ExitTest
+					End If
+					
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("DateFromBind1").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)) 'First Day of the Month
+					WriteToReport micDone, "Set From Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "From Date Set", FALSE
+			
+					'Set To Date
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("DateToBind2").RefreshObject
+					Browser("PeopleSoft Browser NewTab").Page("Query").WebEdit("DateToBind2").Set AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)) 'Last Day of the Month
+					WriteToReport micDone, "Set To Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), 1 + Month(Now), 0)), "To Date Set", FALSE
+
+				Case Else
+					WriteToReport micFail, "Unknown Query Title", "Please Make sure the spelling is correct, or add the query", FALSE
+					ExitTest
+			End Select
+
+			Browser("PeopleSoft Browser NewTab").Page("Query").WebButton("ViewResultsExcel").Click
+			WriteToReport micDone, "Clicked View Results Button", "Button Clicked", FALSE
+
+			If Browser("CheckDisplay").WinObject("Notification").WinButton("WinButton").Exist(30) Then
+				Browser("CheckDisplay").WinObject("Notification").WinButton("object class:=drop down button").Highlight 'Win 10 NOTE: Can see the object but for some reason, can not click it.  Description click works however.
+				Browser("CheckDisplay").WinObject("Notification").WinButton("object class:=drop down button").Click
+				Wait 5
+				If Browser("CheckDisplay").WinMenu("ContextMenu").Exist(15) Then
+					Browser("CheckDisplay").WinMenu("ContextMenu").Select "Save as"
+					If Browser("CheckDisplay").Dialog("Save As").Exist(15) Then
+						Wait 3
+						Browser("CheckDisplay").Dialog("Save As").WinEdit("SaveName").Set GlobalDictionary("FileLocation") & GlobalDictionary("FileName"&i)
+						Browser("CheckDisplay").Dialog("Save As").WinButton("Save").Click
+						WriteToReport micPass, "Saved the Excel Sheet", "File Saved as [" & GlobalDictionary("FileName"&i) & "] at location [" & GlobalDictionary("FileLocation") & "].", FALSE
+						Wait 5
+					End If
+				Else
+					WriteToReport micFail, "The Save Options Menu Did Not Appear", "Could not save the file", TRUE
+					ExitTest
+				End If
+			Else
+				WriteToReport micFail, "The 'Do you want to open or save...' Notification Did Not Appear", "Could not save the file", TRUE
+				ExitTest
+			End If
+			Wait 5
+			Set oWorkbook = oExcel.Workbooks.Open(GlobalDictionary("FileLocation") & GlobalDictionary("FileName"&i))
+			Set oSheet = oWorkbook.Worksheets("sheet1")
+			arrTemp = Split(GlobalDictionary("Header"&i),",")
+
+			For j=0 To UBound(arrTemp)
+				If Trim(oSheet.Cells(2, j+1)) <> Trim(arrTemp(j)) Then
+					WriteToReport micFail, "Header Column ["&j+1&"] Didnt Match", "Unmatched Column", FALSE
+					oWorkbook.Close
+					ExitTest
+				End If
+			Next
+			WriteToReport micPass, "Header Correct for Query: "&GlobalDictionary("Query"&i), "Header of Excel File Correct", FALSE
+			Set oSheet = Nothing
+			oWorkbook.Close
+			Browser("PeopleSoft Browser NewTab").Close
+		Next
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Adds Bank Info 3.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AddBankInfo
+	'Navigate to Bank Information
+	If SelectMainMenu1(GlobalDictionary("TRSBankInformation")) Then
+		WriteToReport micPass, "Bank Information Page", "Navigation to Bank Information Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Bank Information Page", "Navigation to Bank Information page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("BankInformation").PSFrame("TargetContent")
+		'Click Add a New Value
+		If .Link("AddANewValue").Exist(5) Then
+			.Link("AddANewValue").Click
+			WriteToReport micDone, "Clicked Add a New Value", "Link Clicked", FALSE
+		Else
+			WriteToReport micDone, "Already on Add a New Value Tab", "", FALSE
+		End If
+
+		'Set SetID
+		.WebEdit("SetID").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+
+		'Retrieve Bank Code
+		Call FindNewBankCode 'Stores in GlobalDictionary("BankCode")
+
+		'Set Bank Code
+		.WebEdit("BankCode").Set GlobalDictionary("BankCode")
+		WriteToReport micDone, "Set Bank Code: "&GlobalDictionary("BankCode"), "Bank Code Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set Description
+		.WebEdit("Description").Set GlobalDictionary("Description")
+		WriteToReport micDone, "Set Description: "&GlobalDictionary("Description"), "Description Set", FALSE
+
+		'Set Short Desc
+		.WebEdit("ShortDesc").Set GlobalDictionary("ShortDesc")
+		WriteToReport micDone, "Set Short Description: "&GlobalDictionary("ShortDesc"), "Short Desc Set", FALSE
+
+		'Select Bank ID Qualifier
+		.WebList("BankIDQualifier").Select GlobalDictionary("BankIDQualifier")
+		WriteToReport micDone, "Selected Bank ID Qualifier: "&GlobalDictionary("BankIDQualifier"), "Bank ID Qualifier Selected", FALSE
+
+		'Set Bank ID Number
+		.WebEdit("BankID").Set GlobalDictionary("BankID")
+		WriteToReport micDone, "Set Bank ID: "&GlobalDictionary("BankID"), "Bank ID Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		If Browser("PeopleSoft Browser").Page("BankInformation").WebButton("WarningOK").Exist(10) Then
+			Browser("PeopleSoft Browser").Page("BankInformation").WebButton("WarningOK").Click
+			WriteToReport micDone, "Accepted Warning Over Duplicate Bank ID", "Clicked OK", FALSE
+		End If
+
+		'Click Address Information
+		.Link("AddressInformation").Click
+		WriteToReport micDone, "Clicked Address Information", "Link Clicked", FALSE
+
+		'Set Address 1
+		Browser("PeopleSoft Browser").Page("BankInformation").PSFrame("AddressInformation").WebEdit("Address1").Set GlobalDictionary("Address1")
+		WriteToReport micDone, "Set Address 1: "&GlobalDictionary("Address1"), "Address 1 Set", FALSE
+
+		'Set City
+		Browser("PeopleSoft Browser").Page("BankInformation").PSFrame("AddressInformation").WebEdit("City").Set GlobalDictionary("City")
+		WriteToReport micDone, "Set City: "&GlobalDictionary("City"), "City Set", FALSE
+
+		'Set State
+		Browser("PeopleSoft Browser").Page("BankInformation").PSFrame("AddressInformation").WebEdit("State").Set GlobalDictionary("State")
+		WriteToReport micDone, "Set State: "&GlobalDictionary("State"), "State Set", FALSE
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("BankInformation").PSFrame("AddressInformation").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Click Notes
+		.Link("Notes").Click
+		WriteToReport micDone, "Clicked Notes", "Link Clicked", FALSE
+
+		'Set Notes
+		Browser("PeopleSoft Browser").Page("BankInformation").PSFrame("BankContactNotes").WebEdit("Notes").Set GlobalDictionary("Notes")
+		WriteToReport micDone, "Set Notes: "&GlobalDictionary("Notes"), "Notes Set", FALSE
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("BankInformation").PSFrame("BankContactNotes").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With
+	If GlobalDictionary("SaveForLater") = "TRUE" Then
+		Dim oExcel, oFSO, oWorkbook, oSheet
+		Set oExcel = CreateObject("Excel.Application")
+		Set oFSO = CreateObject("Scripting.FileSystemObject")
+		'Delete the old deal file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\BankCode.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\BankCode.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\BankCode.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "BankCode"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("BankCode")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\BankCode", 56)
+		WriteToReport micPass, "Bank Code Saved for Later Test", "Bank Code Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\BankCode.xls", FALSE
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Adds Branch Info 3.02
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AddBranchInfo
+	Dim nRandom
+
+	'Navigate to Branch Information
+	If SelectMainMenu1(GlobalDictionary("TRSBankBranchInformation")) Then
+		WriteToReport micPass, "Bank Branch Information Page", "Navigation to Bank Branch Information Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Bank Branch Information Page", "Navigation to Bank Branch Information page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("BankBranchInformation").PSFrame("TargetContent")
+		'Click Add a New Value
+		If .Link("AddANewValue").Exist(5) Then
+			.Link("AddANewValue").Click
+			WriteToReport micDone, "Clicked Add a New Value", "Link Clicked", FALSE
+		Else
+			WriteToReport micDone, "Already on Add a New Value Tab", "", FALSE
+		End If
+
+		'Set SetID
+		.WebEdit("SetID").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+
+		'Set Bank Code
+		.WebEdit("BankCode").Set GlobalDictionary("BankCode")
+		WriteToReport micDone, "Set Bank Code: "&GlobalDictionary("BankCode"), "Bank Code Set", FALSE
+
+		'Set Branch Name
+		Randomize
+		nRandom = CStr(Round(1000*Rnd))
+		GlobalDictionary("BranchName") = GlobalDictionary("BranchName")&nRandom
+		.WebEdit("BranchName").Set GlobalDictionary("BranchName")
+		WriteToReport micDone, "Set Branch Name: "&GlobalDictionary("BranchName"), "Branch Name Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set Description
+		.WebEdit("Description").Set GlobalDictionary("Description")
+		WriteToReport micDone, "Set Description: "&GlobalDictionary("Description"), "Description Set", FALSE
+
+		'Set Short Desc
+		.WebEdit("ShortDesc").Set GlobalDictionary("ShortDesc")
+		WriteToReport micDone, "Set Short Description: "&GlobalDictionary("ShortDesc"), "Short Desc Set", FALSE
+
+		'Select Bank ID Qualifier
+		.WebList("BankIDQualifier").Select GlobalDictionary("BankIDQualifier")
+		WriteToReport micDone, "Selected Bank ID Qualifier: "&GlobalDictionary("BankIDQualifier"), "Bank ID Qualifier Selected", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		'Click Address Information
+		.Link("AddressInformation").Click
+		WriteToReport micDone, "Clicked Address Information", "Link Clicked", FALSE
+
+		'Set Address 1
+		Browser("PeopleSoft Browser").Page("BankBranchInformation").PSFrame("AddressInformation").WebEdit("Address1").Set GlobalDictionary("Address1")
+		WriteToReport micDone, "Set Address 1: "&GlobalDictionary("Address1"), "Address 1 Set", FALSE
+
+		'Set City
+		Browser("PeopleSoft Browser").Page("BankBranchInformation").PSFrame("AddressInformation").WebEdit("City").Set GlobalDictionary("City")
+		WriteToReport micDone, "Set City: "&GlobalDictionary("City"), "City Set", FALSE
+
+		'Set State
+		Browser("PeopleSoft Browser").Page("BankBranchInformation").PSFrame("AddressInformation").WebEdit("State").Set GlobalDictionary("State")
+		WriteToReport micDone, "Set State: "&GlobalDictionary("State"), "State Set", FALSE
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("BankBranchInformation").PSFrame("AddressInformation").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Set Notes
+		.WebEdit("Notes").Set GlobalDictionary("Notes")
+		WriteToReport micDone, "Set Notes: "&GlobalDictionary("Notes"), "Notes Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With
+	If GlobalDictionary("SaveForLater") = "TRUE" Then
+		Dim oExcel, oFSO, oWorkbook, oSheet
+		Set oExcel = CreateObject("Excel.Application")
+		Set oFSO = CreateObject("Scripting.FileSystemObject")
+		'Delete the old deal file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\BranchName.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\BranchName.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\BranchName.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "BranchName"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("BranchName")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\BranchName", 56)
+		WriteToReport micPass, "Branch Name Saved for Later Test", "Branch Name Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\BranchName.xls", FALSE
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Adds Contact Info 3.03
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AddBankContactInfo
+	Dim sName, arrTemp
+	'Navigate to Contact Information
+	If SelectMainMenu1(GlobalDictionary("TRSContactInformation")) Then
+		WriteToReport micPass, "Contact Information Page", "Navigation to Contact Information Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Contact Information Page", "Navigation to Contact Information page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("ContactInformation(Bank)").PSFrame("TargetContent")
+		'Click Add a New Value
+		If .Link("AddANewValue").Exist(5) Then
+			.Link("AddANewValue").Click
+			WriteToReport micDone, "Clicked Add a New Value", "Link Clicked", FALSE
+		Else
+			WriteToReport micDone, "Already on Add a New Value Tab", "", FALSE
+		End If
+
+		'Set SetID
+		.WebEdit("SetID").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+		
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set Name
+		sName = dbFetchUserFromId(GlobalDictionary("SignInUser"))(0)
+		If InStr(1, sName, ",") = 0 Then 'Check if name was already stored in Last Name, First Name format
+			arrTemp = Split(sName, " ")
+			If UBound(arrTemp) = 0 Then
+				WriteToReport micFail, "No Space Character in User's Name, Cannot change to [Last Name, First Name] Format", "Name is: "&sName, FALSE
+				ExitTest
+			End If
+			sName = arrTemp(1) & "," & arrTemp(0)
+		End If
+		.WebEdit("Name").Set sName
+		WriteToReport micDone, "Set Name: "&sName, "Name Set", FALSE
+
+		'Set Contact Title
+		.WebEdit("ContactTitle").Set GlobalDictionary("ContactTitle")
+		WriteToReport micDone, "Set Contact Title: "&GlobalDictionary("ContactTitle"), "Contact Title Set", FALSE
+
+		'Select Contact Type
+		.WebList("ContactType").Select GlobalDictionary("ContactType")
+		WriteToReport micDone, "Selected Contact Type: "&GlobalDictionary("ContactType"), "Contact Type Selected", FALSE
+
+		'Set Email
+		.WebEdit("Email").Set GlobalDictionary("Email")
+		WriteToReport micDone, "Set Email: "&GlobalDictionary("Email"), "Email Set", FALSE
+
+		'Set Bank Code
+		.WebEdit("BankCode").Set GlobalDictionary("BankCode")
+		WriteToReport micDone, "Set Bank Code: "&GlobalDictionary("BankCode"), "Bank Code Set", FALSE
+
+		'Set Country
+		.WebEdit("Country").Set GlobalDictionary("Country")
+		WriteToReport micDone, "Set Country: "&GlobalDictionary("Country"), "Country Set", FALSE
+
+		'Click Address Information
+		.Link("AddressInformation").Click
+		WriteToReport micDone, "Clicked Address Information Link", "Link Clicked", FALSE
+
+		'Set Address 1
+		Browser("PeopleSoft Browser").Page("ContactInformation(Bank)").PSFrame("ContactAddressInformation").WebEdit("Address1").Set GlobalDictionary("Address1")
+		WriteToReport micDone, "Set Address 1: "&GlobalDictionary("Address1"), "Address 1 Set", FALSE
+
+		'Set City
+		Browser("PeopleSoft Browser").Page("ContactInformation(Bank)").PSFrame("ContactAddressInformation").WebEdit("City").Set GlobalDictionary("City")
+		WriteToReport micDone, "Set City: "&GlobalDictionary("City"), "City Set", FALSE
+
+		'Set State
+		Browser("PeopleSoft Browser").Page("ContactInformation(Bank)").PSFrame("ContactAddressInformation").WebEdit("State").Set GlobalDictionary("State")
+		WriteToReport micDone, "Set State: "&GlobalDictionary("State"), "State Set", FALSE
+
+		'Set Postal
+		Browser("PeopleSoft Browser").Page("ContactInformation(Bank)").PSFrame("ContactAddressInformation").WebEdit("Postal").Set GlobalDictionary("Postal")
+		WriteToReport micDone, "Set Postal: "&GlobalDictionary("Postal"), "Postal Set", FALSE
+
+		'Set Phone
+		Browser("PeopleSoft Browser").Page("ContactInformation(Bank)").PSFrame("ContactAddressInformation").WebEdit("Phone").Set GlobalDictionary("Phone")
+		WriteToReport micDone, "Set Phone: "&GlobalDictionary("Phone"), "Phone Set", FALSE
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("ContactInformation(Bank)").PSFrame("ContactAddressInformation").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		'Note Contact ID
+		Wait 3
+		If GlobalDictionary.Exists("ContactID") Then
+       		GlobalDictionary.Remove("ContactID")
+    	End If
+    	GlobalDictionary.Add "ContactID", .WebElement("ContactID").GetROProperty("innertext")
+    	WriteToReport micDone, "Contact Created with ID: "&GlobalDictionary("ContactID"), "Contact ID Stored", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Add Contact ID to Branch (from 3.02) 3.03
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AddContactToBranch
+	'Navigate to Branch Information
+	If SelectMainMenu1(GlobalDictionary("TRSBankBranchInformation")) Then
+		WriteToReport micPass, "Bank Branch Information Page", "Navigation to Bank Branch Information Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Bank Branch Information Page", "Navigation to Bank Branch Information page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("BankBranchInformation").PSFrame("TargetContent")
+		'Click Find an Existing Value
+		If .Link("FindAnExistingValue").Exist(5) Then
+			.Link("FindAnExistingValue").Click
+			WriteToReport micDone, "Clicked Find an Existing Value", "Link Clicked", FALSE
+		Else
+			WriteToReport micDone, "Already on Find an Existing Value Tab", "", FALSE
+		End If
+
+		'Set SetID
+		.WebEdit("SetID").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+
+		'Set Branch Name
+		.WebEdit("BranchName").Set GlobalDictionary("BranchName")
+		WriteToReport micDone, "Set Branch Name: "&GlobalDictionary("BranchName"), "Branch Name Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Click Contact Information
+		.Link("ContactInformation").Click
+
+		'Set Contact ID from before
+		Browser("PeopleSoft Browser").Page("BankBranchInformation").PSFrame("ContactInformation").WebEdit("ContactID").Set GlobalDictionary("ContactID")
+		WriteToReport micDone, "Set Contact ID: "&GlobalDictionary("ContactID"), "Contact ID Set", FALSE
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("BankBranchInformation").PSFrame("ContactInformation").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Add Settlement Instructions 3.04
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AddSettlementInstructions
+	Dim nRandom
+	'Navigate to Settlement Instructions
+	If SelectMainMenu1(GlobalDictionary("TRSSettlementInstructions")) Then
+		WriteToReport micPass, "Settlement Instructions Page", "Navigation to Settlement Instructions Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Settlement Instructions Page", "Navigation to Settlement Instructions page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("SettlementInstructions").PSFrame("TargetContent")
+		'Click Add a New Value
+		If .Link("AddANewValue").Exist(5) Then
+			.Link("AddANewValue").Click
+			WriteToReport micDone, "Clicked Add a New Value", "Link Clicked", FALSE
+		Else
+			WriteToReport micDone, "Already on Add a New Value Tab", "", FALSE
+		End If
+
+		'Set SetID
+		.WebEdit("SetID").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+
+		'Set Instructions
+		Randomize
+		nRandom = CStr(Round(1000*Rnd))
+		GlobalDictionary("InstructionsID") = GlobalDictionary("InstructionsID")&nRandom
+		.WebEdit("Instructions").Set GlobalDictionary("InstructionsID")
+		WriteToReport micDone, "Set Instructions ID to: "&GlobalDictionary("InstructionsID"), "Instructions Set", FALSE
+		
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set Description (at top)
+		.WebEdit("TopDescription").Set GlobalDictionary("TopDescription")
+		WriteToReport micDone, "Set Settlement Description: "&GlobalDictionary("TopDescription"), "Settlement Description Set", FALSE
+
+		'Click the Our Instructions/Receive Info option
+		.WebElement("OurInstr/RecInto").Click
+		WriteToReport micDone, "Clicked the Our Instructions/Receive Into Option", "Option Clicked", FALSE
+
+		'Set Currency
+		.WebEdit("Currency").Set GlobalDictionary("Currency")
+		WriteToReport micDone, "Set Currency: "&GlobalDictionary("Currency"), "Currency Set", FALSE
+
+		'Set Account Description (Next to Currency)
+		.WebEdit("AcctDescription").Set GlobalDictionary("AcctDescription")
+		WriteToReport micDone, "Set Account Description: "&GlobalDictionary("AcctDescription"), "Account Description Set", FALSE
+
+		'Set Name 1
+		.WebEdit("Name1").Set GlobalDictionary("Name1")
+		WriteToReport micDone, "Set Name 1: "&GlobalDictionary("Name1"), "Name 1 Set", FALSE
+
+		'Set Bank Name
+		.WebEdit("BankName").Set GlobalDictionary("BankName")
+		WriteToReport micDone, "Set Bank Name: "&GlobalDictionary("BankName"), "Bank Name Set", FALSE
+
+		'Set Branch Name
+		.WebEdit("BranchName").Set GlobalDictionary("BranchName")
+		WriteToReport micDone, "Set Branch Name: "&GlobalDictionary("BranchName"), "Branch Name Set", FALSE
+
+		'Set Country
+		.WebEdit("Country").Set GlobalDictionary("Country")
+		WriteToReport micDone, "Set Country: "&GlobalDictionary("Country"), "Country Set", FALSE
+
+		'Set Bank ID Qualifier
+		.WebEdit("BankIDQualifier").Set GlobalDictionary("BankIDQualifier")
+		WriteToReport micDone, "Set Bank ID Qualifier: "&GlobalDictionary("BankIDQualifier"), "Bank ID Qualifier Set", FALSE
+
+		'Set Bank ID
+		.WebEdit("BankID").Set GlobalDictionary("BankID")
+		WriteToReport micDone, "Set Bank ID: "&GlobalDictionary("BankID"), "Bank ID Set", FALSE
+
+		'Select Acct Type
+		.WebList("AcctType").Select GlobalDictionary("AcctType")
+		WriteToReport micDone, "Select Acct Type: "&GlobalDictionary("AcctType"), "Acct Type Selected", FALSE
+
+		'Set Account #
+		.WebEdit("Account#").Set GlobalDictionary("Account#")
+		WriteToReport micDone, "Set Account #: "&GlobalDictionary("Account#"), "Account # Set", FALSE
+
+		'Set DFI Qualifier
+		.WebEdit("DFIQualifier").Set GlobalDictionary("DFIQualifier")
+		WriteToReport micDone, "Set DFI Qualifier: "&GlobalDictionary("DFIQualifier"), "DFI Qualifier Set", FALSE
+
+		'Set DFI ID
+		.WebEdit("DFIID").Set GlobalDictionary("DFIID")
+		WriteToReport micDone, "Set DFI ID: "&GlobalDictionary("DFIID"), "DFI ID Set", FALSE
+
+		'Click Beneficiary Address Tab
+		.WebElement("BeneficiaryAddress").Click
+		WriteToReport micDone, "Click Beneficiary Address Tab", "Tab Clicked", FALSE
+
+		'Set Address 1
+		.WebEdit("Address1").Set GlobalDictionary("Address1")
+		WriteToReport micDone, "Set Address 1: "&GlobalDictionary("Address1"), "Address 1 Set", FALSE
+
+		'Set City
+		.WebEdit("City").Set GlobalDictionary("City")
+		WriteToReport micDone, "Set City: "&GlobalDictionary("City"), "City Set", FALSE
+
+		'Set State
+		.WebEdit("State").Set GlobalDictionary("State")
+		WriteToReport micDone, "Set State: "&GlobalDictionary("State"), "State Set", FALSE
+
+		'Set Postal
+		.WebEdit("Postal").Set GlobalDictionary("Postal")
+		WriteToReport micDone, "Set Postal: "&GlobalDictionary("Postal"), "Postal Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With
+	If GlobalDictionary("SaveForLater") = "TRUE" Then
+		Dim oExcel, oFSO, oWorkbook, oSheet
+		Set oExcel = CreateObject("Excel.Application")
+		Set oFSO = CreateObject("Scripting.FileSystemObject")
+		'Delete the old deal file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\InstructionsID.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\InstructionsID.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\InstructionsID.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "InstructionsID"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("InstructionsID")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\InstructionsID", 56)
+		WriteToReport micPass, "Instructions Saved for Later Test", "Instructions Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\InstructionsID.xls", FALSE
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Adds an External Account 3.05
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AddAccountInfo
+	Dim i, nRandom
+	Dim sAcctType
+	Const ACCT_TYPE_COL = 2
+	Const ACCOUNT_COL = 3
+	Const DEPT_COL = 1
+	'Navigate to External Accounts
+	If SelectMainMenu1(GlobalDictionary("TRSExternalAccounts")) Then
+		WriteToReport micPass, "External Accounts Page", "Navigation to External Accounts Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "External Accounts Page", "Navigation to External Accounts page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("ExternalAccounts").PSFrame("TargetContent")
+		'Click Add a New Value
+		If .Link("AddANewValue").Exist(5) Then
+			.Link("AddANewValue").Click
+			WriteToReport micDone, "Clicked Add a New Value", "Link Clicked", FALSE
+		Else
+			WriteToReport micDone, "Already on Add a New Value Tab", "", FALSE
+		End If
+
+		'Set SetID
+		.WebEdit("SetID").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+
+		'Set Bank Code
+		.WebEdit("BankCode").Set GlobalDictionary("BankCode")
+		WriteToReport micDone, "Set Bank Code: "&GlobalDictionary("BankCode"), "Bank Code Set", FALSE
+
+		'Set Branch Name
+		.WebEdit("BranchName").Set GlobalDictionary("BranchName")
+		WriteToReport micDone, "Set Branch Name: "&GlobalDictionary("BranchName"), "Branch Name Set", FALSE
+
+		'Set Bank Account
+		Randomize
+		nRandom = CStr(Round(999*Rnd+1))
+		GlobalDictionary("BankAccount") = GlobalDictionary("BankAccount")+nRandom
+		.WebEdit("BankAccount").Set GlobalDictionary("BankAccount")
+		WriteToReport micDone, "Set Bank Account: "&GlobalDictionary("BankAccount"), "Bank Account Set", FALSE
+		
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		If NOT .WebEdit("GLUnit").Exist(15) Then
+			WriteToReport micFail, "Failed to Load Page", "Page Took Longer than 15 Seconds to Load", TRUE
+			ExitTest
+		End If
+
+		'Set BU (GL Unit)
+		.WebEdit("GLUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set GL Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Description
+		.WebEdit("Description").Set GlobalDictionary("Description")
+		WriteToReport micDone, "Set Description: "&GlobalDictionary("Description"), "Description Set", FALSE
+
+		'Set Short Desc
+		.WebEdit("ShortDesc").Set GlobalDictionary("ShortDesc")
+		WriteToReport micDone, "Set Short Description: "&GlobalDictionary("ShortDesc"), "Short Desc Set", FALSE
+
+		'Set Account #
+		GlobalDictionary("Account#") = GlobalDictionary("Account#")+nRandom
+		.WebEdit("Account#").Set GlobalDictionary("Account#")
+		WriteToReport micDone, "Set Account #: "&GlobalDictionary("Account#"), "Account # Set", FALSE
+
+		'Set DFI Qualifier
+		.WebEdit("DFIQualifier").Set GlobalDictionary("DFIQualifier")
+		WriteToReport micDone, "Set DFI Qualifier: "&GlobalDictionary("DFIQualifier"), "DFI Qualifier Set", FALSE
+
+		'Set DFI ID
+		.WebEdit("DFIID").Set GlobalDictionary("DFIID")
+		WriteToReport micDone, "Set DFI ID: "&GlobalDictionary("DFIID"), "DFI ID Set", FALSE
+
+		'Set Currency Code
+		.WebEdit("CurrencyCode").Set GlobalDictionary("Currency")
+		WriteToReport micDone, "Set Currency Code: "&GlobalDictionary("Currency"), "Currency Code Set", FALSE
+
+		'Set Rate Type
+		.WebEdit("RateType").Set GlobalDictionary("RateType")
+		WriteToReport micDone, "Set Rate Type: "&GlobalDictionary("RateType"), "Rate Type Set", FALSE
+
+		'Set Index
+		.WebEdit("Index").Set GlobalDictionary("Index")
+		WriteToReport micDone, "Set Index: "&GlobalDictionary("Index"), "Index Set", FALSE
+
+		'Select Acct Type
+		.WebList("AcctType").Select GlobalDictionary("AcctType")
+		WriteToReport micDone, "Select Acct Type: "&GlobalDictionary("AcctType"), "Acct Type Selected", FALSE
+
+		'Check TR box
+		If .WebCheckBox("TR").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("TR").Click
+			WriteToReport micDone, "Clicked the Checkbox for TR", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for TR Already Checked", "No Action Taken", FALSE
+		End If
+
+		'Check Cash Clearing box
+		If .WebCheckBox("CashClearing").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("CashClearing").Click
+			WriteToReport micDone, "Clicked the Checkbox for Cash Clearing", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Cash Clearing Already Checked", "No Action Taken", FALSE
+		End If
+
+		'Check Stmt Accounting box 
+		If .WebCheckBox("StmtAccounting").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("StmtAccounting").Click
+			WriteToReport micDone, "Clicked the Checkbox for Stmt Accounting", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Stmt Accounting Already Checked", "No Action Taken", FALSE
+		End If
+
+		'Click View All if needed
+		If .Link("ViewAll").Exist(5) Then
+			.Link("ViewAll").Click
+			WriteToReport micDone, "Clicked the View All Link", "Link Clicked", FALSE
+		End If
+
+		'The table is actually two tables, a left and a right 
+		'Must loop through left table to find the Acct Type, then set Account and Dept Accordingly
+		For i=1 To .WebTable("BALT_Left").GetROProperty("rows")
+			sAcctType = Trim(.WebTable("BALT_Left").Cell(i, ACCT_TYPE_COL).GetROProperty("innertext"))
+
+			.WebTable("BALT_Left").ChildItem(i, ACCOUNT_COL,"WebEdit", 0).Set GlobalDictionary(sAcctType&"Account")
+			WriteToReport micDone, "Set Account for Account Type ["&sAcctType&"] to: "&GlobalDictionary(sAcctType&"Account"), "Account Set", FALSE
+
+			.WebTable("BALT_Right").ChildItem(i, DEPT_COL,"WebEdit", 0).Set GlobalDictionary(sAcctType&"Dept")
+			WriteToReport micDone, "Set Dept for Account Type ["&sAcctType&"] to: "&GlobalDictionary(sAcctType&"Dept"), "Dept Set", FALSE
+
+			If Browser("PeopleSoft Browser").Page("ExternalAccounts").WebButton("PopupWarning").Exist(5) Then
+				Browser("PeopleSoft Browser").Page("ExternalAccounts").WebButton("PopupWarning").Click
+			End If
+		Next
+
+		'Click Signatories Link
+		.Link("Signatories").Click
+		WriteToReport micDone, "Clicked the Signatories Link", "Link Clicked", FALSE
+
+		'Click the Add Button for a second row
+		.WebButton("Signatory+").Click
+		WriteToReport micDone, "Clicked the + Button for a Second Signatory Row", "Button Clicked", FALSE
+
+		'Set First Signatory
+		.WebEdit("SignatoryName1").Set GlobalDictionary("SigName1")
+		WriteToReport micDone, "Set Signatory Name 1 to: "&GlobalDictionary("SigName1"), "Signatory Name Set", FALSE
+
+		.WebEdit("SignatoryLimit1").Set GlobalDictionary("SignatoryLimit")
+		WriteToReport micDone, "Set Signatory Limit 1 to: "&GlobalDictionary("SignatoryLimit"), "Signatory Limit Set", FALSE
+
+		'Set Second Signatory
+		.WebEdit("SignatoryName2").Set GlobalDictionary("SigName2")
+		WriteToReport micDone, "Set Signatory Name 2 to: "&GlobalDictionary("SigName2"), "Signatory Name Set", FALSE
+
+		.WebEdit("SignatoryLimit2").Set GlobalDictionary("SignatoryLimit")
+		WriteToReport micDone, "Set Signatory Limit 2 to: "&GlobalDictionary("SignatoryLimit"), "Signatory Limit Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		'Click Reconciliation Link
+		.Link("Reconciliation").Click
+		WriteToReport micDone, "Clicked the Reconciliation Link", "Link Clicked", FALSE
+		
+		'Select Recon Method
+		.WebList("ReconMethod").Select GlobalDictionary("ReconMethod")
+		WriteToReport micDone, "Select Recon Method: "&GlobalDictionary("ReconMethod"), "Recon Method Selected", FALSE
+		
+		'Select Notification Method
+		.WebList("NotificationMethod").Select GlobalDictionary("NotificationMethod")
+		WriteToReport micDone, "Select Notification Method: "&GlobalDictionary("NotificationMethod"), "Notification Method Selected", FALSE
+		
+		'Add Two Reconciliation Sources by clicking + button twice
+		.WebButton("ReconSource+").Click
+		WriteToReport micDone, "Added Second Row to Reconciliation Sources", "Second Row Added", FALSE
+		
+		'Set the row
+		.WebList("SourceType2").Select GlobalDictionary("SourceType2")
+		WriteToReport micDone, "Select Source Type for Row 2: "&GlobalDictionary("SourceType2"), "Source Type Selected", FALSE
+
+		.WebEdit("SourceSeq2").Set GlobalDictionary("SourceSeq2")
+		WriteToReport micDone, "Set Source Seq for Row 2: "&GlobalDictionary("SourceSeq2"), "Source Seq Selected", FALSE
+
+		.WebList("ReconRule2").Select GlobalDictionary("ReconRule2")
+		WriteToReport micDone, "Select Recon Rule for Row 2: "&GlobalDictionary("ReconRule2"), "Recon Rule Selected", FALSE
+
+		.WebEdit("ReconDesc2").Set GlobalDictionary("ReconDesc2")
+		WriteToReport micDone, "Set Recon Desc for Row 2: "&GlobalDictionary("ReconDesc2"), "Recon Desc Selected", FALSE
+		
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		'Click Payment Methods Link
+		.Link("PaymentMethods").Click
+		WriteToReport micDone, "Clicked the Payment Methods Link", "Link Clicked", FALSE
+
+		'Set First Payment Method
+		.WebList("PaymentMethod").Select GlobalDictionary("PaymentMethod1")
+		WriteToReport micDone, "Select First Payment Method: "&GlobalDictionary("PaymentMethod1"), "First Payment Method Selected", FALSE
+
+		.WebList("HolidayOptions").Select GlobalDictionary("HolidayOptions1")
+		WriteToReport micDone, "Select First Payment Holiday Options: "&GlobalDictionary("HolidayOptions1"), "First Payment Holiday Options Selected", FALSE
+
+		.WebEdit("FormID").Set GlobalDictionary("FormID1")
+		WriteToReport micDone, "Set First Payment Form ID: "&GlobalDictionary("FormID1"), "First Payment Form ID Set", FALSE
+
+		.WebEdit("Layout").Set GlobalDictionary("Layout1")
+		WriteToReport micDone, "Set First Payment Layout: "&GlobalDictionary("Layout1"), "First Payment Layout Set", FALSE
+
+		'Set Second Payment Method
+		.WebButton("PmtInfo+").Click 
+		WriteToReport micDone, "Clicked + Button to Add Another Payment Information Row", "Button Clicked", FALSE
+		Wait 5
+
+		.WebList("PaymentMethod").Select GlobalDictionary("PaymentMethod2")
+		WriteToReport micDone, "Select Second Payment Method: "&GlobalDictionary("PaymentMethod2"), "Second Payment Method Selected", FALSE
+
+		'Set Third Payment Method
+		.WebButton("PmtInfo+").Click 
+		WriteToReport micDone, "Clicked + Button to Add Another Payment Information Row", "Button Clicked", FALSE
+		Wait 5
+
+		.WebList("PaymentMethod").Select GlobalDictionary("PaymentMethod3")
+		WriteToReport micDone, "Select Third Payment Method: "&GlobalDictionary("PaymentMethod3"), "Third Payment Method Selected", FALSE
+
+		.WebEdit("Layout").Set GlobalDictionary("Layout3")
+		WriteToReport micDone, "Set Third Payment Layout: "&GlobalDictionary("Layout3"), "Third Payment Layout Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		Do While Browser("PeopleSoft Browser").Page("ExternalAccounts").WebButton("PopupWarning").Exist(15)
+			Browser("PeopleSoft Browser").Page("ExternalAccounts").WebButton("PopupWarning").Click
+			WriteToReport micDone, "Warning Displayed that an Added Layout is Not Integrated Yet", "Warning Accepted", FALSE
+		Loop 
+	End With
+	If GlobalDictionary("SaveForLater") = "TRUE" Then
+		Dim oExcel, oFSO, oWorkbook, oSheet
+		Set oExcel = CreateObject("Excel.Application")
+		Set oFSO = CreateObject("Scripting.FileSystemObject")
+		'Delete the old deal file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\Account#.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\Account#.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\Account#.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "Account#"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("Account#")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\Account#", 56)
+		WriteToReport micPass, "Bank Account Saved for Later Test", "Bank Account Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\Account#.xls", FALSE
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Adds an Supported Layout to a Bank 3.05
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AddSupportedLayout
+	'Navigate to Bank Integration Layouts
+	If SelectMainMenu1(GlobalDictionary("TRSBankIntegrationLayouts")) Then
+		WriteToReport micPass, "Bank Integration Layouts Page", "Navigation to Bank Integration Layouts Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Bank Integration Layouts Page", "Navigation to Bank Integration Layouts page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+		
+	With Browser("PeopleSoft Browser").Page("BankIntegrationLayouts").PSFrame("TargetContent")
+		'Set SetID
+		.WebEdit("SetID").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+
+		'Set Bank Code
+		.WebEdit("BankCode").Set GlobalDictionary("BankCode")
+		WriteToReport micDone, "Set Bank Code: "&GlobalDictionary("BankCode"), "Bank Code Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Select Document Type
+		.WebList("DocumentType").Select GlobalDictionary("DocType1")
+		WriteToReport micDone, "Select Document Type: "&GlobalDictionary("DocType1"), "Document Type Selected", FALSE
+
+		'Set Layout
+		.WebEdit("Layout").Set GlobalDictionary("SupportedLayout1")
+		WriteToReport micDone, "Set Supported Layout: "&GlobalDictionary("SupportedLayout1"), "Supported Layout Set", FALSE
+
+		'Click File under File Output Type
+		.WebElement("File").Click
+		WriteToReport micDone, "Clicked File Option Under File Output Type", "Option Clicked", FALSE
+
+		'Check Supports Prenotes box 
+		If .WebCheckBox("SupportsPrenotes").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("SupportsPrenotes").Click
+			WriteToReport micDone, "Clicked the Checkbox for Supports Prenotes", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Supports Prenotes Already Checked", "No Action Taken", FALSE
+		End If
+
+		'Check that FILENAME, FILEEXT, and FILEPATH are Populated
+		If .WebEdit("FilenameValue").GetROProperty("value") <> "" Then
+			WriteToReport micPass, "FILENAME Has Value: "& .WebEdit("FilenameValue").GetROProperty("value"), "Field Populated", FALSE
+		Else
+			WriteToReport micFail, "FILENAME Value is Empty", "Field Not Populated", TRUE
+			ExitTest
+		End If
+		If .WebEdit("FileExtValue").GetROProperty("value") <> "" Then
+			WriteToReport micPass, "FILEEXT Has Value: "& .WebEdit("FileExtValue").GetROProperty("value"), "Field Populated", FALSE
+		Else
+			WriteToReport micFail, "FILEEXT Value is Empty", "Field Not Populated", TRUE
+			ExitTest
+		End If
+		If .WebEdit("FilepathValue").GetROProperty("value") <> "" Then
+			WriteToReport micPass, "FILEPATH Has Value: "& .WebEdit("FilepathValue").GetROProperty("value"), "Field Populated", FALSE
+		Else
+			WriteToReport micFail, "FILEPATH Value is Empty", "Field Not Populated", TRUE
+			ExitTest
+		End If
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		'Add Supported Layout
+		.WebButton("SuppLayout+").Click
+		WriteToReport micDone, "Clicked to Add Another Supported Layout", "Button Clicked", FALSE
+
+		.WebList("DocumentType").Select GlobalDictionary("DocType2")
+		WriteToReport micDone, "Select Document Type: "&GlobalDictionary("DocType2"), "Document Type Selected", FALSE
+
+		'Set Layout
+		.WebEdit("Layout").Set GlobalDictionary("SupportedLayout2")
+		WriteToReport micDone, "Set Supported Layout: "&GlobalDictionary("SupportedLayout2"), "Supported Layout Set", FALSE
+
+		'Set Bank Node
+		.WebEdit("BankNode").Set GlobalDictionary("BankNode")
+		WriteToReport micDone, "Set Bank Node: "&GlobalDictionary("BankNode"), "Bank Node Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Adds Instructions to External Account 3.05
+''' Currently Uses a Specified User, due to permissions
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AddInstrToExtAcct
+	Call Login(GlobalDictionary("AcctSettUser"))
+
+	'Navigate to External Accounts
+	If SelectMainMenu1(GlobalDictionary("TRSExternalAccounts")) Then
+		WriteToReport micPass, "External Accounts Page", "Navigation to External Accounts Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "External Accounts Page", "Navigation to External Accounts page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("ExternalAccounts").PSFrame("TargetContent")
+		'Set SetID
+		.WebEdit("SetID").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+
+		'Set Bank Code
+		.WebEdit("BankCode").Set GlobalDictionary("BankCode")
+		WriteToReport micDone, "Set Bank Code: "&GlobalDictionary("BankCode"), "Bank Code Set", FALSE
+
+		'Set Branch Name
+		.WebEdit("BranchName").Set GlobalDictionary("BranchName")
+		WriteToReport micDone, "Set Branch Name: "&GlobalDictionary("BranchName"), "Branch Name Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Click the Account Settlement Link
+		.Link("AccountSettlement").Click
+		WriteToReport micDone, "Click Account Settlement Link", "Link Clicked", FALSE
+
+		'Set Instructions
+		.WebEdit("InstructionsID").Set GlobalDictionary("InstructionsID")
+		WriteToReport micDone, "Set Instructions: "&GlobalDictionary("InstructionsID"), "Instructions Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Adds Statement Accounting for a Bank 3.07
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function BankStatementAccounting
+	Dim nRandom
+	Dim sMessage
+	'Navigate to Bank Statement Accounting
+	If SelectMainMenu1(GlobalDictionary("TRSBankStatementAccounting")) Then
+		WriteToReport micPass, "Bank Statement Accounting Page", "Navigation to Bank Statement Accounting Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Bank Statement Accounting Page", "Navigation to Bank Statement Accounting page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("BankStatementAccounting").PSFrame("TargetContent")
+		'Click Add a New Value
+		If .Link("AddANewValue").Exist(5) Then
+			.Link("AddANewValue").Click
+			WriteToReport micDone, "Clicked Add a New Value", "Link Clicked", FALSE
+		Else
+			WriteToReport micDone, "Already on Add a New Value Tab", "", FALSE
+		End If
+
+		'Set Bank ID
+		.WebEdit("BankID").Set GlobalDictionary("BankID")
+		WriteToReport micDone, "Set Bank ID: "&GlobalDictionary("BankID"), "Bank ID Set", FALSE
+
+		'Set Bank Account
+		.WebEdit("Account#").Set GlobalDictionary("Account#")
+		WriteToReport micDone, "Set Account #: "&GlobalDictionary("Account#"), "Account # Set", FALSE
+
+		'Set Statement Activity Type
+		.WebEdit("StmtActivityType").Set GlobalDictionary("StmtActivityType")
+		WriteToReport micDone, "Set Statement Activity Type: "&GlobalDictionary("StmtActivityType"), "Statement Activity Type Set", FALSE
+		
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		Call .Link("ActivityType").SetTOProperty("text",GlobalDictionary("StmtActivityType"))
+		If .Link("ActivityType").Exist(5) Then
+			.Link("ActivityType").Click
+			WriteToReport micDone, "Clicked the Existing Link for Activity: "&GlobalDictionary("StmtActivityType"), "Link Clicked", FALSE
+			Call VerifyActivityIsActive
+			Exit Function
+		End If
+
+		'Set Description
+		.WebEdit("Description").Set GlobalDictionary("Description")
+		WriteToReport micDone, "Set Description: "&GlobalDictionary("Description"), "Description Set", FALSE
+
+		'Set Rule ID
+		Randomize
+		nRandom = CStr(Round(999*Rnd+1))
+		GlobalDictionary("RuleID") = GlobalDictionary("RuleID")&nRandom
+		.WebEdit("RuleID").Set GlobalDictionary("RuleID")
+		WriteToReport micDone, "Set Rule ID: "&GlobalDictionary("RuleID"), "Rule ID Set", FALSE
+
+		'Set Rule Desc
+		.WebEdit("RuleDesc").Set GlobalDictionary("RuleDesc")
+		WriteToReport micDone, "Set Rule Description: "&GlobalDictionary("RuleDesc"), "Rule Description Set", FALSE
+
+		'Click Value Match
+		.WebElement("ValueMatch").Click
+		WriteToReport micDone, "Clicked the Value Match Option", "Option Clicked", FALSE
+
+		'Set Match Value
+		.WebEdit("MatchValue").Set GlobalDictionary("MatchValue")
+		WriteToReport micDone, "Set Match Value: "&GlobalDictionary("MatchValue"), "<atch Value Set", FALSE
+
+		'Set Match Template
+		.WebEdit("MatchTemplate").Set GlobalDictionary("MatchTemplate")
+		WriteToReport micDone, "Set Match Template: "&GlobalDictionary("MatchTemplate"), "<atch Template Set", FALSE
+
+		If .Image("TestRules").Exist(5) Then
+			.Image("TestRules").Click
+			WriteToReport micDone, "Clicked to Expand the Test Rules Section", "Test Rules Expanded", FALSE
+		Else
+			WriteToReport micDone, "Test Rules Section Already Expanded", "No Action Taken", FALSE
+		End If
+
+		'Set Sample Addenda
+		.WebEdit("SampleAddenda").Set GlobalDictionary("SampleAddenda")
+		WriteToReport micDone, "Set Sample Addenda: "&GlobalDictionary("SampleAddenda"), "Sample Addenda Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		'Click Test Rule
+		.WebButton("TestRule").Click
+		WriteToReport micDone, "Clicked the Test Rule Button", "Button Clicked", FALSE
+
+		If Browser("PeopleSoft Browser").Page("BankStatementAccounting").WebElement("TestRuleResult").Exist(10) Then
+			sMessage = Browser("PeopleSoft Browser").Page("BankStatementAccounting").WebElement("TestRuleResult").GetROProperty("outertext")
+			If InStr(1, sMessage, "Activity Default Template")  > 0 Then
+				If InStr(1, sMessage, GlobalDictionary("DefaultTemplateMsg")) > 0 Then
+					WriteToReport micPass, "The Message ["&GlobalDictionary("DefaultTemplateMsg")&"] Was Displayed", "Default Template Message Displayed", FALSE
+				Else
+					WriteToReport micFail, "The Message ["&GlobalDictionary("DefaultTemplateMsg")&"] Was Not Displayed", "Default Template Message Not Displayed", TRUE
+					ExitTest
+				End If
+				WriteToReport micDone, "Default Template is: "&Trim(Split(Split(sMessage, "=")(1), "Activity")(0)), "Default Template Assigned", FALSE
+			Else
+				If InStr(1, sMessage, GlobalDictionary("MatchValue")) > 0 Then
+					WriteToReport micPass, "The Value ["&GlobalDictionary("MatchValue")&"] Has Been Matched to this Rule", "Value Matched", FALSE
+				Else
+					WriteToReport micFail, "The Value ["&GlobalDictionary("MatchValue")&"] Has Not Been Matched to this Rule", "Value Not Matched", TRUE
+					ExitTest
+				End If
+
+				If InStr(1, sMessage, GlobalDictionary("MatchTemplate")) > 0 Then
+					WriteToReport micPass, "The Template ["&GlobalDictionary("MatchTemplate")&"] Has Been Matched to this Rule", "Template Matched", FALSE
+				Else
+					WriteToReport micFail, "The Template ["&GlobalDictionary("MatchTemplate")&"] Has Not Been Matched to this Rule", "Template Not Matched", TRUE
+					ExitTest
+				End If
+
+				If InStr(1, sMessage, GlobalDictionary("SuccessMsg")) > 0 Then
+					WriteToReport micPass, "The Message ["&GlobalDictionary("SuccessMsg")&"] Was Displayed", "Success Message Displayed", FALSE
+				Else
+					WriteToReport micFail, "The Message ["&GlobalDictionary("SuccessMsg")&"] Was Not Displayed", "Success Message Not Displayed", TRUE
+					ExitTest
+				End If
+			End If
+		Else
+			WriteToReport micFail, "Test Rule Popup Did Not Appear", "Popup took too long to appear", TRUE
+			ExitTest
+		End If
+
+		'Click OK to dismiss Popup
+		Browser("PeopleSoft Browser").Page("BankStatementAccounting").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		WriteToReport micPass, "Successfully Created Rule: "&GlobalDictionary("RuleID"), "Rule Created", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Verifies an Activity Rule is Active, and Makes it Active If Not 3.09
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Private Function VerifyActivityIsActive
+	With Browser("PeopleSoft Browser").Page("BankStatementAccounting").PSFrame("TargetContent")
+		.WebList("ActiveStatus").Select "Active"
+		WriteToReport micDone, "Set Overall Active Status to Active", "Status is Active", FALSE
+
+		.WebList("RuleActiveStatus").Select "Active"
+		WriteToReport micDone, "Set Rule Status to Active", "Rule Status is Active", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With
+End Function
+
+'**************************************************************************************************************
+''' <summary> 
+''' Perform Automatic Reconciliation 3.09
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function AutomaticReconciliation
+	Dim arrTemp
+	Dim bFirst, i
+	Dim sCycle, sTrans, sRecon, sExcep, sBnkID, sAcct, sStmtID
+	Const SELECT_COL = 1
+	Const BNKID_COL = 2
+	Const ACCT_COL = 3
+	Const STMTID_COL = 5
+	Const TRANS_COL = 7
+	Const RECON_COL = 8
+	Const CYCLE_COL = 9
+	Const EXCEP_COL = 10
+	Const PROCNAME = "FSPRECON"
+	bFirst = TRUE
+	sBnkID = ""
+	'Navigate to Automatic Reconciliation
+	If SelectMainMenu1(GlobalDictionary("TRSAutomaticReconciliation")) Then
+		WriteToReport micPass, "Automatic Reconciliation Page", "Navigation to Automatic Reconciliation Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Automatic Reconciliation Page", "Navigation to Automatic Reconciliation page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("AutomaticReconciliation").PSFrame("TargetContent")
+		'Set Bank ID
+		.WebEdit("BankID").Set GlobalDictionary("BankID")
+		WriteToReport micDone, "Set Bank ID: "&GlobalDictionary("BankID"), "Bank ID Set", FALSE
+
+		'Set Account #
+		.WebEdit("Account#").Set GlobalDictionary("Account#")
+		WriteToReport micDone, "Set Account #: "&GlobalDictionary("Account#"), "Account # Set", FALSE
+
+		'Select Date
+		.WebList("Date").Select GlobalDictionary("Date")
+		WriteToReport micDone, "Selected Date: "& GlobalDictionary("Date"), "Date Selected", FALSE
+
+		'Set From Date
+		.WebEdit("DateFrom").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now)-2, Day(Now))) 'Two Months Previous
+		WriteToReport micDone, "Set From Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now)-2, Day(Now))), "From Date Set", FALSE
+
+		'Set Thru Date
+		.WebEdit("DateThru").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), Day(Now))) 'Today
+		WriteToReport micDone, "Set Thru Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), Day(Now))), "Thru Date Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		Wait 10
+
+		'Loop until either the last page of results has been reached or at least one row was Selected
+		Do
+			If NOT bFirst AND .WebButton(">Next").Exist(5) Then
+				.WebButton(">Next").Click
+				WriteToReport micDone, "Clicked the > Button to Show More Entries", "Button Clicked", FALSE
+			End If
+			.WebTable("BankStatements").RefreshObject
+			For i = 1 To .WebTable("BankStatements").GetROProperty("rows")
+				sTrans = Trim(.WebTable("BankStatements").Cell(i, TRANS_COL).GetROProperty("innertext"))
+				sRecon = Trim(.WebTable("BankStatements").Cell(i, RECON_COL).GetROProperty("innertext"))
+				sCycle = Trim(.WebTable("BankStatements").Cell(i, CYCLE_COL).GetROProperty("innertext"))
+				sExcep = Trim(.WebTable("BankStatements").Cell(i, EXCEP_COL).GetROProperty("innertext"))
+
+				If CInt(sTrans) > 0 AND sRecon = "0" AND sCycle = "Ready" AND Len(sExcep) = 0 Then
+					.WebTable("BankStatements").ChildItem(i, SELECT_COL, "WebCheckBox", 0).Click
+					WriteToReport micDone, "Clicked the box for Row: "&i, "Selected Statement", FALSE
+					'Save the last found row's data for Bank ID, Account #, Statement ID
+					sBnkID = Trim(.WebTable("BankStatements").Cell(i, BNKID_COL).GetROProperty("innertext"))
+					sAcct = Trim(.WebTable("BankStatements").Cell(i, ACCT_COL).GetROProperty("innertext"))
+					sStmtID = Trim(.WebTable("BankStatements").Cell(i, STMTID_COL).GetROProperty("innertext"))
+				End If
+			Next
+			bFirst = FALSE
+		Loop Until (NOT .WebButton(">Next").Exist(5)) OR sBnkID <> ""
+
+		'Check that a value was Stored/Selected
+		If sBnkID = "" Then
+			WriteToReport micFail, "Failed to Locate any Valid Bank Statement with No Exceptions to Automatically Reconcile", "No Row Selected", TRUE
+			ExitTest
+		End If
+
+		'Click Run Recon
+		.WebButton("RunRecon").Click
+		WriteToReport micDone, "Clicked Run Recon Button", "Button Clicked", FALSE
+
+		'Click Process Monitor
+		.Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+	End With
+	'Monitor until Success/Posted
+	Call CheckProcessMontiorStatus(PROCNAME)
+	'Note BankID
+	If GlobalDictionary.Exists("BankID") Then
+   		GlobalDictionary.Remove("BankID")
+	End If
+	GlobalDictionary.Add "BankID", sBnkID
+	WriteToReport micDone, "Bank with ID Stored: "&GlobalDictionary("BankID"), "Bank ID Stored", FALSE
+	'Note Account #
+	If GlobalDictionary.Exists("Account#") Then
+   		GlobalDictionary.Remove("Account#")
+	End If
+	GlobalDictionary.Add "Account#", sAcct
+	WriteToReport micDone, "Account # Stored: "&GlobalDictionary("Account#"), "Account # Stored", FALSE
+	'Note Statement ID
+	If GlobalDictionary.Exists("StatementID") Then
+   		GlobalDictionary.Remove("StatementID")
+	End If
+	GlobalDictionary.Add "StatementID", sStmtID
+	WriteToReport micDone, "Statement with ID Stored: "&GlobalDictionary("StatementID"), "Statement ID Stored", FALSE
+
+	arrTemp = dbCheckActivities(sBnkID, sAcct, sStmtID)
+	If UBound(arrTemp)>0 Then
+		Call AddStatementActivityTypes(arrTemp)
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Add Bank Statement Rules for Missing Activity Types for a Statement After Automatic Reconciliation 3.09
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Private Function AddStatementActivityTypes(arrActivities)
+	Dim i
+	'Skip 0, as it is an empty row
+	For i=1 To UBound(arrActivities)
+		If GlobalDictionary.Exists(Trim(arrActivities(i))&"Description") Then
+			GlobalDictionary("Description") = GlobalDictionary(Trim(arrActivities(i))&"Description")
+			GlobalDictionary("RuleID") = GlobalDictionary(Trim(arrActivities(i))&"RuleID")
+			GlobalDictionary("RuleDesc") = GlobalDictionary(Trim(arrActivities(i))&"RuleDesc")
+			GlobalDictionary("MatchValue") = GlobalDictionary(Trim(arrActivities(i))&"MatchValue")
+			GlobalDictionary("MatchTemplate") = GlobalDictionary(Trim(arrActivities(i))&"MatchTemplate")
+			GlobalDictionary("SampleAddenda") = GlobalDictionary(Trim(arrActivities(i))&"SampleAddenda")
+			GlobalDictionary("StmtActivityType") = Trim(arrActivities(i))
+			Call BankStatementAccounting
+		Else
+			WriteToReport micFail, "Unknown Activity", "Please check or add Activity Type to Automation", FALSE
+			ExitTest
+		End If
+	Next
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Perform Process Statement Accounting 3.09
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function ProcessStatementAccounting
+	Dim nRandom
+	Const PROCESS_STMT_ACCTG = "PROCESS_STMT_ACCTG"
+	Const PROCNAME = "TR_STMTACCTG"
+	'Navigate to Process Statement Accounting
+	If SelectMainMenu1(GlobalDictionary("TRSProcessStatementAccounting")) Then
+		WriteToReport micPass, "Process Statement Accounting Page", "Navigation to Process Statement Accounting Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Process Statement Accounting Page", "Navigation to Process Statement Accounting page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("ProcessStatementAccounting").PSFrame("TargetContent")
+		'Click Add a New Value
+		.Link("AddANewValue").Click
+		WriteToReport micDone, "Clicked Add a New Value", "Link Clicked", FALSE
+
+		'Set Run Control ID
+		Randomize
+		nRandom = CStr(Round(10000*Rnd))
+		.WebEdit("RunControlID").Set PROCESS_STMT_ACCTG&nRandom
+		WriteToReport micDone, "Set Run Control ID: "&PROCESS_STMT_ACCTG&nRandom, "Run Control ID Set", FALSE 
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set Bank ID
+		.WebEdit("BankID").Set GlobalDictionary("BankID")
+		WriteToReport micDone, "Set Bank ID: "&GlobalDictionary("BankID"), "Bank ID Set", FALSE
+
+		'Set Account #
+		.WebEdit("Account#").Set GlobalDictionary("Account#")
+		WriteToReport micDone, "Set Account #: "&GlobalDictionary("Account#"), "Account # Set", FALSE
+
+		'Set Statement ID
+		.WebEdit("StatementID").Set GlobalDictionary("StatementID")
+		WriteToReport micDone, "Set Statement ID: "&GlobalDictionary("StatementID"), "Statement ID Set", FALSE
+
+		'Click Run
+		.WebButton("Run").Click
+		WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+		'Verify Process Checked
+		Wait 3
+		If Browser("PeopleSoft Browser").Page("ProcessStatementAccounting").PSFrame("ProcessSchedulerRequest").WebCheckBox("ProcessStatementAccounting").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			Browser("PeopleSoft Browser").Page("ProcessStatementAccounting").PSFrame("ProcessSchedulerRequest").WebCheckBox("ProcessStatementAccounting").Click
+			WriteToReport micDone, "Clicked the Checkbox for Process Statement Accounting", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Process Statement Accounting Already Checked", "No Action Taken", FALSE
+		End If
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("ProcessStatementAccounting").PSFrame("ProcessSchedulerRequest").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Click Process Monitor
+		.Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+	End With
+	'Monitor until Success/Posted
+	Call CheckProcessMontiorStatus(PROCNAME)
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Review Bank Statement 3.09
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+Public Function ReviewBankStatements
+	Dim i, sTrans, sStat
+	Const TRANS_COL = 5
+	Const STAT_COL = 4
+	'Navigate to Review Bank Statements
+	If SelectMainMenu1(GlobalDictionary("TRSReviewBankStatements")) Then
+		WriteToReport micPass, "Review Bank Statements Page", "Navigation to Review Bank Statements Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Review Bank Statements Page", "Navigation to Review Bank Statements page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("ReviewBankStatements").PSFrame("TargetContent")
+		'Set Bank ID
+		.WebEdit("BankID").Set GlobalDictionary("BankID")
+		WriteToReport micDone, "Set Bank ID: "&GlobalDictionary("BankID"), "Bank ID Set", FALSE
+
+		'Set Account #
+		.WebEdit("Account#").Set GlobalDictionary("Account#")
+		WriteToReport micDone, "Set Account #: "&GlobalDictionary("Account#"), "Account # Set", FALSE
+
+		'Set Statement ID
+		.WebEdit("StatementID").Set GlobalDictionary("StatementID")
+		WriteToReport micDone, "Set Statement ID: "&GlobalDictionary("StatementID"), "Statement ID Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		For i=1 To .WebTable("StatementsRight").GetROProperty("rows")
+			sStat = Trim(.WebTable("StatementsRight").Cell(i, STAT_COL).GetROProperty("innertext"))
+			sTrans = Trim(.WebTable("StatementsRight").Cell(i,TRANS_COL).GetROProperty("innertext"))
+			WriteToReport micDone, "For Bank ID ["&GlobalDictionary("BankID")&"] Account ["&GlobalDictionary("Account#")_
+			& "] and Statement ["&GlobalDictionary("StatementID")&"] Found Trans Code ["&sTrans&"] and Status ["&sStat&"]", "Entry Reported", FALSE
+		Next
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Schedule Cash Forecast 4.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+Public Function ScheduleCashForecast
+	Dim nRandom
+	Const CDW_CASH = "CDW_CASH_POSITION"
+	'Navigate to Schedule Cash Forecast
+	If SelectMainMenu1(GlobalDictionary("TRSScheduleCashForecast")) Then
+		WriteToReport micPass, "Schedule Cash Forecast Page", "Navigation to Schedule Cash Forecast Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Schedule Cash Forecast Page", "Navigation to Schedule Cash Forecast page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("ScheduleCashForecast").PSFrame("TargetContent")
+		'Click Add a New Value
+		.Link("AddANewValue").Click
+		WriteToReport micDone, "Clicked Add a New Value", "Link Clicked", FALSE
+
+		'Set Run Control ID
+		Randomize
+		nRandom = CStr(Round(10000*Rnd))
+		.WebEdit("RunControlID").Set CDW_CASH&nRandom
+		WriteToReport micDone, "Set Run Control ID: "&CDW_CASH&nRandom, "Run Control ID Set", FALSE 
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Select Process Frequency
+		.WebList("ProcessFrequency").Select GlobalDictionary("ProcessFrequency")
+		WriteToReport micDone, "Select Process Frequency: "&GlobalDictionary("ProcessFrequency"), "Process Frequency Selected", FALSE
+
+		'Set SetID
+		.WebEdit("SetID").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+
+		'Set Worksheet
+		.WebEdit("Worksheet").Set GlobalDictionary("Worksheet")
+		WriteToReport micDone, "Set Worksheet: "&GlobalDictionary("Worksheet"), "Worksheet Set", FALSE
+
+		'Set Position Source Set
+		.WebEdit("PositionSourceSet").Set GlobalDictionary("PositionSourceSet")
+		WriteToReport micDone, "Set Position Source Set: "&GlobalDictionary("PositionSourceSet"), "Position Source Set Set", FALSE
+
+		'Select Date Type
+		.WebList("DateType").Select GlobalDictionary("DateType")
+		WriteToReport micDone, "Select Date Type: "&GlobalDictionary("DateType"), "Date Type Selected", FALSE
+
+		'Set From Date
+		.WebEdit("FromDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1))
+		WriteToReport micDone, "Set From Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "From Date Set", FALSE
+
+		'Set To Date
+		.WebEdit("ToDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now)+1, 0))
+		WriteToReport micDone, "Set To Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now)+1, 0)), "To Date Set", FALSE
+
+		'Click Run
+		.WebButton("Run").Click
+		WriteToReport micDone, "Clicked the Run Button", "Button Clicked", FALSE
+
+		Wait 5
+
+		'Verify Process Checked
+		If Browser("PeopleSoft Browser").Page("ScheduleCashForecast").PSFrame("ProcessSchedulerRequest").WebCheckBox("CashForecastCalculations").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			Browser("PeopleSoft Browser").Page("ScheduleCashForecast").PSFrame("ProcessSchedulerRequest").WebCheckBox("CashForecastCalculations").Click
+			WriteToReport micDone, "Clicked the Checkbox for Cash Forecast Calculations", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Cash Forecast Calculations Already Checked", "No Action Taken", FALSE
+		End If
+
+		'Click OK
+		Browser("PeopleSoft Browser").Page("ScheduleCashForecast").PSFrame("ProcessSchedulerRequest").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Prepare for Process Monitor
+		GlobalDictionary.Add "Process", "TR_CSH_FCST"
+
+		'Grab the Process Instance
+		Wait 5
+		If .WebElement("ProcessInstance").Exist(15) Then
+			GlobalDictionary.Add "InstanceNumber", Split(.WebElement("ProcessInstance").GetROProperty("innertext"), ":")(1)
+			WriteToReport micDone, "The Process Instance is: ["&GlobalDictionary("InstanceNumber")&"]", "Process Instance Reported", FALSE
+		End If
+
+		'Click Process Monitor
+		.Link("ProcessMonitor").Click
+		WriteToReport micDone, "Clicked the Process Monitor Link", "Link Clicked", FALSE
+
+		Call SharedProcessMonitor("ScheduleCashForecast")
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Cash Forecast Results 4.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+Public Function CashForecastResults
+	Dim oDeviceReplay
+	Dim sDate, sAmount, sSource
+	Dim i
+	Const TAB = 15
+	Const SRC = 1
+	Const BUZERO = 2
+	'Navigate to Cash Forecast Results
+	If SelectMainMenu1(GlobalDictionary("TRSCashForecastResults")) Then
+		WriteToReport micPass, "Cash Forecast Results Page", "Navigation to Cash Forecast Results Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Cash Forecast Results Page", "Navigation to Cash Forecast Results page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("CashForecastingResults")
+		'Select from Actions Dropdown
+		.PSFrame("TargetContent").Link("Actions").Click
+		.PSFrame("TargetContent").Link("UpdateSearch").Click
+		WriteToReport micDone, "Clicked Actions, then Update Search", "Links Clicked", FALSE
+
+		'Set Search Name
+		.PSFrame("CashForecastSearch").WebEdit("SearchName").Set GlobalDictionary("SearchName")
+		WriteToReport micDone, "Set Search Name: "&GlobalDictionary("SearchName"), "Search Name Set", FALSE
+
+		'Tab out to autofill remaining fields
+		Set oDeviceReplay = CreateObject("Mercury.DeviceReplay")
+		oDeviceReplay.PressKey TAB
+		Wait 1
+
+		'Click magnifying glass next to Value Date
+		.PSFrame("CashForecastSearch").Image("Date").Click
+		WriteToReport micDone, "Clicked the Magnifying Glass Next to Value Date", "Image Clicked", FALSE
+
+		'Click Advanced Lookup
+		.PSFrame("LookUpValueDate").Link("AdvancedLookup").Click
+		WriteToReport micDone, "Clicked Advanced Lookup", "Link Clicked", FALSE
+
+		'Select Payment Date Option
+		.PSFrame("LookUpValueDate").WebList("PaymentDate").Select "between"
+
+		'Set dates between TODAY - 5 Days and TODAY
+		If NOT .PSFrame("LookUpValueDate").WebEdit("FromDate").Exist(30) Then
+			WriteToReport micFail, "From Date Field Took Longer than 30 seconds to appear", "", TRUE
+			ExitTest
+		End If
+		.PSFrame("LookUpValueDate").WebEdit("FromDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1))
+		WriteToReport micDone, "Set From Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now), 1)), "From Date Set", FALSE
+
+		.PSFrame("LookUpValueDate").WebEdit("ToDate").Set AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now)+1, 0))
+		WriteToReport micDone, "Set To Date: "& AnyDateLeadingZeros(DateSerial(Year(Now), Month(Now)+1, 0)), "To Date Set", FALSE
+
+		'Click Lookup
+		.PSFrame("LookUpValueDate").WebButton("LookUp").Click
+		WriteToReport micDone, "Clicked Look Up Button", "Look Up Clicked", FALSE
+
+		'Click First Result
+		If NOT .PSFrame("LookUpValueDate").Link("PaymentDate").Exist(15) Then
+			WriteToReport micFail, "No Date in Range Found", "", TRUE
+			ExitTest
+		End If
+		
+		sDate = .PSFrame("LookUpValueDate").Link("PaymentDate").GetROProperty("innertext")
+		.PSFrame("LookUpValueDate").Link("PaymentDate").Click
+		WriteToReport micDone, "Found Date: "&sDate, "Clicked Date Found", FALSE
+
+		'Click OK
+		.PSFrame("CashForecastSearch").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Report
+		For i=2 To .PSFrame("TargetContent").WebTable("Results").GetROProperty("rows") 'Skip i = 1, its the header row
+			If Trim(.PSFrame("TargetContent").WebTable("Results").ChildItem(i, BUZERO, "WebElement", 0).GetROProperty("innertext")) <> "0.00" Then
+				sSource = .PSFrame("TargetContent").WebTable("Results").ChildItem(i, SRC, "WebElement", 0).GetROProperty("innertext")
+				sAmount = .PSFrame("TargetContent").WebTable("Results").ChildItem(i, BUZERO, "WebElement", 0).GetROProperty("innertext")
+				WriteToReport micDone, "For Source Type "&sSource&", Found Non-Zero Forecasted Amount: "&sAmount, "Forecasted Amount for BU 00000", FALSE
+			End If
+		Next
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Add Manual Cash Position Entry 4.03
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+'**************************************************************************************************************
+Public Function EnterManualCashPosition
+	'Navigate to Enter Manual Cash Position
+	If SelectMainMenu1(GlobalDictionary("TRSEnterManualCashPosition")) Then
+		WriteToReport micPass, "Enter Manual Cash Position Page", "Navigation to Enter Manual Cash Position Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Enter Manual Cash Position Page", "Navigation to Enter Manual Cash Position page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("EnterManualCashPosition").PSFrame("TargetContent")
+		'Search Value Date
+		.WebEdit("ValueDateSearch").Set DateLeadingZeros
+		WriteToReport micDone, "Set Value Date Search: "&DateLeadingZeros, "Value Date Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Set SetID
+		.WebEdit("SetID1").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+
+		'Set BU
+		.WebEdit("Unit1").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Set Category
+		.WebEdit("Category1").Set GlobalDictionary("Category")
+		WriteToReport micDone, "Set Category: "&GlobalDictionary("Category"), "Category Set", FALSE
+
+		'Set Value Date
+		.WebEdit("ValueDate1").Set DateLeadingZeros
+		WriteToReport micDone, "Set Value Date: "&DateLeadingZeros, "Value Date Set", FALSE
+
+		'Set Reference
+		.WebEdit("Reference1").Set GlobalDictionary("Reference")
+		WriteToReport micDone, "Set Reference: "&GlobalDictionary("Reference"), "Reference Set", FALSE
+
+		'Set Amount
+		.WebEdit("Amount1").Set GlobalDictionary("Amount")
+		WriteToReport micDone, "Set Amount: "&GlobalDictionary("Amount"), "Amount Set", FALSE
+
+		'Set Currency
+		.WebEdit("Currency1").Set GlobalDictionary("Currency")
+		WriteToReport micDone, "Set Currency: "&GlobalDictionary("Currency"), "Currency Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		'Verify Entry in DB
+		If dbCheckCshPosEntry(GlobalDictionary("SetID"), GlobalDictionary("BusinessUnit"), GlobalDictionary("Category"), DateLeadingZeros, GlobalDictionary("Reference"), GlobalDictionary("Amount"), GlobalDictionary("Currency")) Then
+			WriteToReport micPass, "Found the Cash Position Entry in the Database", "Entry Found", FALSE
+		Else
+			WriteToReport micFail, "Did Not Find the Cash Position in the Database", "Entry Not Found, Check Query/Data", TRUE
+			ExitTest
+		End If
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Bank Account Transfer 5.01
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+Public Function BankAccountTransfer
+	Dim oDeviceReplay
+	Const ENTER = 28
+	'Navigate to Bank Account Transfer
+	If SelectMainMenu1(GlobalDictionary("TRSBankAccountTransfer")) Then
+		WriteToReport micPass, "Bank Account Transfer Page", "Navigation to Bank Account Transfer Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Bank Account Transfer Page", "Navigation to Bank Account Transfer page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("BankAccountTransfer").PSFrame("TargetContent")
+		'Click Add a New Value
+		.Link("AddANewValue").Click
+		WriteToReport micDone, "Clicked Add a New Value", "Link Clicked", FALSE
+
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Select Transfer Type
+		.WebList("TransferType").Select GlobalDictionary("TransferType")
+		WriteToReport micDone, "Selected Transfer Type: "&GlobalDictionary("TransferType"), "Transfer Type Selected", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set Transfer Template ID
+		.WebEdit("TransferTemplateID").Set GlobalDictionary("TransferTemplateID")
+		WriteToReport micDone, "Set Transfer Template ID: "&GlobalDictionary("TransferTemplateID"), "Transfer Template ID Set", FALSE
+
+		'Hit Enter Key
+		Set oDeviceReplay = CreateObject("Mercury.DeviceReplay")
+		oDeviceReplay.PressKey ENTER
+		Wait 1
+
+		'Set Description
+		.WebEdit("Description").Set GlobalDictionary("Description")
+		WriteToReport micDone, "Set Description: "&GlobalDictionary("Description"), "Description Set", FALSE
+
+		'Set Amount
+		.WebEdit("Amount").Set GlobalDictionary("Amount")
+		WriteToReport micDone, "Set Amount: "&GlobalDictionary("Amount"), "Amount Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		Wait 3
+
+		'Note the Transfer ID
+		If GlobalDictionary.Exists("TransferID") Then
+       		GlobalDictionary.Remove("TransferID")
+    	End If
+    	GlobalDictionary.Add "TransferID", .WebElement("TransferID").GetROProperty("innertext")
+    	WriteToReport micDone, "Transfer Created with ID: "&GlobalDictionary("TransferID"), "Transfer ID Stored", FALSE
+	End With
+	If GlobalDictionary("SaveForLater") = "TRUE" Then
+		Dim oExcel, oFSO, oWorkbook, oSheet
+		Set oExcel = CreateObject("Excel.Application")
+		Set oFSO = CreateObject("Scripting.FileSystemObject")
+		'Delete the old deal file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\TransferID.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\TransferID.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\TransferID.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "TransferID"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("TransferID")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\TransferID", 56)
+		WriteToReport micPass, "Transfer ID Saved for Later Test", "Transfer ID Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\TransferID.xls", FALSE
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' EFT Request 5.02
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+Public Function EFTRequest
+	'Navigate to EFT Request
+	If SelectMainMenu1(GlobalDictionary("TRSEFTRequest")) Then
+		WriteToReport micPass, "EFT Request Page", "Navigation to EFT Request Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "EFT Request Page", "Navigation to EFT Request page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("EFTRequest").PSFrame("TargetContent")
+		'Click Add a New Value
+		.Link("AddANewValue").Click
+		WriteToReport micDone, "Clicked Add a New Value", "Link Clicked", FALSE
+
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set Description
+		.WebEdit("Description").Set GlobalDictionary("Description")
+		WriteToReport micDone, "Set Description: "&GlobalDictionary("Description"), "Description Set", FALSE
+
+		'Set Bank Code
+		.WebEdit("BankCode").Set GlobalDictionary("BankCode")
+		WriteToReport micDone, "Set Bank Code: "&GlobalDictionary("BankCode"), "Bank Code Set", FALSE
+
+		'Set Bank Account
+		.WebEdit("BankAccount").Set GlobalDictionary("BankAccount")
+		WriteToReport micDone, "Set Bank Account: "&GlobalDictionary("BankAccount"), "Bank Account Set", FALSE
+
+		'Set Amount
+		.WebEdit("Amount").Set GlobalDictionary("Amount")
+		WriteToReport micDone, "Set Amount: "&GlobalDictionary("Amount"), "Amount Set", FALSE
+
+		'Click Destination Tab
+		.WebElement("Destination").Click
+		WriteToReport micDone, "Clicked the Destination Tab", "Tab Clicked", FALSE
+
+		'Set Name 1
+		.WebEdit("Name1").Set GlobalDictionary("Name1")
+		WriteToReport micDone, "Set Name 1: "&GlobalDictionary("Name1"), "Name 1 Set", FALSE
+
+		'Set Bank Name
+		.WebEdit("BankName").Set GlobalDictionary("BankName")
+		WriteToReport micDone, "Set Bank Name: "&GlobalDictionary("BankName"), "Bank Name Set", FALSE
+
+		'Set Bank ID Qualifier
+		.WebEdit("BankIDQualifier").Set GlobalDictionary("BankIDQualifier")
+		WriteToReport micDone, "Set Bank ID Qualifier: "&GlobalDictionary("BankIDQualifier"), "Bank ID Qualifier Set", FALSE
+
+		'Set Bank ID
+		.WebEdit("BankID").Set GlobalDictionary("BankID")
+		WriteToReport micDone, "Set Bank ID: "&GlobalDictionary("BankID"), "Bank ID Set", FALSE
+
+		'Select Acct Type
+		.WebList("AcctType").Select GlobalDictionary("AcctType")
+		WriteToReport micDone, "Select Acct Type: "&GlobalDictionary("AcctType"), "Acct Type Selected", FALSE
+
+		'Set Account #
+		.WebEdit("Account#").Set GlobalDictionary("Account#")
+		WriteToReport micDone, "Set Account #: "&GlobalDictionary("Account#"), "Account # Set", FALSE
+
+		'Set DFI Qualifier
+		.WebEdit("DFIQualifier").Set GlobalDictionary("DFIQualifier")
+		WriteToReport micDone, "Set DFI Qualifier: "&GlobalDictionary("DFIQualifier"), "DFI Qualifier Set", FALSE
+
+		'Set DFI ID
+		.WebEdit("DFIID").Set GlobalDictionary("DFIID")
+		WriteToReport micDone, "Set DFI ID: "&GlobalDictionary("DFIID"), "DFI ID Set", FALSE
+
+		'Click Beneficiary Address Tab
+		.WebElement("BeneficiaryAddress").Click
+		WriteToReport micDone, "Clicked the Beneficiary Address Tab", "Tab Clicked", FALSE
+
+		'Set Address 1
+		.WebEdit("Address1").Set GlobalDictionary("Address1")
+		WriteToReport micDone, "Set Address 1: "&GlobalDictionary("Address1"), "Address 1 Set", FALSE
+
+		'Set Address 2
+		.WebEdit("Address2").Set GlobalDictionary("Address2")
+		WriteToReport micDone, "Set Address 2: "&GlobalDictionary("Address2"), "Address 2 Set", FALSE
+
+		'Set City
+		.WebEdit("City").Set GlobalDictionary("City")
+		WriteToReport micDone, "Set City: "&GlobalDictionary("City"), "City Set", FALSE
+
+		'Set Phone
+		.WebEdit("Phone").Set GlobalDictionary("Phone")
+		WriteToReport micDone, "Set Phone: "&GlobalDictionary("Phone"), "Phone Set", FALSE
+
+		'Set State
+		.WebEdit("State").Set GlobalDictionary("State")
+		WriteToReport micDone, "Set State: "&GlobalDictionary("State"), "State Set", FALSE
+
+		'Set Postal
+		.WebEdit("Postal").Set GlobalDictionary("Postal")
+		WriteToReport micDone, "Set Postal: "&GlobalDictionary("Postal"), "Postal Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		'Warning for DFI length appears
+		If Browser("PeopleSoft Browser").Page("EFTRequest").WebElement("DFIWarning").Exist(5) Then
+			WriteToReport micPass, "Warning Appeared for DFI ID Not Having 9 Digits Entered", "Warning Accepted", FALSE
+			Browser("PeopleSoft Browser").Page("EFTRequest").WebButton("OK").Click
+		Else
+			WriteToReport micFail, "Expected Warning for DFI ID Not Having 9 Digits", "Warning Not Displayed", TRUE
+			ExitTest
+		End If
+
+		'Set the Real DFI ID
+		.WebEdit("DFIID").Set GlobalDictionary("RealDFIID")
+		WriteToReport micDone, "Set Actual DFI ID: "&GlobalDictionary("RealDFIID"), "DFI ID Set", FALSE
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+
+		Wait 5
+		If Trim(.WebElement("EFTRequestID").GetROProperty("innertext")) = "NEXT" Then
+			Wait 10
+			If Trim(.WebElement("EFTRequestID").GetROProperty("innertext")) = "NEXT" Then
+				WriteToReport micFail, "EFT Request ID Still Shows NEXT", "Took longer to update ID than Expected", TRUE
+				ExitTest
+			End If
+		End If
+
+		'Note the EFT Request ID
+		If GlobalDictionary.Exists("EFTRequestID") Then
+       		GlobalDictionary.Remove("EFTRequestID")
+    	End If
+    	GlobalDictionary.Add "EFTRequestID", .WebElement("EFTRequestID").GetROProperty("innertext")
+    	WriteToReport micDone, "EFT Request Created with ID: "&GlobalDictionary("EFTRequestID"), "EFT Request ID Stored", FALSE
+	End With
+	If GlobalDictionary("SaveForLater") = "TRUE" Then
+		Dim oExcel, oFSO, oWorkbook, oSheet
+		Set oExcel = CreateObject("Excel.Application")
+		Set oFSO = CreateObject("Scripting.FileSystemObject")
+		'Delete the old deal file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\EFTRequestID.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\EFTRequestID.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\EFTRequestID.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "EFTRequestID"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("EFTRequestID")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\EFTRequestID", 56)
+		WriteToReport micPass, "EFT Request ID Saved for Later Test", "EFT Request ID Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\EFTRequestID.xls", FALSE
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Enter EFT Transfer Template 5.03
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+Public Function EnterTransferTemplate
+	Dim nRandom
+	'Navigate to Enter Transfer Templates
+	If SelectMainMenu1(GlobalDictionary("TRSEnterTransferTemplates")) Then
+		WriteToReport micPass, "Enter Transfer Templates Page", "Navigation to Enter Transfer Templates Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Enter Transfer Templates Page", "Navigation to Enter Transfer Templates page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("EnterTransferTemplates").PSFrame("TargetContent")
+		'Click Add a New Value
+		.Link("AddANewValue").Click
+		WriteToReport micDone, "Clicked Add a New Value", "Link Clicked", FALSE
+
+		'Set SetID
+		.WebEdit("SetID").Set GlobalDictionary("SetID")
+		WriteToReport micDone, "Set SetID: "&GlobalDictionary("SetID"), "SetID Set", FALSE
+
+		'Set Transfer Template ID - add suffix
+		Randomize
+		nRandom = CStr(Round(99999999*Rnd))
+		GlobalDictionary("TransferTemplateID") = GlobalDictionary("TransferTemplateID")&nRandom
+		.WebEdit("TransferTemplateID").Set GlobalDictionary("TransferTemplateID")
+		WriteToReport micDone, "Set Transfer Template ID: "&GlobalDictionary("TransferTemplateID"), "Transfer Template ID Set", FALSE
+
+		'Click Add
+		.WebButton("Add").Click
+		WriteToReport micDone, "Clicked the Add Button", "Button Clicked", FALSE
+
+		'Set Description
+		.WebEdit("Description").Set GlobalDictionary("Description")
+		WriteToReport micDone, "Set Description: "&GlobalDictionary("Description"), "Description Set", FALSE
+
+		'Set Bank Code
+		.WebEdit("BankCode").Set GlobalDictionary("BankCode")
+		WriteToReport micDone, "Set Bank Code: "&GlobalDictionary("BankCode"), "Bank Code Set", FALSE
+
+		'Set Bank Account
+		.WebEdit("BankAccount").Set GlobalDictionary("BankAccount")
+		WriteToReport micDone, "Set Bank Account: "&GlobalDictionary("BankAccount"), "Bank Account Set", FALSE
+
+		'Set Layout
+		.WebEdit("Layout").Set GlobalDictionary("Layout")
+		WriteToReport micDone, "Set Layout: "&GlobalDictionary("Layout"), "Layout Set", FALSE
+
+		'Click Destination Tab
+		.WebElement("Destination").Click
+		WriteToReport micDone, "Clicked the Destination Tab", "Tab Clicked", FALSE
+
+		'Set Name 1
+		.WebEdit("Name1").Set GlobalDictionary("Name1")
+		WriteToReport micDone, "Set Name 1: "&GlobalDictionary("Name1"), "Name 1 Set", FALSE
+
+		'Set Bank Name
+		.WebEdit("BankName").Set GlobalDictionary("BankName")
+		WriteToReport micDone, "Set Bank Name: "&GlobalDictionary("BankName"), "Bank Name Set", FALSE
+
+		'Set Bank ID Qualifier
+		.WebEdit("BankIDQualifier").Set GlobalDictionary("BankIDQualifier")
+		WriteToReport micDone, "Set Bank ID Qualifier: "&GlobalDictionary("BankIDQualifier"), "Bank ID Qualifier Set", FALSE
+
+		'Set Bank ID
+		.WebEdit("BankID").Set GlobalDictionary("BankID")
+		WriteToReport micDone, "Set Bank ID: "&GlobalDictionary("BankID"), "Bank ID Set", FALSE
+
+		'Select Acct Type
+		.WebList("AcctType").Select GlobalDictionary("AcctType")
+		WriteToReport micDone, "Select Acct Type: "&GlobalDictionary("AcctType"), "Acct Type Selected", FALSE
+
+		'Set Account #
+		.WebEdit("Account#").Set GlobalDictionary("Account#")
+		WriteToReport micDone, "Set Account #: "&GlobalDictionary("Account#"), "Account # Set", FALSE
+
+		'Set DFI Qualifier
+		.WebEdit("DFIQualifier").Set GlobalDictionary("DFIQualifier")
+		WriteToReport micDone, "Set DFI Qualifier: "&GlobalDictionary("DFIQualifier"), "DFI Qualifier Set", FALSE
+
+		'Set DFI ID
+		.WebEdit("DFIID").Set GlobalDictionary("DFIID")
+		WriteToReport micDone, "Set DFI ID: "&GlobalDictionary("DFIID"), "DFI ID Set", FALSE
+
+		'Click Beneficiary Address Tab
+		.WebElement("BeneficiaryAddress").Click
+		WriteToReport micDone, "Clicked the Beneficiary Address Tab", "Tab Clicked", FALSE
+
+		'Set Address 1
+		.WebEdit("Address1").Set GlobalDictionary("Address1")
+		WriteToReport micDone, "Set Address 1: "&GlobalDictionary("Address1"), "Address 1 Set", FALSE
+
+		'Set Address 2
+		.WebEdit("Address2").Set GlobalDictionary("Address2")
+		WriteToReport micDone, "Set Address 2: "&GlobalDictionary("Address2"), "Address 2 Set", FALSE
+
+		'Set City
+		.WebEdit("City").Set GlobalDictionary("City")
+		WriteToReport micDone, "Set City: "&GlobalDictionary("City"), "City Set", FALSE
+
+		'Set Phone
+		.WebEdit("Phone").Set GlobalDictionary("Phone")
+		WriteToReport micDone, "Set Phone: "&GlobalDictionary("Phone"), "Phone Set", FALSE
+
+		'Set State
+		.WebEdit("State").Set GlobalDictionary("State")
+		WriteToReport micDone, "Set State: "&GlobalDictionary("State"), "State Set", FALSE
+
+		'Set Postal
+		.WebEdit("Postal").Set GlobalDictionary("Postal")
+		WriteToReport micDone, "Set Postal: "&GlobalDictionary("Postal"), "Postal Set", FALSE
+
+		'Click Template Field Security Tab
+		.WebElement("TemplateFieldSecurity").Click
+		WriteToReport micDone, "Clicked the Template Field Security Tab", "Tab Clicked", FALSE
+
+		'Click Selectively Enable Fields
+		.WebElement("SelectivelyEnableFields").Click
+		WriteToReport micDone, "Clicked Selectively Enable Fields Option", "Option Clicked", FALSE
+
+		'Check Enable Accounting checkbox
+		If .WebCheckBox("EnableAccounting").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("EnableAccounting").Click
+			WriteToReport micDone, "Clicked the Checkbox for Enable Accounting", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Enable Accounting Already Checked", "No Action Taken", FALSE
+		End If
+
+		'Click View All
+		If .Link("ViewAll").Exist(5) Then
+			.Link("ViewAll").Click
+			WriteToReport micDone, "View All Clicked", "Link Clicked", FALSE
+		End If
+
+		'Check the following boxes
+		If .WebCheckBox("Line1").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("Line1").Click
+			WriteToReport micDone, "Clicked the Checkbox for Line 1", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Line 1 Already Checked", "No Action Taken", FALSE
+		End If
+
+		If .WebCheckBox("Line2").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("Line2").Click
+			WriteToReport micDone, "Clicked the Checkbox for Line 2", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Line 2 Already Checked", "No Action Taken", FALSE
+		End If
+
+		If .WebCheckBox("Line3").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("Line3").Click
+			WriteToReport micDone, "Clicked the Checkbox for Line 3", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Line 3 Already Checked", "No Action Taken", FALSE
+		End If
+
+		If .WebCheckBox("Line4").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("Line4").Click
+			WriteToReport micDone, "Clicked the Checkbox for Line 4", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Line 4 Already Checked", "No Action Taken", FALSE
+		End If
+
+		If .WebCheckBox("AccountingTemplate").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("AccountingTemplate").Click
+			WriteToReport micDone, "Clicked the Checkbox for Accounting Template", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Accounting Template Already Checked", "No Action Taken", FALSE
+		End If
+
+		If .WebCheckBox("Amount").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+			.WebCheckBox("Amount").Click
+			WriteToReport micDone, "Clicked the Checkbox for Amount", "Checkbox Checked", FALSE
+		Else
+			WriteToReport micDone, "Checkbox for Amount Already Checked", "No Action Taken", FALSE
+		End If
+
+		'Click Save
+		.WebButton("Save").Click
+		WriteToReport micDone, "Clicked the Save Button", "Button Clicked", FALSE
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Select Settlements 5.04
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+Public Function SelectSettlements
+	Dim i, j
+	Dim bFound
+	Dim arrChecks(2)
+	Dim arrDates(2)
+	Dim arrIDs(2)
+	Const SRC_ID = 1
+	Const STAT_COL = 8
+	Const SELECT_COL = 1
+	bFound = FALSE
+	
+	'Navigate to Select Settlements
+	If SelectMainMenu1(GlobalDictionary("TRSSelectSettlements")) Then
+		WriteToReport micPass, "Select Settlements Page", "Navigation to Select Settlements Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Select Settlements Page", "Navigation to Select Settlements page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	If GlobalDictionary.Exists("TransferID") Then
+		arrChecks(0) = "Transfer ID"
+		arrDates(0) = DateLeadingZeros
+		arrIDs(0) = GlobalDictionary("TransferID")
+	End If
+
+	If GlobalDictionary.Exists("EFTRequestID") Then
+		arrChecks(1) = "EFT Request ID"
+		arrDates(1) = DateLeadingZeros
+		arrIDs(1) = GlobalDictionary("EFTRequestID")
+	End If
+
+	If GlobalDictionary.Exists("DealID") Then
+		arrChecks(2) = "Deal ID"
+		arrDates(2) = GlobalDictionary("BusinessDate")
+		arrIDs(2) = GlobalDictionary("DealID")
+	End If
+
+	With Browser("PeopleSoft Browser").Page("SelectSettlements").PSFrame("TargetContent")
+
+		'There is a left table and a right table under the same "table"
+		'Search the right table for the TransferID, EFTRequestID or DealID, and select the checkbox from the left table at the same row level
+		For j=0 To UBound(arrChecks)
+			If arrChecks(j) <> "" Then
+				.WebEdit("FromDate").Set arrDates(j)
+				.WebEdit("ToDate").Set arrDates(j)
+
+				'Click Search
+				.WebButton("Search").Click
+				WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+				For i=1 To .WebTable("PaymentsRight").GetROProperty("rows")
+					If Trim(.WebTable("PaymentsRight").Cell(i, SRC_ID).GetROProperty("innertext")) = arrIDs(j) Then
+						bFound = TRUE
+						.WebTable("PaymentsLeft").ChildItem(i, SELECT_COL, "WebCheckBox", 0).Click
+						WriteToReport micPass, "Clicked Select Box for "&arrChecks(j)&": "&arrIDs(j), "Box Checked", FALSE
+						Exit For
+					End If
+				Next
+				If NOT bFound Then
+					WriteToReport micFail, "Failed to Find the "&arrChecks(j)&": "&arrIDs(j), "Source Not Found", TRUE
+					ExitTest
+				End If
+
+				'Click Select Payments
+				.WebButton("SelectPayments").Click
+				WriteToReport micDone, "Clicked the Select Payments Button", "Button Clicked", FALSE
+
+				Wait 5
+
+				'Check Status Selected
+				For i=1 To .WebTable("PaymentsRight").GetROProperty("rows")
+					If Trim(.WebTable("PaymentsRight").Cell(i, SRC_ID).GetROProperty("innertext")) = arrIDs(j) Then
+						If Trim(.WebTable("PaymentsRight").Cell(i, STAT_COL).GetROProperty("innertext")) = "Selected" Then
+							WriteToReport micPass, "Found Status 'Selected' for "&arrChecks(j)&": "&arrIDs(j), "Source Selected", FALSE
+						Else
+							WriteToReport micFail, "Did Not Find Status 'Selected' for "&arrChecks(j)&": "&arrIDs(j), "Source Not Selected", TRUE
+							ExitTest
+						End If
+					End If
+				Next
+
+				'Reset
+				bFound = FALSE
+			End If
+		Next
+		
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Approve Settlements 5.05
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+Public Function ApproveSettlements
+	Dim i, j
+	Dim bFound
+	Dim arrChecks(2)
+	Dim arrDates(2)
+	Dim arrIDs(2)
+	Const SRC_ID = 1
+	Const STAT_COL = 8
+	Const SELECT_COL = 1
+	bFound = FALSE
+
+	If GlobalDictionary.Exists("ApproverSignIn") Then
+		Call Login(GlobalDictionary("ApproverSignIn"))
+	End If
+	'Navigate to Approve Settlements
+	If SelectMainMenu1(GlobalDictionary("TRSApproveSettlements")) Then
+		WriteToReport micPass, "Approve Settlements Page", "Navigation to Approve Settlements Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Approve Settlements Page", "Navigation to Approve Settlements page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	If GlobalDictionary.Exists("TransferID") Then
+		arrChecks(0) = "Transfer ID"
+		arrDates(0) = DateLeadingZeros
+		arrIDs(0) = GlobalDictionary("TransferID")
+	End If
+
+	If GlobalDictionary.Exists("EFTRequestID") Then
+		arrChecks(1) = "EFT Request ID"
+		arrDates(1) = DateLeadingZeros
+		arrIDs(1) = GlobalDictionary("EFTRequestID")
+	End If
+
+	If GlobalDictionary.Exists("DealID") Then
+		arrChecks(2) = "Deal ID"
+		arrDates(2) = GlobalDictionary("BusinessDate")
+		arrIDs(2) = GlobalDictionary("DealID")
+	End If
+
+	With Browser("PeopleSoft Browser").Page("ApproveSettlements").PSFrame("TargetContent")
+		
+
+		'There is a left table and a right table under the same "table"
+		'Search the right table for the TransferID, EFTRequestID or DealID, and select the checkbox from the left table at the same row level
+		For j=0 To UBound(arrChecks)
+			If arrChecks(j) <> "" Then
+				.WebEdit("FromDate").Set arrDates(j)
+				.WebEdit("ToDate").Set arrDates(j)
+
+				'Click Search
+				.WebButton("Search").Click
+				WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+				For i=1 To .WebTable("PaymentsRight").GetROProperty("rows")
+					If Trim(.WebTable("PaymentsRight").Cell(i, SRC_ID).GetROProperty("innertext")) = arrIDs(j) Then
+						bFound = TRUE
+						.WebTable("PaymentsLeft").ChildItem(i, SELECT_COL, "WebCheckBox", 0).Click
+						WriteToReport micPass, "Clicked Select Box for "&arrChecks(j)&": "&arrIDs(j), "Box Checked", FALSE
+						Exit For
+					End If
+				Next
+				If NOT bFound Then
+					WriteToReport micFail, "Failed to Find the "&arrChecks(j)&": "&arrIDs(j), "Source Not Found", TRUE
+					ExitTest
+				End If
+
+				'Click Approve Payments
+				.WebButton("ApprovePayments").Click
+				WriteToReport micDone, "Clicked the Approve Payments Button", "Button Clicked", FALSE
+
+				Wait 7
+
+				'Check Status Approved
+				For i=1 To .WebTable("PaymentsRight").GetROProperty("rows")
+					If Trim(.WebTable("PaymentsRight").Cell(i, SRC_ID).GetROProperty("innertext")) = arrIDs(j) Then
+						If Trim(.WebTable("PaymentsRight").Cell(i, STAT_COL).GetROProperty("innertext")) = "Approved" Then
+							WriteToReport micPass, "Found Status 'Approved' for "&arrChecks(j)&": "&arrIDs(j), "Source Approved", FALSE
+						Else
+							WriteToReport micFail, "Did Not Find Status 'Approved' for "&arrChecks(j)&": "&arrIDs(j), "Source Not Approved", TRUE
+							ExitTest
+						End If
+					End If
+				Next
+
+				'Reset
+				bFound = FALSE
+			End If
+		Next
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Net Deal Settlements 5.07
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+Public Function NetDealSettlements
+	Dim arrTemp, sNetRef
+	Const ID_COL = 1 'TREAS_DEADER_ID
+	Const BUSDT_COL = 5 'BUSINESS_DATE
+	Const CTRPRTY_COL = 8 'COUNTERPARTY
+	Const SETTDT_COL = 25 'SETTLEMENT_DT
+	sNetRef = ""
+
+	'Navigate to Net Deal Settlements
+	If SelectMainMenu1(GlobalDictionary("TRSNetDealSettlements")) Then
+		WriteToReport micPass, "Net Deal Settlements Page", "Navigation to Net Deal Settlements Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Net Deal Settlements Page", "Navigation to Net Deal Settlements page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	With Browser("PeopleSoft Browser").Page("NetDealSettlements").PSFrame("TargetContent")
+		'Set BU
+		.WebEdit("BusinessUnit").Set GlobalDictionary("BusinessUnit")
+		WriteToReport micDone, "Set Business Unit: "&GlobalDictionary("BusinessUnit"), "BU Set", FALSE
+
+		'Get Unnetted Deal from DB
+		arrTemp = dbGetUnnettedDeal(GlobalDictionary("InstrumentType"), GlobalDictionary("BusinessUnit"))
+
+		'Store Deal ID For Later
+		GlobalDictionary.Add "DealID", arrTemp(ID_COL)
+
+		'Set Counterparty
+		.WebEdit("Counterparty").Set arrTemp(CTRPRTY_COL)
+		WriteToReport micDone, "Set Counterparty: "&arrTemp(CTRPRTY_COL), "Counterparty Set", FALSE
+
+		'Set Settlement Date
+		GlobalDictionary.Add "SettlementDate", arrTemp(SETTDT_COL)
+		.WebEdit("SettlementDate").Set GlobalDictionary("SettlementDate")
+		WriteToReport micDone, "Set Settlement Date: "&GlobalDictionary("SettlementDate"), "Settlement Date Set", FALSE
+
+		'Select Netted Status
+		.WebList("NettedStatus").Select GlobalDictionary("NettedStatus")
+		WriteToReport micDone, "Select Netted Status: "&GlobalDictionary("NettedStatus"), "Netted Status Selected", FALSE
+
+		'Set Instrument Type
+		.WebEdit("InstrumentType").Set GlobalDictionary("InstrumentType")
+		WriteToReport micDone, "Set Instrument Type: "&GlobalDictionary("InstrumentType"), "Instrument Type Set", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		Wait 5
+
+		If .WebTable("CashFlow").Cell(1, 1).GetROProperty("innertext") = "" Then
+			WriteToReport micFail, "Table is Empty for Given Search Data", "No Data Found", FALSE
+			ExitTest
+		End If
+
+		'Set Cpty Ref
+		.WebEdit("CptyRef").Set GlobalDictionary("CptyRef")
+		WriteToReport micDone, "Set Cpty Ref: "&GlobalDictionary("CptyRef"), "Cpty Ref Set", FALSE
+
+		'Set CP Nettor
+		.WebEdit("CPNettor").Set GlobalDictionary("CPNettor")
+		WriteToReport micDone, "Set CP Nettor: "&GlobalDictionary("CPNettor"), "CP Nettor Set", FALSE
+
+		'Click Net
+		.WebButton("Net").Click 
+		WriteToReport micDone, "Net Button Clicked", "Button Clicked", FALSE
+
+		Wait 2
+
+		'Get Net Ref
+		sNetRef = .WebElement("NetRef").GetROProperty("innertext")
+		If sNetRef <> "" Then
+			WriteToReport micPass, "Deal Netted with Reference: "&sNetRef, "Reference Displayed", FALSE
+		Else
+			WriteToReport micFail, "Deal Not Assigned a Reference", "No Reference Displayed", TRUE
+			ExitTest
+		End If
+
+		'Store Business Date for Later
+		arrTemp = dbGetNettedDealBusinessDate(GlobalDictionary("DealID"), GlobalDictionary("BusinessUnit"))
+		GlobalDictionary.Add "BusinessDate", AnyDateLeadingZeros(arrTemp(BUSDT_COL))
+	End With
+	If GlobalDictionary("SaveForLater") = "TRUE" Then
+		Dim oExcel, oFSO, oWorkbook, oSheet
+		Set oExcel = CreateObject("Excel.Application")
+		Set oFSO = CreateObject("Scripting.FileSystemObject")
+		'Delete the old deal file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\DealID.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\DealID.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\DealID.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "DealID"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("DealID")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\DealID", 56)
+		WriteToReport micPass, "Deal ID Saved for Later Test", "Deal ID Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\DealID.xls", FALSE
+		oWorkbook.Close
+		'Save BusinessDate
+		'Delete the old deal file, it it exists
+		If oFSO.FileExists("C:\AutoSource_Prod\PSFinUFT\autolocal\BusinessDate.xls") Then
+			oFSO.DeleteFile("C:\AutoSource_Prod\PSFinUFT\autolocal\BusinessDate.xls")
+			WriteToReport micDone, "Deleted File", "C:\AutoSource_Prod\PSFinUFT\autolocal\BusinessDate.xls", FALSE
+		End If
+		Set oWorkbook = oExcel.Workbooks.Add()
+		Set oSheet = oWorkbook.Worksheets("Sheet1")
+		oSheet.Name = "TestOutput"
+		oSheet.Cells(1,1).Value = "BusinessDate"
+		oSheet.Cells(1,2).Value = "'"&GlobalDictionary("BusinessDate")
+		Call oWorkbook.SaveAs("C:\AutoSource_Prod\PSFinUFT\autolocal\BusinessDate", 56)
+		WriteToReport micPass, "Business Date Saved for Later Test", "Business Date Saved to File: C:\AutoSource_Prod\PSFinUFT\autolocal\BusinessDate.xls", FALSE
+	End If
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Review Settlements 5.08
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+Public Function ReviewSettlements
+	Dim i, j
+	Dim arrChecks(2)
+	Dim arrDates(2)
+	Dim arrIDs(2)
+	Const SRC_ID = 1
+	Const STAT_COL = 8
+	Const SELECT_COL = 1
+
+	'Navigate to Review Settlements
+	If SelectMainMenu1(GlobalDictionary("TRSReviewSettlements")) Then
+		WriteToReport micPass, "Review Settlements Page", "Navigation to Review Settlements Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Review Settlements Page", "Navigation to Review Settlements page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	If GlobalDictionary.Exists("TransferID") Then
+		arrChecks(0) = "Transfer ID"
+		arrDates(0) = DateLeadingZeros
+		arrIDs(0) = GlobalDictionary("TransferID")
+	End If
+
+	If GlobalDictionary.Exists("EFTRequestID") Then
+		arrChecks(1) = "EFT Request ID"
+		arrDates(1) = DateLeadingZeros
+		arrIDs(1) = GlobalDictionary("EFTRequestID")
+	End If
+
+	If GlobalDictionary.Exists("DealID") Then
+		arrChecks(2) = "Deal ID"
+		arrDates(2) = GlobalDictionary("BusinessDate")
+		arrIDs(2) = GlobalDictionary("DealID")
+	End If
+
+	With Browser("PeopleSoft Browser").Page("ReviewSettlements").PSFrame("TargetContent")
+		'Search the right table for the TransferID, EFTRequestID or DealID, and check the status
+		For j=0 To UBound(arrChecks)
+			If arrChecks(j) <> "" Then
+				.WebEdit("FromDate").Set arrDates(j)
+				.WebEdit("ToDate").Set arrDates(j)
+
+				'Click Search
+				.WebButton("Search").Click
+				WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+				'Check Status Approved
+				For i=1 To .WebTable("PaymentsRight").GetROProperty("rows")
+					If Trim(.WebTable("PaymentsRight").Cell(i, SRC_ID).GetROProperty("innertext")) = arrIDs(j) Then
+						If Trim(.WebTable("PaymentsRight").Cell(i, STAT_COL).GetROProperty("innertext")) = "Approved" Then
+							WriteToReport micPass, "Reviewed Status for "&arrChecks(j)&": "&arrIDs(j)&" and Found Status Approved", "Source Approved", FALSE
+						Else
+							WriteToReport micFail, "Did Not Find Status 'Approved' for "&arrChecks(j)&": "&arrIDs(j), "Source Not Approved", TRUE
+							ExitTest
+						End If
+					End If
+				Next
+			End If
+		Next
+	End With
+End Function
+'**************************************************************************************************************
+''' <summary> 
+''' Payment Dispatch 5.09
+''' NOTE: Expects 3 IDs from 5.01, 5.02, and 5.07
+''' </summary>
+''' <author>Zach Apple</author>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="N/A">N/A</returns>
+' Change Control:
+' Date of Change 	Author 		Description of change
+'______________________________________________________________________________________________________________
+'
+'______________________________________________________________________________________________________________
+Public Function PaymentDispatch
+	Dim arrIDs(2)
+	Dim bSuccess, bVerify
+	Dim nTime, i
+	Const TIMEMAX = 300
+	Const EXPCTD_ROWS = 3
+
+	nTime = 0
+	bSuccess = FALSE
+
+	'Navigate to Payment Dispatch
+	If SelectMainMenu1(GlobalDictionary("TRSPaymentDispatch")) Then
+		WriteToReport micPass, "Payment Dispatch Page", "Navigation to Payment Dispatch Page Successful.", FALSE
+	Else
+		WriteToReport micFail, "Payment Dispatch Page", "Navigation to Payment Dispatch page failed. Exiting test.", TRUE
+		ExitTest
+	End If
+
+	If GlobalDictionary.Exists("TransferID") Then
+		arrIDs(0) = Trim(GlobalDictionary("TransferID"))
+	End If
+
+	If GlobalDictionary.Exists("EFTRequestID") Then
+		arrIDs(1) = Trim(GlobalDictionary("EFTRequestID"))
+	End If
+
+	If GlobalDictionary.Exists("DealID") Then
+		arrIDs(2) = Trim(GlobalDictionary("DealID"))
+	End If
+
+	With Browser("PeopleSoft Browser").Page("PaymentDispatch").PSFrame("TargetContent")
+		'Clear To Date
+		.WebEdit("ToDate").Set ""
+		WriteToReport micDone, "Cleared the To Date Field", "To Date Cleared", FALSE
+
+		'Click Search
+		.WebButton("Search").Click
+		WriteToReport micDone, "Clicked the Search Button", "Button Clicked", FALSE
+
+		'Check boxes for payments from 5.01, 5.02, 5.07
+		For i=0 To UBound(arrIDs)
+			If arrIDs(i)<> "" Then
+				Call .WebCheckBox("SelectPayment").SetTOProperty("xpath", "//span[text()='"&arrIDs(i)&"']/../../../td/div/div/input")
+				.WebCheckBox("SelectPayment").RefreshObject
+				If .WebCheckBox("SelectPayment").Exist(10) Then
+					If .WebCheckBox("SelectPayment").GetROProperty("checked") = 0 Then '1 is checked, 0 is cleared
+						.WebCheckBox("SelectPayment").Click
+						WriteToReport micDone, "Clicked the Checkbox for "&arrIDs(i), "Checkbox Checked", FALSE
+					Else
+						WriteToReport micDone, "Checkbox for "&arrIDs(i)&" Already Checked", "No Action Taken", FALSE
+					End If
+				Else
+					WriteToReport micFail, "Did Not Find Checkbox for ID: "&arrIDs(i), "Please Check Table and ID", TRUE
+					ExitTest
+				End If
+			Else
+				WriteToReport micFail, "ID Given Was Empty, Check ID Number: "&(i+1), "There should be three IDs from the previous test", FALSE
+				ExitTest
+			End If
+		Next
+
+		'Click Dispatch Settlements
+		.WebButton("DispatchSettlements").Click
+		WriteToReport micDone, "Clicked the Dispatch Settlements Button", "Button Clicked", FALSE
+	End With
+		'Click OK
+		Browser("PeopleSoft Browser").Page("PaymentDispatch").PSFrame("PaymentConfirmation").WebButton("OK").Click
+		WriteToReport micDone, "Clicked the OK Button", "Button Clicked", FALSE
+
+		'Enter password for User
+		bVerify = AuthorizeWithPassword(Browser("PeopleSoft Browser").Page("PaymentDispatch").PSFrame("VerifyID").WebEdit("Password"))
+		If bVerify Then
+			WriteToReport micDone, "Entered the Password for the User to Verify Identity", "ID Verified", FALSE
+		Else
+			WriteToReport micFail, "Failed to Enter Password and Verify User", "Verification Failed", FALSE
+			ExitTest
+		End If
+
+		'Click Continue
+		Browser("PeopleSoft Browser").Page("PaymentDispatch").PSFrame("VerifyID").WebButton("Continue").Click
+		WriteToReport micDone, "Clicked the Continue Button", "Button Clicked", FALSE
+		Wait 5
+
+	With Browser("PeopleSoft Browser").Page("PaymentDispatch").PSFrame("PaymentDispatchResults")
+		If .Exist(90) Then
+			'Watch Process to Completion in Popup Window
+			WriteToReport micDone, "Process Instance is "&.WebElement("ProcessInstance").GetROProperty("innertext"), "Reported Process Instance", FALSE
+		Else
+			WriteToReport micFail, "Failed to Identify the Payment Dispatch Results Popup", "Popup Not Found", TRUE
+			ExitTest
+		End If
+
+		Do
+			Wait 30
+			'Click Refresh
+			.WebButton("Refresh").Click
+			WriteToReport micDone, "Clicked the Refresh Button", "Button Clicked", FALSE
+
+			'Check Status
+			.WebElement("RunStatus").RefreshObject
+			If .WebElement("RunStatus").GetROProperty("innertext") = "Success" Then
+				WriteToReport micPass, "Process Ran To Success", "", FALSE
+				bSuccess = TRUE
+			ElseIf .WebElement("RunStatus").GetROProperty("innertext") <> "Queued" Then
+				WriteToReport micFail, "Process Was Not Successful but was Instead: "&.WebElement("RunStatus").GetROProperty("innertext"), "Process Failed", TRUE
+				ExitTest
+			End If
+
+			nTime = nTime + 30
+		Loop Until bSuccess OR nTime = TIMEMAX
+
+		If NOT bSuccess Then
+			WriteToReport micFail, "Process Took Longer than 5 Minutes", "Process Did Not Reach Completion under Five Minutes", TRUE
+			ExitTest
+		End If
+
+		'Check the Row Count - Should be 3, 1 for each ID Selected previously
+		If .WebTable("Details").GetROProperty("rows") = EXPCTD_ROWS Then
+			WriteToReport micPass, "Found 3 Rows in the Payment Dispatch Details Table as Expected", "Rows Found Successfully", FALSE
+		Else
+			WriteToReport micFail, "Did Not Find 3 Rows in the Payment Dispatch Details Table as Expected", "Rows Not Found Successfully", TRUE
+			ExitTest
+		End If
+
+		.WebButton("Return").Click
+		WriteToReport micDone, "Clicked Return Button", "Button Clicked", FALSE
+	End With
+End Function

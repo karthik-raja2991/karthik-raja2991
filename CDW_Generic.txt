@@ -1,0 +1,1682 @@
+'#####################################################################################################
+Option Explicit
+
+'---------------------Fucntion Library Header --------------------------------------------------------------------------------------------------------------------------------------------
+'Script Name: CDW_Generic_Lib.txt
+'Description:	This contains geenric database, file, datetime functions
+'---------------------Modification Log --------------------------------------------------------------------------------------------------------------------------------------------
+'9/23/2008 - Jolly Thomas - File created  
+'9/24/2008 - Jolly Thomas - Functions created  dbDisplayResult, dbOpenConnection,dbGetRecordCount,dbGetRecord,dbGetResultValuesString,dbSaveResultsasXML
+'9/25/2008 - Jim Kovathana - Added functions ReadWriteLocalFile and sub SaveLocalTesttData
+'11/06/2008 - Jim Kovathana - Added GetGlobalDictionaryValue function
+'11/14/2008 - Jim Kovathana - Added function ReadRegistry, sub WriteRegistry
+'12/10/2008 Jim Kovathana - Update WriteToReport to add envionment reporting flag
+'12/16/2008 Jim Kovathana - Update dbGetRecordCount to use GetRows() instead of RecordCount method
+'12/17/2008 Jim Kovathana - Add dbStoreResultValue
+'12/23/2008 Jim Kovathana - Update SaveLocalTestData to add path parameter
+'02/03/2009  Divya Thomas -- Added function RemoveGlobalDictionaryValue and modified function SetGlobalDictionaryValue
+' 02/04/2009 Divya Thomas -- Removed the modification made to SetGlobalDictionaryValue and renamed function RemoveGlobalDictionaryValue to "RemoveGlobalDictionaryKey
+'03/05/2009 Jim Kovathana - Added ReOrderAndCompare(); Updated dbStoreResultValue()
+' 03/06/2008 Pavan Patchava -- Updated the dbGetResultValuesArray function to control  results reporting
+'03/19/2009 - Emma Yao - Modified SetGlobalDictionary, so it can allow value of "" to be assinged to the key
+' 03/06/2008 Pavan Patchava -- Added  ConvertDateToiSeriesDateFormat,fCreateDriveWithUserName,CompareXmlFiles
+'09/14/2011 John White -- Added dbGetRecordSet
+'07/10/2012 Jim Kovathana - Added RunAS400FileCompare and dbGetOrderCompanyCode
+'----------------------Subroutines----------------------------------------------------------------------------------------------------------------------------------------------------
+'_____________________________________________________ 
+'Function Name:SaveLocalTestData
+'Creation Date: Sep 25, 2008 
+'Author: Jim Kovathana
+'Change Control: 
+'       Date of Change          Author                 Desc 
+'          12/23/2008            Jim Kovathana     Add sPath parameter
+'______________________________________________________ 
+''' <summary>
+''' Reads a local sheet, goes to the desired row based on a value to search and writes specified value into the cell
+''' </summary>
+''' <param name="sPath" type="String"></param>
+''' <param name="sDataFileName" type="String"></param>
+''' <param name="sDataTableName" type="String"></param>
+''' <startstate>start</startstate>
+''' <endstate>end</endstate>
+''' <returns type=""></returns>
+Sub SaveLocalTestData(sPath, sDataFileName, sDataTableName)
+
+	Dim sNewDataFileName
+
+   If sDataTableName = "" Then
+	   sDataTableName = "Global"
+   End If
+             
+	 sNewDataFileName =  sPath  & GetLongFileName(sDataFileName)  ' & ".xls" 
+	 DataTable.ExportSheet sNewDataFileName, sDataTableName
+ 
+End Sub
+
+'______________________________________________________ 
+''' <summary> 
+'''This function writes a value to a  specified registry key name
+''' </summary>
+''' <author>Jim Kovathana</author>
+''' <datecreated>11/14/2008</datecreated>
+''' <param name="sRegistryKey" type="string"></param>
+''' <param name="sRegistryValue" type="string"></param>
+''' <param name="sValueDataType" type="string"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type=""></returns>
+Sub WriteRegistry(sRegistryKey, sRegistryValue, sValueDataType)
+
+	Dim oRegistryKey 
+	Dim NewKeyValue
+	Set oRegistryKey = CreateObject("WScript.Shell")
+
+	oRegistryKey.RegWrite sRegistryKey, sRegistryValue, sValueDataType
+	NewKeyValue = ReadRegistry(sRegistryKey)          'could be string, integer or binary value
+    WriteToReport micPass, "The new registry value is " &NewKeyValue, "The new registry value is " &NewKeyValue & " for key " &sRegistryKey
+	
+End Sub
+'______________________________________________________ 
+''' <summary> 
+'''This function enables result reporting, reports and then disables. 
+''' </summary>
+''' <author>Jim Kovathana</author>
+''' <datecreated>11/10/2008</datecreated>
+''' <param name="sEventStatus" type="string"></param>
+''' <param name="sReportDescription" type="string"></param>
+''' <param name="sReportFullDetails" type="string"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type=""></returns>
+'Change Control: 
+'       Date of Change          Author                   Desc 
+'          12/10/2008             Jim Kovathana      Update to add reporting flag
+'______________________________________________________ 
+Sub WriteToReport(sEventStatus, sReportDescription, sReportFullDetails)
+
+	Dim bReportingFlag
+
+	bReportingFlag = Environment.Value("EnableAllResultsReporting")   
+
+	Reporter.Filter = rfEnableAll
+		Reporter.ReportEvent sEventStatus, sReportDescription, sReportFullDetails
+
+	If Not bReportingFlag Then
+		Reporter.Filter = rfDisableAll
+    End If
+
+End Sub
+
+'----------------------Private Functions---------------------------------------------------------------------------------------------------------------------------------------------
+''' <summary>
+''' This function is used to display result from the record set object
+''' </summary>
+''' <param name="dBRecSet" type=""></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type=""></returns>
+Private Function dbDisplayResult(dBRecSet)
+	dbDisplayResult = False
+	
+	Dim intLoop
+	
+	If IsObject(dBRecSet) Then
+		If dBRecSet.EOF = False Then
+			Do While Not dBRecSet.eof
+				For Each intLoop In dBRecSet.fields
+					WriteToReport micDone, "Verifying the value for columns '"& intLoop.name, " Value is : '" & intLoop.value &"'"
+					dbDisplayResult = True
+				Next 
+					dBRecSet.MoveNext			
+			Loop
+		Else			
+			WriteToReport micFail, "Verifying the Record from Database", "No Record Exist"
+		End If
+	End If	
+		'reinitialize the object to null 
+	Set dBRecSet = Nothing
+End Function 
+
+'**************************************************************************************************************
+''' <summary>
+''' This function is used to check the Company Codes of two orders and validates if they match
+''' </summary>
+''' <author>Jim Kovathana</author>
+''' <datecreated>July 10, 2012 </datecreated>
+''' <param name="sOrderNo1"></param>
+''' <param name="sOrderNo2"></param>
+''' <startstate>none</startstate>
+''' <endstate>none</endstate>
+''' <returns type="boolean"></returns>
+''' <seealso cref="RunAS400FileCompare"/>
+'Change Control: 
+'       Date of Change          Author                     Desc 
+'______________________________________________________ 
+Private Function dbGetOrderCompanyCode(sOrderNo1, sOrderNo2)
+
+   Dim sSQL1, sSQL2, sSQL, sODBCConnectionString 
+   Dim nCompanyCode1, nCompanyCode2
+   sODBCConnectionString = "QTP Connection to AS400"
+
+   sSQL =  "SELECT CONO40 FROM OEP40 WHERE ORDN40 = "
+   sSQL1 = sSQL&"'"&sOrderNo1&"'"
+   nCompanyCode1 = dbGetResultValue("CONO40",sSQL1,sODBCConnectionString)
+   sSQL2 = sSQL&"'"&sOrderNo2&"'"
+   nCompanyCode2 = dbGetResultValue("CONO40",sSQL2,sODBCConnectionString)
+
+   	If (Instr (nCompanyCode1, nCompanyCode2) = 0) Or (nCompanyCode1 = Null Or nCompanyCode2 = NULL) Then
+		dbGetOrderCompanyCode = False
+	Else
+		dbGetOrderCompanyCode = nCompanyCode1
+	End If
+
+End Function
+
+'---------------------Public Functions------------------------------------------------------------------------------------------------------------------------------------------------
+'______________________________________________________ 
+''' <summary>
+''' Compares the two XML files with the options we pass in 
+''' example 		CompareXmlFiles(sFile1,sFiles,sCompareOption)
+''' </summary>
+''' <author>Pavan</author>
+''' <datecreated>Mar 17, 2009 </datecreated>
+''' <param name="sFileNameWithLocation" type="string"></param>
+''' <param name="sBaselineFileNameWithLocation" type="string"></param>
+''' <param name="Option" type="string"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type=""></returns>
+'_____________________________________________________ 
+'Change Control: 
+'Date of Change			Author					Desc 
+'June 30 2010			Vikram Kiren			Added code to save the result document from the comparison to the shared location for future reference.
+'2013-11-13				Damien Storm		updated exist check to check for each file individually because previous method was providing fals positives. Added reporters if either file doesn't exist.
+'______________________________________________________ 
+Public Function CompareXmlFiles(sTestFilePathWithName,sBaselineFilePathWithName,sOption)
+	Dim Doc1,Doc2,nResultCode,ResultDoc
+	Dim nFileExist1, nFileExist2
+	nResultCode = micPass
+
+	'check to see if the files exist
+	nFileExist1 = IsFileExists(sTestFilePathWithName)
+	If  nFileExist1 <> 0 Then
+		WriteToReport micWarning, "XML file not found", "The XML file ["&sTestFilePathWithName&"] does not exist."
+	End If
+
+	nFileExist2 = IsFileExists(sBaselineFilePathWithName)
+	If  nFileExist2 <> 0 Then
+		WriteToReport micWarning, "XML file not found", "The XML file ["&sBaselineFilePathWithName&"] does not exist."
+	End If
+
+	'Exit the function if either file is missing.
+	If  nFileExist1 <> 0 OR  nFileExist2 <> 0 Then
+		WriteToReport micFail, "Comparison Failed", "Exiting the comparison because the one of the XML files did not exist. See previous reports for details."
+		nResultCode = micFail
+		Exit Function 
+	End If
+
+	Set Doc1 = XMLUtil.CreateXML()
+	Doc1.LoadFile sTestFilePathWithName
+	Set Doc2 = XMLUtil.CreateXML()
+	Doc2.LoadFile sBaselineFilePathWithName
+	nResultCode = Doc1.Compare (Doc2,ResultDoc,sOption)
+	ResultDoc.SaveFile  (Left((sTestFilePathWithName),(Len(sTestFilePathWithName)-4))) &"_Diff_Option_"&sOption &"_Result.xml"
+	
+	If nResultCode = 1 Then
+		WriteToReport micPass, "Comparison passed" ,"The two XML files match"
+		nResultCode = micPass
+	Else 
+		WriteToReport micFail, "Comparison Failed", "The two XML files did not match - Use diff tool to see the diff."&vbNewLine&"Test file location: ["&sTestFilePathWithName&"]."&vbNewLine&"Base file location: ["&sBaselineFilePathWithName&"]."
+		nResultCode = micFail
+	End If
+
+	
+	CompareXmlFiles = nResultCode
+
+   End Function 
+
+  '______________________________________________________ 
+''' <summary>
+''' Convert system date to iSeries date format. Please enter date in US format  (MM/DD/YYYY)
+''' Example 
+''' </summary>
+''' <param name="sDriveLetter" type="string"></param>
+''' <param name="drvpath" type="string"></param>
+''' <startstate>none</startstate>
+''' <endstate>none</endstate>
+''' <datecreated>3/20/2008</datecreated >
+''' <author>Pavan</author>
+''' <returns type=""></returns>
+'Change Control: 
+'       Date of Change          Author          Desc 
+'______________________________________________________ 
+Public Function ConvertDateToiSeriesDateFormat(sDate)
+
+   Dim sToday,sOtherDay,arrDate,niSeriesFormat,nMonth
+
+			If sDate = ""  Then
+				sToday = Date
+				sToday = Replace(sToday,"#","")
+			Else 
+			sToday = sDate	
+			End If
+	
+		arrDate = Split(sToday,"/")
+			If Len(arrDate(0)) = 1 Then
+				nMonth = "0"&arrDate(0)
+				Else 
+				nMonth = arrDate(0)
+			End If
+				niSeriesFormat = "1"&Right(arrDate(2),2)&nMonth&arrDate(1)
+    ConvertDateToiSeriesDateFormat =niSeriesFormat
+End Function
+
+'______________________________________________________ 
+''' <summary>
+''' ConvertiSeriesDateToNormal is low level function to convert the iSeries Date to the US format  (MM/DD/YYYY)
+''' </summary>
+''' <param name="sDate" type="string">iSeries Date as saved in the database </param>
+''' <startstate>none</startstate>
+''' <endstate>none</endstate>
+''' <datecreated>11May 2010</datecreated >
+''' <author>Karthikeyan</author>
+''' <returns type="Date">Date in US Format</returns>
+'Change Control: 
+'       Date of Change          Author          Desc 
+'______________________________________________________ 
+ Private Function ConvertiSeriesDateToNormal(sDate)
+   Dim sYear, sMonth, sDay
+   ConvertiSeriesDateToNormal = sDate
+   If Len(sDate) = 7 Then
+	   sYear = Mid(sDate, 2, 2)
+	   sMonth = Mid(sDate, 4, 2)
+		sDay = Right(sDate,2)
+		ConvertiSeriesDateToNormal = sMonth&"/"&sDay&"/"&sYear
+   End If
+End Function
+
+'_____________________________________________________ 
+'Change Control: 
+'       Date of Change          Author          Desc 
+'______________________________________________________ 
+''' <summary>
+''' Writes ErrorMessage To Text Log  file
+''' example 		errWriteToLogFile("Function fCreateDrive ")
+''' </summary>
+''' <author>Jolly</author>
+''' <datecreated>Sep 26, 2008 </datecreated>
+''' <param name="strErrorDescription" type="string"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type=""></returns>
+Function errWriteToLogFile(strErrorDescription)
+   Const ToAppend = 8
+	Dim objErrorFileObject, objErrorFile
+	Set objErrorFileObject = CreateObject("Scripting.FileSystemObject")
+	Set objErrorFile = objErrorFileObject.OpenTextFile("C:\AutoSource_Prod\CommonQTP\autolocal\QTPTest.log", ToAppend, True)
+
+	If Not Err.Number = 0 Then
+		strErrorDescription = strErrorDescription & "gave error:" & Err.Description		
+		objErrorFile.WriteLine( strErrorDescription)
+	End If
+
+	strErrorDescription = ""
+	objErrorFile.Close
+End Function    
+
+''' <summary>
+''' Creates a mapped drive for the letter provided to the path specified by user
+''' Example fCreateDrive "k:", "\\mir\qa"
+''' </summary>
+''' <param name="sDriveLetter" type="string"></param>
+''' <param name="drvpath" type="string"></param>
+''' <startstate>none</startstate>
+''' <endstate>none</endstate>
+''' <datecreated>9/26/2008</datecreated >
+''' <author>Jolly</author>
+''' <returns type=""></returns>
+'Change Control: 
+'       Date of Change          Author          Desc 
+'______________________________________________________ 
+Public Function fCreateDrive( sDriveLetter,drvpath)
+	Dim FileObject, existingdrive, WshNetwork
+
+	Set FileObject = CreateObject("Scripting.FileSystemObject")
+    Set WshNetwork = CreateObject("WScript.Network")
+	 Err.Number = 0
+	' Check if Drive Letter Exists
+	If FileObject.DriveExists(sDriveLetter) Then
+		Set existingdrive = FileObject.GetDrive(sDriveLetter)
+		If  existingdrive.IsReady Then
+			'Check if Drive Letter Containing Desire Path if not remove the mapping
+			If existingdrive.ShareName  <> drvpath Then
+				WshNetwork.RemoveNetworkDrive sDriveLetter,True,True
+			End If
+		End If
+	End If
+
+	If Not FileObject.DriveExists(sDriveLetter) Then
+	' Create drive mapping
+		WshNetwork.MapNetworkDrive sDriveLetter,drvpath,True
+		
+		'Check For Errors
+		errWriteToLogFile("Function fCreateDrive " )
+	End If
+End Function
+
+'______________________________________________________ 
+''' <summary>
+''' Creates a mapped drive for the letter provided to the path specified by user
+''' Example fCreateDrive "k:", "\\mir\qa"
+''' </summary>
+''' <param name="sDriveLetter" type="string"></param>
+''' <param name="drvpath" type="string"></param>
+''' <startstate>none</startstate>
+''' <endstate>none</endstate>
+''' <datecreated>3/17/2008</datecreated >
+''' <author>Pavan</author>
+''' <returns type=""></returns>
+'Change Control: 
+'       Date of Change          Author          Desc 
+'______________________________________________________ 
+Public Function fCreateDriveWithUserName( sDriveLetter,drvpath,sUserName,sPassword)
+
+	Dim FileObject, existingdrive, WshNetwork
+
+	Set FileObject = CreateObject("Scripting.FileSystemObject")
+    Set WshNetwork = CreateObject("WScript.Network")
+	 Err.Number = 0
+	' Check if Drive Letter Exists
+	If FileObject.DriveExists(sDriveLetter) Then
+		Set existingdrive = FileObject.GetDrive(sDriveLetter)
+		If  existingdrive.IsReady Then
+			'Check if Drive Letter Containing Desire Path if not remove the mapping
+			If existingdrive.ShareName  <> drvpath Then
+				WshNetwork.RemoveNetworkDrive sDriveLetter,True,True
+			End If
+		End If
+	End If
+
+	If Not FileObject.DriveExists(sDriveLetter) Then
+	' Create drive mapping
+		WshNetwork.MapNetworkDrive sDriveLetter,drvpath,True,sUserName,sPassword
+		
+		'Check For Errors
+		errWriteToLogFile("Function fCreateDriveWithUserName ")
+	End If
+End Function
+
+'---------------------Public Functions------------------------------------------------------------------------------------------------------------------------------------------------
+''' <summary>
+''' Creates a mapped drive for the letter provided to the path specified by user
+''' Example fModifyfileAttribute "ReadWrite"
+''' </summary>
+''' <param name="sFileFullName" type="string">provide full path and file name </param>
+''' <param name="sAttribute" type="string">ReadWrite,ReadOnly</param>
+''' <startstate>file exists</startstate>
+''' <endstate>file modified with provided attribute</endstate>
+''' <datecreated>4/2/2009</datecreated >
+''' <author>Jolly</author>
+''' <returns type=""></returns>
+'Change Control: 
+'       Date of Change          Author          Desc 
+'______________________________________________________ 
+Public Function fModifyFileAttribute( sFileFullName, sAttribute)
+	Dim FileObject,TestFile, nNewAttribute
+
+	Set FileObject = CreateObject("Scripting.FileSystemObject")
+	Set TestFile = FileObject.GetFile(sFileFullName)
+
+	Select Case sAttribute
+		Case "ReadWrite"
+			nNewAttribute = 0
+		Case "ReadOnly"
+			nNewAttribute = 1
+		Case "Hidden"
+			nNewAttribute = 2
+		Case "System"
+			nNewAttribute = 4
+	End Select
+	 Err.Number = 0
+ 'Assign the new attibute 
+	TestFile.Attributes = nNewAttribute 
+	'Log the value in results file
+		If Not TestFile.Attributes And 1 Then 
+		   		errWriteToLogFile("The file is ReadWrite.")
+		Else 
+		   		errWriteToLogFile("The file is ReadOnly.")
+		End If
+
+End Function
+''**************************************************************************************************************
+''' <summary>
+''' Opens a database connection for the connection string provided
+''' </summary>
+''' <author>Jolly</author>
+''' <datecreated>Sep 24, 2008 </datecreated>
+''' <param name="sConnectionString" type=""></param>
+''' <startstate>None</startstate>
+''' <endstate>Database connection is opened</endstate>
+''' <returns type="Object">Returns opened objConnection </returns>
+'Change Control: 
+'       Date of Change          Author          	Desc 
+'			5/23/2013			Jolly				Added use of database user and password from environment file
+'			3/06/2018			Steve King			Added Timeout settings as the default of 15 and 30 were causing issues
+'______________________________________________________ 
+Public Function dbOpenConnection ( sConnectionString )
+	Const adStateOpen = 1
+	Dim objConnection
+
+	Set objConnection = CreateObject("ADODB.Connection")
+	'Open connection and ensure its opened correctly or report error
+	'objConnection.Open  sConnectionString
+
+	'Changing the timeout property for SQL statement execution. Highest we've seen is 1 minute 15 seconds, so using 90 as the upper end for now
+	objConnection.ConnectionTimeout = 90
+
+	If  Environment("DBName") <>"" and Environment("DBPassword") <> ""  Then
+		objConnection.Open  sConnectionString, Environment("DBName"),Environment("DBPassword")
+	Else
+		objConnection.Open  sConnectionString
+	End If
+
+	If Not objConnection.State = adStateOpen Then 
+		WriteToResults 1,"Error on opening database connection","Verify details of connection string " & sConnectionString
+		Set objConnection = Nothing 
+	End If
+   Set dbOpenConnection = objConnection
+End Function
+
+'**************************************************************************************************************
+''' <summary>
+''' Returns the total number of records output from the query
+''' </summary>
+''' <author>Jolly</author>
+''' <datecreated>Sep 24, 2008 </datecreated>
+''' <param name="sConnectionString" type="string"></param>
+''' <param name="sSQLString" type="string"></param>
+''' <startstate>none</startstate>
+''' <endstate>none</endstate>
+''' <returns type="number"></returns>
+'Change Control: 
+'       Date of Change          Author                  Desc 
+'           12/`16/2008          Jim Kovathana     Updated to use GetRows() instead of RecordCount method
+'______________________________________________________ 
+Function dbGetRecordCount ( sConnectionString, sSQLString )
+
+	Const adStateOpen = 1
+
+	Dim arrRecordCount, nRecordCount , objConnection, objRecordSet
+	nRecordCount = -1
+	
+	Set objConnection = dbOpenConnection(sConnectionString)
+	Set objRecordSet = CreateObject("ADODB.Recordset")
+	
+	'Open Recordset and ensure its opened correctly or report error	
+	Set objRecordSet = objConnection.Execute(sSQLString)
+    If Not objRecordSet.State = adStateOpen Then 
+		WriteToResults 1,"Error on opening recordset","Verify details of SQL string " & sSQLString
+		Set objRecordSet = Nothing 
+		nRecordCount  = 0
+	End If
+
+	If Not objRecordSet.EOF Then
+		arrRecordCount = objRecordSet.GetRows()
+		nRecordCount = UBound(arrRecordCount, 2) + 1
+	End If 
+	
+	'Clean up opened objects
+	objRecordSet.Close
+	objConnection.Close
+	dbGetRecordCount = nRecordCount
+
+End Function
+
+'**************************************************************************************************************
+''' <summary>
+''' This function is used to get the Record from the Database and display the result
+''' </summary>
+''' <author>Jolly</author>
+''' <datecreated>Sep 24, 2008 </datecreated>
+''' <param name="strSQL" type=""></param>
+''' <param name="sConnectionString" type=""></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="boolean">true if record found and displayed else false</returns>
+'Change Control: 
+'       Date of Change          Author                   Desc 
+'		2013-07-17 				Damien S.				Updated micFail reporter to include SQL string
+'______________________________________________________ 
+Public Function dbGetRecord(strSQL,sConnectionString )
+	DBGetRecord = False
+	
+	Dim dBRecSet,objConnection,RecordValuesList
+	
+	'Set the Database connection object 
+	Set objConnection= dbOpenConnection(sConnectionString)
+	
+	'Verify for object exist or not
+	If IsObject(objConnection) Then	
+		'Execute the SQL and get the recordset object
+		On Error Resume Next
+		Set dBRecSet = objConnection.Execute(strSQL)
+		
+		'Verify for the record set has reached EOF or not
+		If dBRecSet.EOF = False Then	
+		   blnResult = dbDisplayResult(dBRecSet)
+			If blnResult Then
+				dbGetRecord = True
+			Else
+				WriteToReport micWarning, "Verifying Record from Database", "No data returned error in either in query " & strSQL
+				dbGetRecord = False
+			End If	
+		Else	
+			WriteToReport micFail, "Verifying the Record from Database", "No Record Exist for SQL: ["&strSQL&"]"	
+			'Verify for the record set has reached EOF or not 
+		End If
+	Else	
+		dbGetRecord = False
+		'Verify for object exist or not
+	End If
+	
+	'Clean up opened objects
+ 	dBRecSet.Close
+	objConnection.Close
+End Function
+
+
+
+'**************************************************************************************************************
+''' <summary>
+''' This function is used to return the dataset from an SQL query to an array ByRef
+''' </summary>
+''' <author>John White</author>
+''' <datecreated>June 11, 2011</datecreated>
+''' <param name="strSQL" type="string">SQL query to be executed</param>
+''' <param name="sConnectionString" type="string">SQL Connection string</param>
+''' <param name="aResultsArray" type="array">array created in parent function which accepts recordset array from DB object and passes the data back ByRef</param>
+''' <startstate>none</startstate>
+''' <endstate>none</endstate>
+''' <returns type="integer">returns 0 when a recordset is returned, returns 1 when there is an error, returns 2 when the SQL query yields a null recordset</returns>
+'Change Control: 
+'       Date of Change          Author          Desc 
+'		6/11/2011				John White		Changed the function name; changed function output to return the query results table; removed obsolete function argument
+'		7/21/2011				John White		Changed the function name; changed results being passed out to a ByRef var and added boolean pass/fail returns
+'		9/13/2011				John White		Function returns 0 for a record, 1 for errors, and 2 for a null recordset (for negative testing)
+'______________________________________________________ 
+Public Function dbGetRecordSet(strSQL,sConnectionString,aResultsArray)
+
+	'In the invoking code, Dim the variable "aResultsArray"
+	Dim dbRecSet,objConnection	
+	Dim sColValue
+    
+  'Set the Database connection object 
+	Set objConnection= dbOpenConnection(sConnectionString)
+	
+	'Verify for object exist or not
+	If IsObject(objConnection) Then	
+		'Execute the SQL and get the recordset object
+        Set dbRecSet = objConnection.Execute(strSQL)
+		If IsObject(dbRecSet) Then
+			If dbRecSet.eof = False Then
+				aResultsArray = dbRecSet.GetRows
+				WriteToResults micDone, "Query results received" , "The recordset contained data."
+				dbGetRecordSet = 0
+            Else
+				WriteToResults micDone, "Query results received","The recordset returned no data."
+				dbGetRecordSet = 2
+            End If
+			dBRecSet.Close
+        Else
+			WriteToResults micFail, "Query recordset","The query results recordset is not an object."
+			dbGetRecordSet = 1
+        End If
+		objConnection.Close
+	Else
+		WriteToResults micFail, "SQL Connection String","The SQL connection string did not yield a connection object."
+		dbGetRecordSet = 1
+    End If
+    
+End Function
+
+
+
+'**************************************************************************************************************
+''' <summary>
+''' This function is used to get the SQL query results from the database into array including NULL values
+''' </summary>
+''' <author>Karthikeyan</author>
+''' <datecreated>Feb 15, 2010 </datecreated>
+''' <param name="strSQL" type="string"></param>
+''' <param name="sConnectionString" type="string"></param>
+''' <param name="sConnectionString" type="dynamic array"></param>
+''' <startstate>none</startstate>
+''' <endstate>none</endstate>
+''' <returns type="recordcount"></returns>
+'Change Control: 
+'       Date of Change          Author          Desc 
+'		2013-07-17 				Damien S.				Updated micFail reporter to include SQL string
+'______________________________________________________ 
+Public Function dbGetResultArrayIncNULL(strSQL,sConnectionString,arrRecordValues,sResultReportFlag )
+
+	Dim dBRecSet,objConnection	
+	Dim intLoop, iArrayNo, nRecordCount, sOneRecord,nReportValue
+	Dim sTemp
+
+	'Set the error reporting value
+	Select Case UCase(sResultReportFlag)
+	Case "WARNING"
+			nReportValue = micWarning
+	Case "DONE"
+			nReportValue = micDone
+	Case Else
+			nReportValue = micFail
+	End Select
+	
+  'Set the Database connection object 
+	Set objConnection= dbOpenConnection(sConnectionString)
+	
+	'Verify for object exist or not
+	If IsObject(objConnection) Then	
+		'Execute the SQL and get the recordset object
+		On Error Resume Next
+		Set dBRecSet = objConnection.Execute(strSQL)
+
+		nRecordCount =0
+		If IsObject(dBRecSet) Then
+			If dBRecSet.EOF = False Then
+				Do While Not dBRecSet.eof
+					ReDim Preserve arrRecordValues( nRecordCount)
+					iArrayNo=0
+					For Each intLoop In dBRecSet.fields
+						'Populating the temp value based on the "NULL" column
+						If IsNull(intLoop.value)Then
+							sTemp = ""
+						Else
+							sTemp = Trim(CStr (intLoop.value))
+						End If
+						'Get values for that recordset
+                        If   iArrayNo = 0 Then
+							sOneRecord = sTemp
+						Else
+							 sOneRecord = sOneRecord & ","& sTemp
+						End If
+						'WriteToReport micPass, "Verifying the value for columns '"& intLoop.name, " Value is : '" & intLoop.value &"'"
+						iArrayNo = iArrayNo + 1
+					Next 
+						arrRecordValues(nRecordCount) = sOneRecord
+						nRecordCount = nRecordCount + 1	
+						WriteToReport micDone, "DB record#" & nRecordCount & " values are: " & sOneRecord , "The SQL is " & strSQL 
+
+						'Go to next record set
+						dBRecSet.MoveNext
+				Loop
+			Else			
+				WriteToReport nReportValue, "Verifying the Record from Database", "No Record Exist for SQL: ["&strSQL&"]"
+			End If
+		End If
+	End If
+	dbGetResultArrayIncNULL = nRecordCount
+
+	'Clean up opened objects
+ 	dBRecSet.Close
+	objConnection.Close
+End Function
+
+'**************************************************************************************************************
+''' <summary>
+''' This function is used to get the SQL query results from the database into array excluding the NULL records
+''' </summary>
+''' <author>Jolly</author>
+''' <datecreated>Sep 24, 2008 </datecreated>
+''' <param name="strSQL" type="string"></param>
+''' <param name="sConnectionString" type="string"></param>
+''' <param name="arrRecordValues" type="dynamic array"></param>
+''' <startstate>none</startstate>
+''' <endstate>none</endstate>
+''' <returns type="recordcount"></returns>
+'Change Control: 
+'       Date of Change          Author          Desc 
+'	15-Jan-2009				Karthikeyan		Added logic to handle the Null values of the columns.
+'	15-feb-2010				Karthikeyan		Replaced the old version of the function as validation of NULL is handled in new function "dbGetResultArrayIncNULL"
+'	2013-07-17 				Damien S.				Updated micFail reporter to include SQL string
+'______________________________________________________ 
+Public Function dbGetResultValuesArray(strSQL,sConnectionString,arrRecordValues,sResultReportFlag )
+
+	Dim dBRecSet,objConnection	
+	Dim intLoop, iArrayNo, nRecordCount, sOneRecord,nReportValue
+	Dim sTemp
+
+	'Set the error reporting value
+	Select Case UCase(sResultReportFlag)
+	Case "WARNING"
+			nReportValue = micWarning
+	Case "DONE"
+			nReportValue = micDone
+	Case Else
+			nReportValue = micFail
+	End Select
+	
+  'Set the Database connection object 
+	Set objConnection= dbOpenConnection(sConnectionString)
+	
+	'Verify for object exist or not
+	If IsObject(objConnection) Then	
+		'Execute the SQL and get the recordset object
+		On Error Resume Next
+		Set dBRecSet = objConnection.Execute(strSQL)
+
+		nRecordCount =0
+		If IsObject(dBRecSet) Then
+			If dBRecSet.EOF = False Then
+				Do While Not dBRecSet.eof
+					ReDim Preserve arrRecordValues( nRecordCount)
+					iArrayNo=0
+					For Each intLoop In dBRecSet.fields
+						'Populating the temp value based on the "NULL" column
+						'If IsNull(intLoop.value)Then
+							'sTemp = ""
+						'Else
+							'sTemp = Trim(CStr (intLoop.value))
+						'End If
+						'Get values for that recordset
+							If   iArrayNo = 0 Then
+								sOneRecord = Trim(CStr (intLoop.value))
+							Else
+								sOneRecord = sOneRecord & ","& Trim(CStr (intLoop.value))
+							End If
+						'WriteToReport micPass, "Verifying the value for columns '"& intLoop.name, " Value is : '" & intLoop.value &"'"
+						iArrayNo = iArrayNo + 1
+					Next 
+						arrRecordValues(nRecordCount) = sOneRecord
+						nRecordCount = nRecordCount + 1	
+						WriteToReport micDone, "DB record#" & nRecordCount & " values are: " & sOneRecord , "The SQL is " & strSQL 
+
+						'Go to next record set
+						dBRecSet.MoveNext
+				Loop
+			Else			
+				WriteToReport nReportValue, "Verifying the Record from Database", "No Record Exist for SQL: ["&strSQL&"]"
+			End If
+		End If
+	End If
+	dbGetResultValuesArray = nRecordCount
+
+	'Clean up opened objects
+ 	dBRecSet.Close
+	objConnection.Close
+End Function
+'**************************************************************************************************************
+''' <summary>
+''' This function is used to return the value of a specified column from the output of SQLquery
+''' </summary>
+''' <author>Jolly</author>
+''' <datecreated>Oct 17, 2008 </datecreated>
+''' <param name="sColumnName" type="string"></param>
+''' <param name="strSQL" type="string"></param>
+''' <param name="sConnectionString" type="string"></param>
+''' <startstate>none</startstate>
+''' <endstate>none</endstate>
+''' <returns type="string"></returns>
+'Change Control: 
+'       Date of Change          Author          Desc 
+'______________________________________________________ 
+Public Function dbGetResultValue(sColumnName, strSQL,sConnectionString )
+
+	Dim dBRecSet,objConnection	
+	Dim sColValue
+	
+  'Set the Database connection object 
+	Set objConnection= dbOpenConnection(sConnectionString)
+	
+	'Verify for object exist or not
+	If IsObject(objConnection) Then	
+		'Execute the SQL and get the recordset object
+		On Error Resume Next
+		Set dBRecSet = objConnection.Execute(strSQL)
+		If IsObject(dBRecSet) Then
+			If dBRecSet.EOF = False Then
+				sColValue = dBRecSet(sColumnName)
+			Else			
+				WriteToReport micFail, "Unable to retrieve records from database ", "No Record Exist for SQL " & strSQL
+			End If
+			WriteToReport micDone, "Column " & sColumnName &" has value: " & sColValue , "The SQL is " & strSQL 
+		End If
+	End If
+	
+	dbGetResultValue = sColValue
+
+	'Clean up opened objects
+ 	dBRecSet.Close
+	objConnection.Close
+End Function 
+
+'**************************************************************************************************************
+''' <summary>
+''' This function is used to return the output values of SQL query  into string.
+''' The sResultReportFlag controls if error reporting for queries that expect to get no records. Use "WARNING" or "DONE"
+''' </summary>
+''' <author>Jolly</author>
+''' <datecreated>Sep 24, 2008 </datecreated>
+''' <param name="strSQL" type="string"></param>
+''' <param name="sConnectionString" type="string"></param>
+''' <param name="sResultReportFlag" type="string"></param>
+''' <startstate>none</startstate>
+''' <endstate>none</endstate>
+''' <returns type="string"></returns>
+'Change Control: 
+'       Date of Change          Author          Desc 
+'	1/22/2009					Jolly					Added the sResultReportFlag to control error reporting for queries that expect to get no records
+'	2013-07-17 				Damien S.				Updated micFail reporter to include SQL string
+'______________________________________________________ 
+Public Function dbGetResultValuesString(strSQL,sConnectionString, sResultReportFlag )
+
+	Dim dBRecSet,objConnection	
+	Dim intLoop,arrRecordValues, iArrayNo, nReportValue
+
+  'Set the Database connection object 
+	Set objConnection= dbOpenConnection(sConnectionString)
+
+	'Set the error reporting value
+	Select Case UCase(sResultReportFlag)
+	Case "WARNING"
+			nReportValue = micWarning
+	Case "DONE"
+			nReportValue = micDone
+	Case Else
+			nReportValue = micFail
+	End Select
+	
+	'Verify for object exist or not
+	If IsObject(objConnection) Then	
+		'Execute the SQL and get the recordset object
+		On Error Resume Next
+		Set dBRecSet = objConnection.Execute(strSQL)
+		iArrayNo=0
+		If IsObject(dBRecSet) Then
+			If dBRecSet.EOF = False Then
+				Do While Not dBRecSet.eof
+					If   iArrayNo <> 0 Then
+					 'append a | to delimit the next record
+						arrRecordValues = arrRecordValues & "|"
+					End If
+					For Each intLoop In dBRecSet.fields
+						'Get values for that recordset
+					   ' WriteToReport micPass, "Verifying the value for columns '"& intLoop.name, " Value is : '" & intLoop.value &"'"
+						If   iArrayNo = 0 Then
+							arrRecordValues = Trim(CStr (intLoop.value))
+						Else
+							 arrRecordValues = arrRecordValues & ","&  Trim(CStr (intLoop.value))
+						End If
+						iArrayNo = iArrayNo + 1
+					Next 
+						'Go to next record set
+						dBRecSet.MoveNext			
+				Loop
+			Else			
+				WriteToReport nReportValue, "Verifying the Record from Database", "No Record Exist for SQL: ["&strSQL&"]"
+				arrRecordValues =""
+			End If
+			WriteToReport micDone, "Got the values for SQL " & strSQL, " Value is : '" & arrRecordValues &"'"
+		End If
+	End If
+	
+	dbGetResultValuesString = arrRecordValues
+
+	'Clean up opened objects
+ 	dBRecSet.Close
+	objConnection.Close
+End Function 
+
+'______________________________________________________ 
+''' <summary>
+''' Executes an SQL INSERT or UPDATE string
+''' </summary>
+''' <author>Damien Storm</author>
+''' <datecreated>2014-02-19</datecreated>
+''' <param name="strSQL" type="string"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type=""></returns>
+'Change Control: 
+'Date of Change           Author                         Desc 
+'______________________________________________________ 
+Public Function dbRunSqlForInsert(strSQL)
+
+	Dim dBRecSet,objConnection
+	
+	'Set the Database connection object 
+	Set objConnection= dbOpenConnection(sODBCConnectionString)
+	
+	'Verify the object
+    If IsObject(objConnection) Then	
+		'Execute the SQL and get the recordset object
+		Set dBRecSet = objConnection.Execute(strSQL)
+	End if
+
+	'Clean up opened objects
+	If dbRecSet.State <> 0 Then
+		dBRecSet.Close
+	End If
+	
+	If objConnection.State <> 0 Then
+		objConnection.Close
+	End If
+	
+End Function 
+
+'______________________________________________________ 
+''' <summary>
+''' Saves the output of query in XML format into the file specified by user
+''' </summary>
+''' <author>Jolly</author>
+''' <datecreated>Sep 24, 2008 </datecreated>
+''' <param name="sConnectionString" type="string"></param>
+''' <param name="sSQLString" type="string"></param>
+''' <param name="sXMLFilename" type="string"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type=""></returns>
+'Change Control: 
+'       Date of Change          Author          Desc 
+'______________________________________________________ 
+Function dbSaveResultsasXML (sConnectionString, sSQLString, sXMLFilename )
+	Const adPersistXML = 1
+	Const adStateOpen = 1
+
+	Dim objRecordSet,objConnection	
+	
+	  Set  objConnection = dbOpenConnection (sConnectionString)
+	
+	Set objRecordSet = CreateObject("ADODB.Recordset")
+	
+	'Open Recordset and ensure its opened correctly or report error	
+	 Set objRecordSet = objConnection.Execute(sSQLString)
+		If Not objRecordSet.State = adStateOpen Then 
+			WriteToResults micFail,"Error on opening recordset","Verify details of SQL string " & sSQLString
+			Set objRecordSet = Nothing 
+			Exit Function
+		End If
+	
+	objRecordSet.MoveFirst 
+	
+	objRecordSet.Save sXMLFilename, adPersistXML
+	
+	objRecordSet.Close
+	objConnection.Close
+
+End Function
+
+'______________________________________________________ 
+''' <summary>
+''' Reads a record set and saves the column values into a specified global dictionary value
+''' </summary>
+''' <author>Jim Kovathana</author>
+''' <datecreated>Dec 17, 2008 </datecreated>
+''' <param name="sColumnName" type="string"></param>
+''' <param name="strSQL" type="string"></param>
+''' <param name="sConnectionString" type="string"></param>
+''' <param name="sStoredName" type="string"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type=""></returns>
+'Change Control: 
+'       Date of Change           Author                         Desc 
+'         March 05 2009     Jim Kovathana    Update to check EOF outside of loop
+'______________________________________________________ 
+Public Function dbStoreResultValue(sColumnName, strSQL,sConnectionString, sStoredName)
+
+	Dim dBRecSet,objConnection	
+	Dim sColValue
+	Dim bVerification
+	Dim nRecordCount
+	Dim i
+	bVerification = True
+	
+  'Set the Database connection object 
+	Set objConnection= dbOpenConnection(sConnectionString)
+	
+	'Verify for object exist or not
+    If IsObject(objConnection) Then	
+		'Execute the SQL and get the recordset object
+		On Error Resume Next
+		Set dBRecSet = objConnection.Execute(strSQL)
+
+        nRecordCount = dbGetRecordCount (sConnectionString, strSQL)
+		dBRecSet.MoveFirst
+
+			If dBRecSet.EOF = True Then
+				WriteToReport micFail, "Unable to retrieve records from database ", "No Record Exist for SQL " & strSQL
+				bVerification = False
+			End If
+
+			For i = 1 To nRecordCount
+				If IsObject(dBRecSet) Then
+					sColValue = dbRecSet(sColumnName)
+					sColValue = Trim(sColValue)
+						If sColValue <> "" Then
+							SetGlobalDictionaryValue sStoredName&i , sColValue   'Add the Order line  Number to the GlobalDictionary
+							WriteToReport micDone, "Column " & sColumnName &" has value: " & sColValue , "The SQL is " & strSQL 
+							bVerification = True
+						End If
+				End If
+						
+					'SetGlobalDictionaryValue sStoredName&i , sColValue   'Add the Order line  Number to the GlobalDictionary
+				'End If
+
+				dBRecSet.MoveNext
+
+			Next
+			
+	End If
+
+	dbStoreResultValue = bVerification
+
+	'Clean up opened objects
+ 	dBRecSet.Close
+	objConnection.Close
+	
+End Function 
+
+'______________________________________________________ 
+''' <summary> 
+'''This function returns the value from a  specified global dictionary key
+''' </summary>
+''' <author>Jim Kovathana</author>
+''' <datecreated>11/6/2008</datecreated>
+''' <param name="sDictionaryKey" type="string"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="String">Value for  the key stored in global dictionary </returns>
+Public Function GetGlobalDictionaryValue(sDictionaryKey)
+
+	Dim sDictionaryKeyValue
+
+	If GlobalDictionary.Exists(sDictionaryKey) = False Then
+		WriteToReport micFail,"Global Dictionary Value", "The specified dictionary key " &sDictionaryKey & " does not exist!"
+		Exit Function
+	Else
+		 sDictionaryKeyValue = GlobalDictionary(sDictionaryKey)
+			If sDictionaryKeyValue = "" Then
+				WriteToReport micWarning,"Global Dictionary Value", "The value retrieved from the specified dictionary key " &sDictionaryKey & " is empty!"
+			End If
+	End If
+
+	GetGlobalDictionaryValue = sDictionaryKeyValue
+
+End Function
+
+'-------------------------------------------------------------------------------------------------------------
+''' <summary>
+''' This  is used to  get the dates range for the number passed in 
+''' </summary>
+''' <author>Jolly Thomas</author>
+''' <datecreated>Oct 29 2009 </datecreated>
+''' <startstate></startstate>
+''' <endstate> </endstate>
+''' <returns type="string">"'formatted date in yyyymmdd"></returns>
+'Change Control: 
+'       Date of Change          Author                  Desc 
+'______________________________________________________
+
+Public Function GetFormatedDate()
+Dim sTodaysDate
+				sTodaysDate =   Year(Now)
+				If Len(sTodaysDate) =2  Then
+					sTodaysDate = "20" & sTodaysDate 
+				End If
+				sTodaysDate = sTodaysDate & Prefix0(Month(Now))
+				sTodaysDate = sTodaysDate & Prefix0(Day(Now))  
+				GetFormatedDate = sTodaysDate
+End Function
+
+'-------------------------------------------------------------------------------------------------------------
+''' <summary>
+''' This  is used to  get the dates range for the number passed in 
+''' </summary>
+''' <author>Pavan Patchava</author>
+''' <datecreated>Apr 15 2009 </datecreated>
+''' <param name="nDays" type="integer"></param>
+''' <startstate></startstate>
+''' <endstate> </endstate>
+''' <returns type="Array of dates">"'"></returns>
+'Change Control: 
+'       Date of Change          Author                  Desc 
+'______________________________________________________
+
+Public Function GetNewDates(nDays)
+   Dim nToday,Newdate
+
+   nToday = Date
+   Newdate = DateAdd("d",nDays,nToday)
+   nToday = Replace(nToday,"#","")
+   Newdate = Replace(Newdate,"#","")
+   GetNewDates = Array(nToday,Newdate)
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary>This is used to update a value in an existing xml file </summary>
+''' <author>Shiny Mohan</author>
+''' <param name="sXMLFilePath" type="string"></param>
+''' <param name="sParams" type="string"></param>
+''' <datecreated>12/23/2009 </datecreated>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type=""></returns>
+''' <seealso cref=""/>
+'Change Control: 
+'   Date of Change          Author          Description of change
+'________________________________________________________ 
+Public function gEditXMLFile(sXMLFilePath,sParams)
+	Dim arrData,i,arrValues,sLoc,sValue,sFlag
+	Dim xmlDoc, Node
+	
+   Set xmlDoc = CreateObject("Microsoft.XMLDOM")
+	xmlDoc.Async = False 
+	xmlDoc.Load(sXMLFilePath)
+
+	arrData=split(sParams,";")
+	For i=0 to ubound(arrData)
+		arrValues=split(arrData(i),",")
+		sLoc=arrValues(0)
+		sValue=arrValues(1)
+		' update the attribute value 
+		Set Node = xmlDoc.SelectSingleNode(sLoc)
+		Node.Text =sValue
+		If Ucase(Node.NodeValue)=Ucase(sValue) Then
+			sFlag=true
+		else
+			sFlag=false
+		End If
+			'check if flag is true
+		If sFlag<>true Then
+			WriteToReport micWarning,"Edit XML File","Attribute value-"&sValue&" has not been edited in location - "&sLoc
+			gEditXMLFile=false
+		else
+ 			WriteToReport micPass,"Edit XML File","Attribute value-"&sValue&" has been edited successfully in location - "&sLoc
+		End If
+	Next
+
+	' save changes 
+	xmlDoc.Save(sXMLFilePath)
+
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary>
+''' Reads a registry key value
+''' </summary>
+''' <param name="sRegistryKey" type="String"></param>
+''' <author>Jim K</author>
+''' <datecreated>11/14/2008</datecreated>
+''' <startstate>start</startstate>
+''' <endstate>end</endstate>
+''' <returns type=""></returns>
+Public Function ReadRegistry(sRegistryKey)
+
+	Dim oRegistryKey 
+	Dim KeyValue
+	Set oRegistryKey = CreateObject("WScript.Shell")
+
+	KeyValue = oRegistryKey.RegRead(sRegistryKey)    'KeyValue could be string, integer or binary value
+	KeyValue = Trim(KeyValue)
+		If KeyValue = "" Then
+			WriteToReport micWarning, "The key value is empty", "The value for this registry key is empty"
+		End If
+	ReadRegistry = KeyValue
+   
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary>
+''' Reads a local sheet, goes to the desired row based on a value to search and writes specified value into the cell
+''' </summary>
+''' <author>Jim K</author>
+''' <datecreated>08/27/2009</datecreated>
+''' <param name="sLocalSheet" type="String"></param>
+''' <param name="sSeachValue" type="String"></param>
+''' <param name="sNewParam" type="String"></param>
+''' <param name="sWriteValue" type="String"></param>
+''' <param name="nKeyColumn" type="Numeric"></param>
+''' <startstate>start</startstate>
+''' <endstate>end</endstate>
+''' <returns type=""></returns>
+'Change Control: 
+'   Date of Change          Author          Description of change
+'________________________________________________________ 
+Public Function ReadWriteLocalFile (sLocalSheet, sSearchValue, sParam, sWriteValue, nKeyColumn)
+
+	Dim nRowCount
+	Dim sValue
+	Dim i
+	  
+	If nKeyColumn = "" Then
+		nKeyColumn = 1
+	End If
+
+	nRowCount = DataTable.GetSheet(sLocalSheet).GetRowCount
+	DataTable.GetSheet(sLocalSheet).SetCurrentRow(1)
+			
+	For i = 1 To nRowCount 
+
+		sValue = DataTable.GetSheet(sLocalSheet).GetParameter(nKeyColumn)
+		
+			If (InStr ( Trim(sValue), sSearchValue) <> 0) Then    
+				DataTable.Value (sParam, sLocalSheet) = sWriteValue
+				Exit Function
+			End If
+
+	   	DataTable.GetSheet(sLocalSheet).SetNextRow	
+
+    Next
+					
+	ReadWriteLocalFile = micFail
+
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary>This is used to  read the excel file and get the values in a tab page inthe form of an array
+''' 	Parameters passed are Excel file name and the tab name </summary>
+''' <author>Pavan</author>
+''' <param name="strFileName" type="string"></param>
+''' <param name="strSheetName" type="string"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="arrDetails">array"</returns>
+
+'Change Control: 
+'   Date of Change          Author          Description of change
+'________________________________________________________ 
+'12/17/2009                   Pavan               Added this function 
+'________________________________________________________ 
+Public Function ReadXLS(strFileName,strSheetName)
+
+	Dim arrData()
+	Dim objFS, objExcel, objSheet, objRange
+	Dim intTotalRow, intTotalCol, intRow, intCol
+
+	' create the file system object
+	Set objFS = CreateObject("Scripting.FileSystemObject")
+
+	'ensure that the xls file exists
+	If Not objFS.FileExists(strFileName) Then
+		'issue a fail if the file wasn't found
+		Reporter.ReportEvent micFail, "Read XLS", "Unable to read XLS file, file not found: " & strFileName
+		'file wasn't found, so exit the function
+		Exit Function
+	End If ' file exists
+
+	'create the excel object
+	Set objExcel = CreateObject("Excel.Application")
+
+	' open the file
+	objExcel.Workbooks.open strFileName
+
+	' select the worksheet
+	Set objSheet = objExcel.ActiveWorkbook.Worksheets(strSheetName)
+
+	' select the used range
+	Set objRange = objSheet.UsedRange
+
+	'count the number of rows
+	intTotalRow=CInt(Split(objRange.Address, "$")(4)) - 1
+
+	' count the number of columns
+	intTotalCol= objSheet.Range("A1").CurrentRegion.Columns.Count
+
+	' redimension the multi-dimensional array to accomodate each row and column 
+	ReDim arrData(intTotalRow, intTotalCol)
+
+	' for each row
+	For intRow = 0 to intTotalRow - 1
+		' for each column
+		For intCol =0 to intTotalCol - 1
+			Redim Preserve arrData(intTotalRow, intTotalCol)
+			' store the data from the cell in the array
+			arrData(intRow, intcol) = Trim(objSheet.Cells(intRow + 2,intcol + 1).Value)
+		Next ' column
+	Next ' row
+
+	' close the excel object
+	objExcel.DisplayAlerts = False
+	objExcel.Quit
+
+	' destroy the other objects
+	Set objFS = Nothing
+	Set objExcel = Nothing
+	Set objSheet = Nothing
+
+	' return the array containing the data
+	If IsNull(arrData)= False Then
+		ReadXLS = arrData
+	Else
+		ReadXLS = Null
+	End If
+
+End Function 
+
+'_________________________________________
+'Change Control: 
+'  02/04/2009 Divya Thomas  -- Renamed from RemoveGlobalDictionaryValue to Remove GlobalDictionaryKey
+'______________________________________________________ 
+''' <summary> 
+'''This function removes the value from a  specified global dictionary key 
+''' </summary>
+''' <author>Divya Thomas</author>
+''' <datecreated>01/03/2009</datecreated>
+''' <param name="sDictionaryKey" type="string"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="Boolean"> true if removed else false</returns>
+Public Function RemoveGlobalDictionaryKey(sDictionaryKey)
+
+	 If sDictionaryKey <> ""  Then
+			If GlobalDictionary.Exists(sDictionaryKey) Then
+				GlobalDictionary.Remove(sDictionaryKey)
+			End If	
+		RemoveGlobalDictionaryKey = True
+	Else
+		  RemoveGlobalDictionaryKey = False
+	 End If
+	 
+End Function
+
+''**************************************************************************************************************
+''' <summary>
+''' Compares two strings that are using the same number of delimited values and same delimiter
+''' </summary>
+''' <author>Jim Kovathana</author>
+''' <datecreated>March 5, 2009 </datecreated>
+''' <param name="sString1ReOrder" type=""></param>
+''' <param name="sString2" type=""></param>
+''' <param name="sDelimiter" type=""></param>
+''' <startstate>None</startstate>
+''' <endstate></endstate>
+''' <returns type="booleant">Returns boolean</returns>
+'Change Control: 
+'       Date of Change          Author              Desc 
+'           1/3/2012            Jim Kovathana      Updated to properly check if values from string 1 are all contained in string 2
+'______________________________________________________ 
+Public Function ReOrderAndCompare(sString1ReOrder, sString2, sDelimiter)
+
+	Dim iCounter, jCounter, kCounter, mismatchCounter
+	Dim bSuccess
+	Dim arrArray1, arrArray2
+	Dim narrArray1_Upper, narrArray2_Upper
+
+	arrArray1 = Split(sString1ReOrder, sDelimiter)
+	narrArray1_Upper = UBound(arrArray1)
+	arrArray2 = Split(sString2, sDelimiter)
+	narrArray2_Upper = UBound(arrArray2)
+
+	If sDelimiter = "" Then
+	    Reporter.ReportEvent micFail, "No delimiter specified!", "A delimiter is required"
+		ReOrderAndCompare = False
+		Exit Function
+	End If
+
+	If narrArray1_Upper <> narrArray2_Upper Then
+	    Reporter.ReportEvent micFail, "Comparison failed. # of dimensions do not match or string delimiters do not match!", "The strings do not qualify to be compared; String1: " &sString1ReOrder & " String 2: " &sString2
+		ReOrderAndCompare = False
+		Exit Function
+	End If
+
+	'this is to check to see if the values in String 1 are contained in String 2
+	jCounter=0
+	Do
+		mismatchcounter=0
+		For iCounter = 0 To narrArray2_Upper
+			If UCase(Trim(arrArray1(jCounter))) <> UCase(Trim(arrArray2(iCounter))) Then
+				mismatchCounter = mismatchCounter+1
+					If mismatchCounter = narrArray2_Upper +1 Then
+						Reporter.ReportEvent micFail, "Mismatch", "String 1does not contain all the values in String 2"
+						 ReOrderAndCompare = False
+						Exit function
+					End If
+				End If 
+		Next
+	 jCounter = jCounter+1
+	Loop Until jCounter > narrArray1_Upper
+
+	'this 'reorders' the string to be compared
+	For kCounter = 0 To narrArray1_Upper
+		If arrArray1(kCounter) <> arrArray2(kCounter) Then
+			arrArray1(kCounter) = arrArray2(kCounter)
+		End If 
+	Next
+ 
+	sString1ReOrder = Join(arrArray1, sDelimiter)
+	sString2 = Join(arrArray2, sDelimiter)
+		If Not sString1ReOrder = sString2 Then
+		   Reporter.ReportEvent micFail, "Comparison failed.  Strings do not match!", "String1: " &sString1ReOrder & " does not match String2: " &sString2
+			bSuccess = False
+		Else
+		   Reporter.ReportEvent micPass, "Comparison passed.  The two strings match", "String1: " &sString1ReOrder & " matches String2: " &sString2
+		   	bSuccess = True
+		End If 
+
+	ReOrderAndCompare = bSuccess
+	
+End Function
+
+'************************************************************************************************************************************************************
+''' <summary> 
+'''This will run the AS400FileCompare (Diagnostic Console) program via command line; will run in the background
+'" The program points to QA03
+''' </summary>
+''' <author>Jim Kovathana</author>
+''' <datecreated>06/28/2012</datecreated>
+''' <param name="sOrderNo1" type="string"></param>
+''' <param name="sOrderNo2" type="string"></param>
+''' <param name="sPlatform" type="string"></param>
+''' <param name="sFileName" type="string"></param>
+''' <param name="sTableNames" type="string"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="Boolean">sBcSucess 0 or -1></returns>
+'Change Control: 
+'Date of Change 	Author 		Description of change
+'________________________________________________
+Public Function RunAS400FileCompare(sOrderNo1, sOrderNo2, sPlatform, sFileName, sTableNames )
+
+	Dim oShell, oApp, objFSO
+	Dim sYearString, sMonthString,sDayString, sHourString, sMinString, sSecString, sMyDateTime, sListFile
+	Dim sMachineID, sXMLOutputReportName, sMode, sType, sOutPath, sRunCommand, sAppPath, sAppName, sXMLOutputFile
+	Dim nCompanyCode
+	Dim bResult
+	Dim arrPlatform, arrOutput
+
+	RunAS400FileCompare = micPass
+	Const ForReading = 1
+
+	sMode = " /mode:staging"
+	sType = " /entitytype:order"
+	sAppName = "AS400FileCompare"
+	sAppPath = "c:\"&sAppName
+	sOutPath = " /outputfile:c:\AutoSource_Prod\"&sPlatform&"\autolocal\"
+	sRunCommand = "cmd.exe /c cd " &sAppPath &" & " &sAppName &" /mode:staging /entitytype:order"
+	sListFile = "c:\AutoSource_Prod\"&sPlatform&"\Data\"&sFileName&".txt"
+
+	'Verify the Platform value passed in
+	sPlatform=Trim(UCase(sPlatform))
+	arrPlatform = Array("ISERIESQTP", "SPSQTP","WEBQTP")
+	bResult =  IsInArray(sPlatform, arrPlatform)
+		If NOT bResult Then
+			Reporter.ReportEvent micFail, "Platform is incorrect", "The Platform has to be iSeriesQTP, WebQTP or SPSQTP. " &sPlatform &" is invalid."
+			RunAS400FileCompare = micFail
+			Exit Function
+		End If
+
+	'Verify the presence of a filename or table name
+	If sFileName = "" AND sTableNames = "" Then
+		Reporter.ReportEvent  micFail, "Missing table name(s)", "You must specifiy a table name(s) or a file name"
+		RunAS400FileCompare = micFail
+		Exit Function
+	ElseIf sFileName <> ""  Then
+		Set objFSO = CreateObject("Scripting.FileSystemObject")
+			If NOT objFSO.FileExists(sListFile) Then
+				Reporter.ReportEvent  micFail, "Input File List does not exist!", "The file " &sFileName & " does not exist in the Data folder!  Please investigate."
+				RunAS400FileCompare = micFail
+				Exit Function
+			End If
+		Set objFSO = Nothing
+	End If
+
+	'Retrieve the Company Code for the Orders
+	nCompanyCode = dbGetOrderCompanyCode(sOrderNo1, sOrderNo2)
+		If nCompanyCode = False Then
+			Reporter.ReportEvent  micFail, "Retrieve Company Code", "The two Orders are not from the same company OR the Order(s) may not exist! Please check your Orders!"
+			RunAS400FileCompare = micFail
+			Exit Function
+		End If
+
+	sYearString = Prefix0(Year(Now))
+	sMonthString = Prefix0(Month(Now))
+	sDayString = Prefix0(Day(Now))
+	sHourString = Prefix0(Hour(Now))
+	sMinString = Prefix0(Minute(Now))
+    sSecString = Prefix0(Second(Now))
+	sMyDateTime = sMonthString &sDayString & sYearString & "_" & sHourString&sMinString&sSecString
+
+	sMachineID = Trim(Environment.Value("LocalHostName"))   'get the local host machine name
+	sXMLOutputReportName = sOutPath & sMachineID & "_" & sMyDateTime & ".xml"
+
+	Set oShell = CreateObject ("WScript.Shell")
+	Set oApp = CreateObject("Scripting.FileSystemObject")   
+		If oApp.FileExists(sAppPath&"\"&sAppName&".exe") Then
+			If sFileName <> "" Then 
+				'oShell.Run (sRunCommand & " /entityid1:" & sOrderNo1 & " /entityid2:" & sOrderNo2 & " /companycode:" & nCompanyCode & " /tablelistfile:" & sListFile & sXMLOutputReportName)
+				oShell.Exec (sRunCommand & " /entityid1:" & sOrderNo1 & " /entityid2:" & sOrderNo2 & " /companycode:" & nCompanyCode & " /tablelistfile:" & sListFile & sXMLOutputReportName)
+			Else
+				sTableNames = Replace(sTableNames, ";", ",")
+				oShell.Run (sRunCommand & " /entityid1:" & sOrderNo1 & " /entityid2:" & sOrderNo2 & " /companycode:" & nCompanyCode & " /tables:" & sTableNames & sXMLOutputReportName)
+			End If
+		Else
+			Reporter.ReportEvent  micFail, "AS400 File Compare Application Not Found!", "Please check the presence or location of the AS400FileCompare program!"
+			RunAS400FileCompare = micFail
+		End If
+
+	Set oShell = Nothing
+	Set oApp = Nothing
+
+	arrOutput =Split(sXMLOutputReportName, ":")
+	sXMLOutputFile = arrOutput(1)&":"&arrOutput(2)  'needed to have just the path in a string
+
+	wait(6)  ' needs to wait since it takes a few seconds to process the compare or else the output will not yet be conceived before checking its existence
+
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+		If objFSO.FileExists(sXMLOutputFile) Then 
+			Reporter.ReportEvent  micFail, "AS400 File Compare", "Please check " &sXMLOutputFile & " file in the autolocal folder; Differences exist between the two orders!"
+			RunAS400FileCompare = micFail
+		Else
+			Reporter.ReportEvent micPass, "AS400 File Compare", "Compare detected no differences between order " &sOrderNo1 & " and order " &sOrderNo2
+		End If
+
+	Set objFSO = Nothing
+
+End Function
+
+'_________________________________________
+'Change Control: 
+'  02/03/2009  Divya Thomas -- Added call to function RemoveGlobalDictionaryValue
+'  02/04/2009 Divya Thomas  -- Removed the call to function RemoveGlobalDictionaryKey
+'  03/20/2009 Emma Yao - modified the if statement to allow value of "" to be assigned to the key
+'______________________________________________________ 
+''' <summary> 
+'''This function sets the value for a  specified global dictionary key
+''' </summary>
+''' <author>Jolly</author>
+''' <datecreated>11/13/2008</datecreated>
+''' <param name="sDictionaryKey" type="string"></param>
+''' <param name="sDictionaryKeyValue" type="string"></param>
+''' <startstate></startstate>
+''' <endstate></endstate>
+''' <returns type="Boolean"> true if set else false</returns>
+Public Function SetGlobalDictionaryValue(sDictionaryKey, sDictionaryKeyValue)
+	
+	sDictionaryKeyValue = Trim(sDictionaryKeyValue)
+	 If Not IsNull(sDictionaryKeyValue)  Then
+			If GlobalDictionary.Exists(sDictionaryKey) Then
+				GlobalDictionary.Remove(sDictionaryKey)
+			End If
+			GlobalDictionary.Add sDictionaryKey, sDictionaryKeyValue
+	
+			SetGlobalDictionaryValue = True
+	Else
+			SetGlobalDictionaryValue = False
+    End If
+End Function
+
+'**********************************************************************************************************************************************************
+''' <summary> dbGetResultValueDouble is a function that retrieves data from database and converts to a double </summary>
+''' <author>Eric Trout</author>
+''' <datecreated>06/27/2014 </datecreated>
+''' <param name="" type=""></param>
+''' <startstate> After invoice has been created</startstate>
+''' <endstate> After comparison has been completed</endstate>
+''' <returns type="boolean"></returns>
+''' <seealso cref="VerifyShipComplete"/>
+'Change Control: 
+'   Date of Change          Author          Description of change
+'________________________________________________________ 
+Public Function dbGetResultValueDouble(strSQL,sConnectionString, sResultReportFlag)
+
+	Dim dBRecSet,objConnection	
+	Dim intLoop,arrRecordValues, iArrayNo, nReportValue
+	
+  'Set the Database connection object 
+	Set objConnection= dbOpenConnection(sConnectionString)	
+
+	'Set the error reporting value
+	Select Case UCase(sResultReportFlag)
+	Case "WARNING"
+			nReportValue = micWarning
+	Case "DONE"
+			nReportValue = micDone
+	Case Else
+			nReportValue = micFail
+	End Select
+	
+	'Verify for object exist or not
+	If IsObject(objConnection) Then	
+		'Execute the SQL and get the recordset object
+		On Error Resume Next
+		Set dBRecSet = objConnection.Execute(strSQL)
+		iArrayNo=0
+		If IsObject(dBRecSet) Then
+			If dBRecSet.EOF = False Then
+				Do While Not dBRecSet.eof
+					For Each intLoop In dBRecSet.fields
+						'Get values for that recordset
+						If   iArrayNo = 0 Then
+							arrRecordValues = CDbl (intLoop.value)
+						Else
+								arrRecordValues  = arrRecordValues + Trim(CDbl (intLoop.value))						
+						End If
+						iArrayNo = iArrayNo + 1
+					Next 
+						'Go to next record set
+						dBRecSet.MoveNext			
+				Loop
+			Else
+				WriteToReport nReportValue, "Verifying the Record from Database", "No Record Exist for SQL: ["&strSQL&"]"
+				arrRecordValues =""			
+			End If
+
+		End If
+		WriteToReport micDone, "Got the values for SQL " & strSQL, " Value is : '" & arrRecordValues &"'"
+	End If	
+	
+	'Clean up opened objects
+	If dbRecSet.State <> 0 Then
+		dBRecSet.Close
+	End If
+	
+		dbGetResultValueDouble = arrRecordValues
+		
+	If objConnection.State <> 0 Then
+		objConnection.Close
+	End If
+
+End Function
+
