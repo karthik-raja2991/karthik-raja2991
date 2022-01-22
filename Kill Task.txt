@@ -1,0 +1,12 @@
+processName="EXPLORER.EXE"
+kill_process(processName)
+
+Function kill_process(processName)
+	Dim ps
+
+	For Each ps in getobject("winmgmts:\\.\root\cimv2:win32_process").instances_
+		If UCase(ps.name) = UCase(processName) Then
+			ps.terminate
+		End If
+	Next
+End Function
