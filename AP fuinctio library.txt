@@ -1,0 +1,3501 @@
+
+'*********************************************************************************************************************************
+''' <summary>  
+''' voucher() To create vouchers with different BussinessUnit and Total amounts
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "businessunit,vouherID,SupplierID,VoucherStyle"</note> 
+''' </para>
+''' </summary>
+''' <author>Keerthana</author>
+''' <datecreated>05/02/2019</datecreated>
+''' <startstate></startstate>
+''' <endstate></endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+Public Function voucher
+	Dim businessunit,supplierID,VoucherID,PONumber,CopyFrom
+	
+	businessunit=GlobalDictionary("businessunit")
+	dtvoucherID=GlobalDictionary("voucherID")
+	supplierID=GlobalDictionary("SupplierID")
+	dtVoucherStyle=GlobalDictionary("VoucherStyle")
+	SelectMainMenu1(GlobalDictionary("MainMenuSelection"))
+	
+'enter bu	
+	With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("BusinessUnit")
+		If .Exist(nMINWAIT) Then
+			.Set businessunit
+			 Call WriteToReport(micPass,"Business unit="&businessunit,"is set",false)
+		End If
+	End With
+
+'enter voucher id
+	With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("VoucherId")
+		If .Exist(nMINWAIT) Then
+			.Set dtvoucherID
+			Call WriteToReport(micPass,"VoucherId="&dtvoucherID,"is displayed",false)
+		End If
+	End With
+
+'set voucherstyle
+	With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebList("dropdown_VOUCHER_STYLE")
+		If .Exist(nMINWAIT) Then
+			.Select dtVoucherStyle
+			Call WriteToReport(micPass,"Voucher Style="&dtVoucherStyle,"is displayed",false)
+		End If
+	End With
+
+'click add button
+	With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebButton("Add")
+		If .Exist(nMINWAIT) Then
+			.Click
+			Call WriteToReport(micPass,"Add Button","is clicked",false)
+		End If
+	End With
+		
+	GlobalDictionary("voucherID")=ap_createaVoucherWithMiscSalestaxFrieghtpaytermandwithoutCopyPO(businessunit,supplierID)
+End Function
+
+'AP_Create a Voucher with Misc, Salestax,Frieght,payterm and without Copy PO
+Function ap_createaVoucherWithMiscSalestaxFrieghtpaytermandwithoutCopyPO(businessunit,supplierID)
+	Dim voucherID,invoiceNo,Dept,Account,Quantity,freight,Total,invoiceDate,appinvoiceNo,salesTax,Classification,lineAmount,i
+	Dim PayTerm
+	
+	
+	voucherID=GlobalDictionary("voucherID")
+	invoiceNo=GlobalDictionary("invoiceNo")&inVoiceNumberGeneration
+	invoiceDate=date'-3
+	'GlobalDictionary("invoiceDate")=invoiceDate
+	PayTerm=GlobalDictionary("PayTerm")
+	Total=GlobalDictionary("Total")
+	freight=GlobalDictionary("Fright")
+	salesTax=GlobalDictionary("Salestax")
+	Quantity=GlobalDictionary("Quantity")
+	Misc=GlobalDictionary("Misc")
+	lineAmount=GlobalDictionary("lineAmount")
+	Account=GlobalDictionary("Account")
+	Dept=GlobalDictionary("Dept")
+	Classification=GlobalDictionary("Classification")
+	
+	'wait for the ojects to get loaded
+	app_SearchSync()
+'	wait 3
+	
+with Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent")
+		'.WebEdit("BusinessUnit").WaitProperty "visible",True,20000
+
+		'enter invoice id and invoice date and save
+		If .WebEdit("invoiceNo").Exist(nMINWAIT) Then
+			.WebEdit("invoiceNo").Set invoiceNo
+			Call WriteToReport(micPass,"invoiceNo :"&invoiceNo," invoiceNo is present as "&invoiceNo,false)
+			else
+			Call WriteToReport(micFail,"invoiceNo","is not present",True)
+		End If
+		
+		If .WebEdit("invoiceDate").Exist(nMINWAIT) Then
+			.WebEdit("invoiceDate").Set invoiceDate
+			Call WriteToReport(micPass,"invoice Date "&invoiceDate,"is present and entered as "&invoiceDate,false)
+			else
+			Call WriteToReport(micFail,"invoice Date","is not present",True)
+		End If
+		
+		If NOT IsEmpty(Payterm) AND (Payterm<>"") Then
+			If (len(Payterm)=3) Then
+				If .WebEdit("PayTerms").Exist(nMINWAIT) Then
+					.WebEdit("PayTerms").Set PayTerm
+					Call WriteToReport(micPass,"PayTerm ","is present and entered as"&PayTerm,false)
+					else
+					Call WriteToReport(micFail,"PayTerm","is not present",True)
+				End If
+			End If
+		End If
+		
+End with	
+'wait for the ojects to get loaded
+	app_SearchSync()
+	If Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebButton("SupplierIDLookup").Exist(nMINWAIT) Then
+		Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebButton("SupplierIDLookup").Click
+	End If
+
+	If Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebEdit("SupplierIDlookup").Exist(nMINWAIT) Then
+'		If InStr(supplierID,"...")<>0 Then
+		Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebEdit("SupplierIDlookup").Set Replace(supplierID,"...","")
+		If Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebButton("LookUp").Exist(nMINWAIT) Then
+			Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebButton("LookUp").Click
+		End If
+
+		If Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebTable("SupplierID").Exist(nMINWAIT) Then
+			If Cint(Trim(Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebTable("SupplierID").RowCount))>1 Then
+				Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebTable("SupplierID").ChildItem(2,1,"Link",0).click
+			End If
+		End If
+'		else
+'			Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("SupplierID").Set Trim(supplierID)
+'		End If
+		Call WriteToReport(micPass,"Supplier ID","is present and value entered"&supplierID,false)
+		else
+		Call WriteToReport(micFail,"Supplier ID","is not present",True)
+	End If
+	
+	'wait for the ojects to get loaded
+	app_SearchSync()
+	
+	'wait for the ojects to get loaded
+	app_SearchSync()
+	
+with Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent")	
+	If .WebEdit("Account").Exist(nMINWAIT) Then
+		.WebEdit("Account").Click
+		wait(3)
+		.WebEdit("Account").Set Account
+		Call WriteToReport(micPass,"Account :"&Account,"is present and entered as"&Account,false)
+		else
+		Call WriteToReport(micFail,"Account","is not present",True)
+	End If
+	If .WebEdit("Dept").Exist(nMINWAIT) Then
+		.WebEdit("Dept").Set Dept
+		Call WriteToReport(micPass,"Dept :"&Dept,"is present and entered as "&Dept,false)
+		else
+		Call WriteToReport(micFail,"Dept","is not present",True)
+	End If
+	
+	If .WebEdit("Classification").Exist(nMINWAIT) Then
+		.WebEdit("Classification").Set Classification
+		Call WriteToReport(micPass,"Classification :"&Classification,"is present and entered as "&Classification,false)
+		else
+		Call WriteToReport(micFail,"Classification","is not present",True)
+	End If
+
+	If NOT IsEmpty(freight) AND freight<>"" Then
+		If  freight>0  Then
+		If .WebEdit("freight").Exist(nMINWAIT) Then
+			.WebEdit("freight").Set freight
+			Call WriteToReport(micPass,"Freight ","is present and entered as"&Fright,false)
+			else
+			Call WriteToReport(micFail,"Freight","is not present",True)
+		End If
+		End If
+	End If
+	
+	wait 3 
+	If NOT IsEmpty(Salestax) AND Salestax<>"" Then
+		If Salestax>0 Then
+		If .WebEdit("salesTax").Exist(nMINWAIT) Then
+			.WebEdit("salesTax").Set Salestax
+			Call WriteToReport(micPass,"Salestax ","is present and entered as"&Salestax,false)
+			else
+			Call WriteToReport(micFail,"Salestax","is not present",True)
+		End If
+		End If
+	End If
+	wait 3 
+	If NOT IsEmpty(Misc) AND Misc<>""  Then
+		If Misc>0 Then
+		If .WebEdit("MiscellaousAmount").Exist(nMINWAIT) Then
+			.WebEdit("MiscellaousAmount").Set Misc
+			Call WriteToReport(micPass,"MiscellaousAmount ","is present and entered as"&Misc,false)
+			else
+			Call WriteToReport(micFail,"MiscellaousAmount","is not present",True)
+		End If
+		End If
+	End If
+	
+	If NOT IsEmpty(Quantity) AND Quantity<>"" Then
+		If Quantity>0 Then
+		If .WebEdit("Quantity").Exist(nMINWAIT) Then
+			.WebEdit("Quantity").Set(Quantity)
+			Call WriteToReport(micPass,"Quantity :"&Quantity ,"Unit price value enter as "&Quantity ,false)
+			else
+			Call WriteToReport(micFail,"Unitprice","is not present",True)
+		End If
+		End If
+	End If
+	app_SearchSync()
+	If .WebEdit("lineAmount").Exist(nMINWAIT) Then
+		.WebEdit("lineAmount").Set lineAmount
+		Call WriteToReport(micPass,"lineAmount :"&lineAmount,"is present and entered as "&lineAmount,false)
+		else
+		Call WriteToReport(micFail,"lineAmount","is not present",True)
+	End If
+	If .WebButton("CalculateInvoiceLine").Exist(nMINWAIT) Then
+		.WebButton("CalculateInvoiceLine").Click
+		Call WriteToReport(micPass,"Calculate button in invoice information","is present and clicked",false)
+		else
+		Call WriteToReport(micFail,"Calculate button in invoice information","is not present",True)
+	End If
+	
+	If .WebButton("Calculate").Exist(nMINWAIT) Then
+		.WebButton("Calculate").Click
+		Call WriteToReport(micPass,"Calculate button in invoice information","is present",false)
+		else
+		Call WriteToReport(micFail,"Calculate button in invoice information","is not present",True)
+	End If
+	
+	'wait for the ojects to get loaded
+	app_SearchSync()
+	
+	
+	If .WebElement("Difference").Exist(nMINWAIT) Then
+		appDifference=.WebElement("Difference").GetROProperty("innertext")
+		Call WriteToReport(micPass,"Deifference is captured","Captured from application as"&appDifference,false)
+	End If
+	
+	If .WebEdit("Total").Exist(nMINWAIT) Then
+		.WebEdit("Total").Click
+		app_SearchSync()
+		.WebEdit("Total").Click
+		appDifference=cdbl(appDifference)+Cdbl(.WebEdit("Total").GetROProperty("value"))
+		.WebEdit("Total").Set appDifference
+		Call WriteToReport(micPass,"Total : "&appDifference,"is present and entered as "&appDifference,false)
+		else
+		Call WriteToReport(micFail,"Total","is not present",True)
+	End If
+	
+	If .WebButton("Calculate").Exist(nMINWAIT) Then
+		.WebButton("Calculate").Click
+		Call WriteToReport(micPass,"Calculate button in invoice information","is present and clicked to get difeerence",false)
+		else
+		Call WriteToReport(micFail,"Calculate button in invoice information","is not present",True)
+	End If
+	
+	If .WebElement("Difference").Exist(nMINWAIT) Then
+		appDifference=.WebElement("Difference").GetROProperty("innertext")
+		Call WriteToReport(micPass,"Difference should be 0","Captured from application as"&appDifference,false)
+	End If
+	
+	
+	app_SearchSync()	
+	
+	If .WebButton("Save").Exist(nMINWAIT) Then
+		.WebButton("Save").Click
+		Call WriteToReport(micPass,"Save button in invoice information","is present and clicked",false)
+		else
+		Call WriteToReport(micFail,"Save button in invoice information","is not present",True)
+	End If
+'wait for the ojects to get loaded
+	app_SearchSync()	
+		If Browser("PeopleSoft Browser").Page("Regular Entry").WebButton("OK").Exist(nMINWAIT) Then
+			Browser("PeopleSoft Browser").Page("Regular Entry").WebButton("OK").Click
+		End If
+'wait for the ojects to get loaded
+	app_SearchSync()	
+	If Browser("PeopleSoft Browser").Page("Regular Entry").WebButton("OK").Exist(10) Then
+		Browser("PeopleSoft Browser").Page("Regular Entry").WebButton("OK").Click
+	End if
+	
+	'wait for the ojects to get loaded
+	app_SearchSync()
+	'wait for the ojects to get loaded
+	app_SearchSync()
+'Voucher id generation validation	
+	If .WebElement("voucherID").Exist(nMINWAIT) Then
+		voucherID=.WebElement("voucherID").GetROProperty("innertext")
+		If StrComp(voucherID,"NEXT",1)<>0 Then
+			Call WriteToReport(micPass,"voucherID : "&voucherID,"is present and generated as "&voucherID,false)
+			else
+			Call WriteToReport(micFail,"voucherID","doesn't get generated",True)
+		End If
+	End If
+End with
+
+'to check the tax exempt check box
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebCheckBox("chkboxTAXEXEMPT")
+		If .Exist(nMINWAIT) Then
+					Call WriteToReport(micPass,"Checkbox TAXEXEMPT","is displayed",false)
+		End If
+End With
+
+'CLick on Ok button if exists
+With Browser("PeopleSoft Browser").Page("Regular Entry").WebButton("OK")
+If .Exist(nMINWAIT) Then
+	.Click
+	Else
+	Call WriteToReport(micPass,"No error message displayed", "and changes are saved sucessfully",False)
+End If
+End With
+
+
+'Click on SUbmit for Approcal page
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebButton("SubmitApproval")
+If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"Submit Approval button","is clicked",False)
+	Else
+	Call WriteToReport(micFail,"Submit Approval button","is not present",True)
+End If
+End With
+
+'Enter the addition details and click on Ok button
+With Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("ApprovalComments_VoucherAttribute").WebEdit("AdditionalComments")
+If .Exist(nMINWAIT) Then
+	.Set dtAdditionalComments
+	Call WriteToReport(micPass,"Additional comments","is present and set",False)
+else
+	Call WriteToReport(micPass,"Additional comments","is not present and set",False)
+End If
+End With
+
+'CLick on Ok button
+With Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("ApprovalComments_VoucherAttribute").WebButton("Ok")
+If .Exist(nMINWAIT) Then
+	.Click
+	wait(1)
+	Call WriteToReport(micPass,"OK button", "is clicked",False)
+End If
+End With
+
+''CLick on invoicetab
+'With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebElement("voucher_tabInvoice Information")
+'If .Exist(nMINWAIT) Then
+'	.Click
+'End If
+'End With
+'
+
+'cLICK ON summary Tab
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebElement("Summary")
+If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"Summary tab is displayed", "and clicked",False)
+	Else
+	Call WriteToReport(micFail,"Summary tab is not displayed", "and not able to verify the deails",True)
+End If
+End With
+
+'validate approver status as pending
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebElement("ApproveStatus")
+If .Exist(nMINWAIT) Then
+	If StrComp(.GetROProperty("innertext"),"Pending",1)=0 Then
+		Call WriteToReport(micPass,"ApproveStatus is displayed", "and status is "&.GetROProperty("innertext") ,False)
+		Else
+		Call WriteToReport(micFail,"ApproveStatus isn't displayed", "as pending , Actual is "&.GetROProperty("innertext")  ,True)
+	End If
+Else
+	Call WriteToReport(micFail,"ApproveStatus isn't displayed", "DOESN'T DISPLAYED IN THE APPLICATION",True)
+End If
+End With
+
+GlobalDictionary("SignInUser")=GlobalDictionary("Approver1")
+	
+	
+ap_createaVoucherWithMiscSalestaxFrieghtpaytermandwithoutCopyPO=voucherID
+End Function
+
+Public Function WorklistApprovalFlow
+dtvoucherID=GlobalDictionary("voucherID")
+dtbusinessunit=GlobalDictionary("businessunit")
+'Navigate to below page
+'Worklist > worklist
+SelectMainMenu1(GlobalDictionary("MainMenuSelection1"))
+
+With Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable")
+If .Exist(nMINWAIT) Then
+	appDate=.GetCellData(2,2)
+	k=0
+	invoiceDate=CDate(date)
+	While instr(1,CDate(appDate),invoiceDate)=0 and k<10
+  		Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable").ChildItem(1,2,"Link",0).Click
+  		wait(1)
+  		appDate=Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable").GetCellData(2,2)
+  		k=k+1
+   	Wend
+End If
+End  With 
+
+
+'Search for the name in the table
+With Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable")
+If .Exist(nMINWAIT) Then
+	For i=1 to .RowCount
+	'appFrom=.GetCellData(i,1)
+	'If instr(1,appFrom,dtFromName )>0 Then
+		appDate=.GetCellData(i,2)
+		vouNo=.GetCellData(i,6)
+'		instr(1,CDate(appDate),GlobalDictionary("invoiceDate"))
+		If instr(1,vouNo,GlobalDictionary("voucherID")) Then
+			Set oLink=.ChildItem(i,6,"Link",0)
+			If oLink.exist(nMINWAIT) Then
+				oLink.click
+				Exit For
+			End If
+		End If
+	Next
+End If
+End  With 
+
+
+'CLick on Approve button
+With Browser("PeopleSoft Browser").Page("Approval Framework - Vouchers").PSFrame("Voucher Approval Process").WebButton("Approve")
+If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"Approve button is present ","and clicked  ", false)
+End If
+End  With 
+
+'validate approved status
+With Browser("PeopleSoft Browser").Page("Approval Framework - Vouchers").PSFrame("Voucher Approval Process").WebTable("ApprovedStatuswithVCHRID")
+If .Exist(nMINWAIT) Then
+	Call WriteToReport(micPass,"The form is approved ","and green tick is displayed in the approval flow ", false)
+End If
+End WIth 
+
+SelectMainMenu1(GlobalDictionary("MainMenuSelection"))
+
+'To click on Find an Existing value tab
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebElement("voucher_tabFindExistingValue")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End With 
+
+'To enter BU
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("voucherFE_txtBUSINESS_UNIT")
+If .Exist(nMINWAIT) Then
+	.Set dtbusinessunit
+	Call WriteToReport(micPass,"BusinessUnit is="&dtbusinessunit,"is displayed",false)
+End If
+End With 
+
+'To enter voucher ID 
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("voucherFE_txtVOUCHER_ID")
+If .Exist(nMINWAIT) Then
+	.Set dtvoucherID
+	Call WriteToReport(micPass,"VoucherId is="&dtvoucherID,"is displayed",false)
+End If
+End With
+
+'To click on search
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebButton("voucher_btnSearch")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End With 
+
+'cLICK ON summary Tab
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebElement("Summary")
+If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"Summary tab is displayed", "and clicked",False)
+	Else
+	Call WriteToReport(micFail,"Summary tab is not displayed", "and not able to verify the deails",True)
+End If
+End With
+
+
+'To check the approval status 
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebElement("approvalStatus")
+If .Exist(nMINWAIT) Then
+    Call WriteToReport(micPass,"Approval Status is displayed", "and the status="&.GetROProperty("innertext") ,False)
+	Else
+	Call WriteToReport(micFail,"ApproveStatus isn't displayed", "DOESN'T DISPLAYED IN THE APPLICATION",True)
+End If
+End With
+
+End Function
+
+
+'*********************************************************************************************************************************
+''' <summary>  
+''' runMatchingforallBUand1Voucher() To match the one BU - one Voucher and one BU - All Vouchers
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "2 businessunit,supplierID"</note> 
+''' </para>
+''' </summary>
+''' <author>Gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>Logged in as user that has right to Create Voucher and able to do Matching</startstate>
+''' <endstate>Voucher will changed from Ready status to Exceptions or Matched</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+
+'AP_07_01_01_BU_Voucher
+Public Function runMatchingforallBUand1Voucher()
+	Dim businessunit,supplierID
+	
+	businessunit=GlobalDictionary("businessunit")
+	supplierID=GlobalDictionary("SupplierID")
+	
+'One BU 0000 ine voucher exception validation
+Call oneBUoneVoucherException(businessunit,supplierID)
+	
+	businessunit=GlobalDictionary("businessunit1")
+	supplierID=GlobalDictionary("SupplierID1")
+'	
+''One BU 0000 ine voucher exception validation
+'Call oneBUoneVoucherException(businessunit,supplierID)
+
+'Call openReadyMatchStatusandProcessforExcetion(businessunit)
+businessunit=GlobalDictionary("businessunit2")
+
+Call processBUandverifyMatched(businessunit)
+End Function
+
+'*********************************************************************************************************************************
+''' <summary>  
+''' oneBUoneVoucherException() To match the One BU one Voucher 
+'''Parameter1:	businessunit,supplierID
+''' <para>
+''' <note>Required Testcase Inputs are "businessunit,supplierID"</note> 
+''' </para>
+''' </summary>
+''' <author>Gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>Logged in as user that has right to Match vouchers</startstate>
+''' <endstate>Voucher match status will changed from Ready status</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+
+Public Function oneBUoneVoucherException(Byref businessunit,Byref supplierID)
+Dim VoucherID
+	
+
+	'Navigate to Account Payable --> Vouchers --> ADD/Update-> Regular Entry
+	SelectMainMenu1(GlobalDictionary("MainMenuSelection"))
+	
+	'Craete a voucher with Copy PO
+	VoucherID=ap_createVoucherWithCopyPO(businessunit,supplierID)
+	If StrComp(VoucherID,"NEXT",1)<>0 Then
+		'Accounts Payable --> Batch Processes --> Voucher --> Matching
+		SelectMainMenu1(GlobalDictionary("VoucherMatchingSelection"))
+		Dim strVar
+		strVar=ap_matchingVoucher(businessunit,voucherID)
+		If StrComp(strVar,"success",1)=0 Then
+	'		Navigate to Account Payable --> Vouchers --> ADD/Update-> Regular Entry
+			SelectMainMenu1(GlobalDictionary("MainMenuSelection"))
+			
+	'		Open a existing voucher(created voucher)
+			Call ap_openExistingVoucher(businessunit,voucherID)	
+			
+			'wait for the ojects to get loaded
+			app_SearchSync()
+			
+	'		verify the match status of the voucher
+			Call ap_verifyMatchstatusofVoucher("Exceptions","Click")
+			
+	'		Match rule validation
+'			Call ap_matchRuleValidations("RULE_R600,RULE_R900,RULE_R950")
+		End If
+	End If
+		'wait for the ojects to get loaded
+		app_SearchSync()
+		
+		
+	With Browser("MatchWorkBenchException").Page("MatchWorkbenchExceptions").PSFrame("MatchWorkBenchExceptions")
+		If .WebTable("MatchRules").Exist(nminwait) Then
+			rc=.WebTable("MatchRules").RowCount()
+			If Cint(Trim(rc))>1 Then
+				For i = 1 To rc-1 Step 1
+					If StrComp(Trim(.WebTable("MatchRules").GetCellData(i,3)),"No receipts found",1)=0 Then
+						Call WriteToReport(micPass,"MatchRules : "&"No receipts found","is present and displayed as "&"No receipts found",false)
+					End If
+				Next
+			else
+				Call WriteToReport(micFail,"MatchRules","doesn't get generated to No receipts found status",True)
+			End If
+			Browser("MatchWorkBenchException").Close
+		End If
+	End With
+	
+End Function
+
+
+'*********************************************************************************************************************************
+''' <summary>  
+''' processBUandverifyMatched() To Match the One Bu and All Vouchers
+'''Parameter1:	businessunit
+''' <para>
+''' <note>Required Testcase Inputs are "Desciption,ProcessFrequency,MatchActions,Options,RunControlID,MatchStatus,Setid"</note> 
+''' </para>
+''' </summary>
+''' <author>Gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>Logged in as user that has right to match vouchers</startstate>
+''' <endstate>No Voucher to available in the search results</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+
+
+Public Function processBUandverifyMatched(Byref businessunit)
+	
+'	Dim businessunit,supplierID
+	Dim voucherID,approvalStatus,Total,i,MatchStatus
+	Dim rc,nCount,appProcessInstance,appProcess,Desciption,ProcessFrequency,MatchActions,Options,RunControlID,temp
+	
+
+		'Accounts Payable --> Batch Processes --> Voucher --> Matching
+		SelectMainMenu1(GlobalDictionary("VoucherMatchingSelection"))
+		
+		RunControlID=GlobalDictionary("RunControlID")
+	'Voucher matching
+	With Browser("PeopleSoft Browser").Page("Matching").PSFrame("MatchRequest")
+		If .WebElement("AddaNewValue").Exist(nminwait) Then
+			.WebElement("AddaNewValue").Click
+			Call WriteToReport(micPass,"Add new Value tab selected","Add New Value tab is present and clicked",false)
+		else
+			Call WriteToReport(micFail,"Add New value tab","doesn't present in the application",True)
+		End If
+		
+		'wait for the ojects to get loaded
+		app_SearchSync()
+		
+		If .WebEdit("RunControlID").Exist(nminwait) Then
+			.WebEdit("RunControlID").Set RunControlID&inVoiceNumberGeneration
+			Call WriteToReport(micPass,"Run Control ID : "&RunControlID,"RunControlID is present and enterred as "&RunControlID,false)
+		else
+			Call WriteToReport(micFail,"RunControlID","doesn't present in the application",True)
+		End If
+		If .WebButton("Add").Exist(nminwait) Then
+			.WebButton("Add").Click
+			Call WriteToReport(micPass,"Add button clicked","Add button is present and clicked",false)
+		else
+			Call WriteToReport(micFail,"Add button","doesn't present in the application",True)
+		End If
+		
+		'wait for the ojects to get loaded
+		app_SearchSync()
+	
+		Desciption=GlobalDictionary("Desciption1")
+		ProcessFrequency=GlobalDictionary("ProcessFrequency")
+		MatchActions=GlobalDictionary("MatchActions")
+		Options=GlobalDictionary("Options1")
+		MatchStatus=GlobalDictionary("MatchStatus")
+		Setid=GlobalDictionary("setID")
+	'enter Run Control parameters values
+		If .WebEdit("Description").Exist(nminwait) Then
+			.WebEdit("Description").Set Desciption
+			Call WriteToReport(micPass,"Description : "&Desciption,"Description is present and enterred as "&Desciption,false)
+		else
+			Call WriteToReport(micFail,"Description","doesn't present in the application",True)
+		End If
+		If .WebList("ProcessFrequency").Exist(nminwait) Then
+			.WebList("ProcessFrequency").Select ProcessFrequency
+			Call WriteToReport(micPass,"ProcessFrequency : "&ProcessFrequency,"ProcessFrequency is present and enterred as "&ProcessFrequency,false)
+		else
+			Call WriteToReport(micFail,"ProcessFrequency","doesn't present in the application",True)
+		End If
+		If .WebList("MatchActions").Exist(nminwait) Then
+			.WebList("MatchActions").Select MatchActions
+			Call WriteToReport(micPass,"MatchActions : "&MatchActions,"MatchActions is present and enterred as "&MatchActions,false)
+		else
+			Call WriteToReport(micFail,"MatchActions","doesn't present in the application",True)
+		End If
+		If .WebList("Options").Exist(nminwait) Then
+			.WebList("Options").Select Options
+			Call WriteToReport(micPass,"Options : "&Options,"Options is present and enterred as "&Options,false)
+		else
+			Call WriteToReport(micFail,"Options","doesn't present in the application",True)
+		End If
+		
+		'wait for the ojects to get loaded
+		app_SearchSync()
+		
+	'Enter Voucher details
+		If .WebEdit("BusinessUnitforBU").Exist(nminwait) Then
+			.WebEdit("BusinessUnitforBU").Set businessunit
+			Call WriteToReport(micPass,"BusinessUnit : "&businessunit,"BusinessUnit is present and enterred as "&businessunit,false)
+		else
+			Call WriteToReport(micFail,"BusinessUnit","doesn't present in the application",True)
+		End If
+		If .WebButton("Run").Exist(nminwait) Then
+			.WebButton("Run").Click
+			Call WriteToReport(micPass,"Run button clicked","Run button is present and clicked",false)
+		else
+			Call WriteToReport(micFail,"Run button","doesn't present in the application",True)
+		End If
+	End with
+		
+		'wait for the ojects to get loaded
+		app_SearchSync()
+		
+	'Enter values in Process scheduler request
+	
+	With Browser("PeopleSoft Browser").Page("Matching").PSFrame("ProcessSchedularrequest")
+		If .WebTable("ProcessList").Exist(nminwait) Then
+			If Cint(trim(.WebTable("ProcessList").RowCount))>1 Then
+				.WebTable("ProcessList").ChildItem(2,1,"WebCheckBox",0).set "ON"
+				appProcess=.WebTable("ProcessList").GetCellData(2,3)
+				Call WriteToReport(micPass,"Process : "&appProcess," Process is present and selected as "& appProcess ,false)
+			End If
+		End If
+		If .WebButton("OK").Exist(nminwait) Then
+			.WebButton("OK").Click
+		End If
+	End with 
+
+	
+	
+	'wait for the ojects to get loaded
+	app_SearchSync()
+
+			
+		with Browser("PeopleSoft Browser").Page("Matching").PSFrame("MatchRequest")
+			If .WebElement("ProcessInstance").Exist(nminwait) Then
+				appProcessInstance=.WebElement("ProcessInstance").GetROProperty("innertext")
+				appProcessInstance=Trim(Split(appProcessInstance,":")(1))
+				Call WriteToReport(micPass,"ProcessInstance : "&appProcessInstance,"is present and generated as "&appProcessInstance,false)
+			else
+				Call WriteToReport(micFail,"ProcessInstance","doesn't get generated",True)
+			End If
+			If .Link("ProcessMonitor").Exist(nminwait) Then
+				.Link("ProcessMonitor").Click
+			End If
+		
+		End with 
+
+'Enter all the detail in the Process monitor screen
+		With Browser("PeopleSoft Browser").Page("Matching").PSFrame("ProcessMonitor")
+			If .WebEdit("InstanceFrom").Exist(nMINWAIT) Then
+			.WebEdit("InstanceFrom").Set appProcessInstance
+			End If
+		
+			'Click on Refresh button
+			If .WebButton("Refresh").Exist(nMINWAIT) Then
+				.WebButton("Refresh").Click
+			End If
+		
+		
+			'check the status of the Job 
+			If .WebTable("ProcessList").Exist(nMINWAIT) Then
+				While (StrComp(Trim(.WebTable("ProcessList").GetCellData(2,8)),"Success",1)<>0) and nCount<10
+					app_SearchSync()
+					nCount=nCount+1
+					If .WebButton("Refresh").Exist(nMAXWAIT) Then
+						.WebButton("Refresh").Click
+					End If
+				Wend
+				temp=3
+			End If
+			If .Link("GoBackToMatchRequest").Exist(nminwait) Then
+				.Link("GoBackToMatchRequest").Click
+			End If
+		End With
+				
+		app_SearchSync()
+		If Browser("PeopleSoft Browser").Page("Matching").WebButton("No").Exist(nminwait) Then
+			Browser("PeopleSoft Browser").Page("Matching").WebButton("No").Click
+		End If
+		app_SearchSync()
+		
+		
+If temp=3 Then
+	If Browser("PeopleSoft Browser").Page("Matching").PSFrame("MatchRequest").Link("MatchWorkBench").Exist(nminwait) Then
+		Browser("PeopleSoft Browser").Page("Matching").PSFrame("MatchRequest").Link("MatchWorkBench").Click
+	End If
+	
+		app_SearchSync()
+With Browser("MatchWorkBenchException").Page("MatchWorkbenchExceptions").PSFrame("MatchWorkBench")
+	If .WebEdit("BusinessUnit").Exist(nminwait) Then
+		.WebEdit("BusinessUnit").Set businessunit
+		Call WriteToReport(micPass,"BusinessUnit :"&businessunit,"businessunit is present and entered as "&businessunit,false)
+		else
+			Call WriteToReport(micFail,"businessunit","doesn't present in the application",True)
+	End If
+	wait(4)
+	If .WebList("MatchStatus").Exist(nminwait) Then
+		.WebList("MatchStatus").Select MatchStatus
+		Call WriteToReport(micPass,"MatchStatus : "&MatchStatus,"MatchStatus is present and selected as "&MatchStatus,false)
+		else
+			Call WriteToReport(micFail,"MatchStatus","doesn't present in the application",True)
+	End If:wait(4)
+	If .WebEdit("SetID").Exist(nminwait) Then
+		.WebEdit("SetID").Set Setid
+		Call WriteToReport(micPass,"Setid : "&Setid,"Setid is present and entered"&Setid,false)
+		else
+			Call WriteToReport(micFail,"Setid","doesn't present in the application",True)
+	End If:wait(4)
+	If .WebButton("Search").Exist(nminwait) Then
+		.WebButton("Search").Click
+		Call WriteToReport(micPass,"Search button "," is present and clicked",false)
+		else
+			Call WriteToReport(micFail,"Search button","doesn't present in the application",True)
+	End If
+End With	
+	If Browser("MatchWorkBenchException").Page("MatchWorkbenchExceptions").PSFrame("MatchWorkBench").WebButton("Search").Exist(nminwait) Then
+'		Browser("MatchWorkBenchException").Page("MatchWorkbenchExceptions").Sync
+		wait 5
+	End If
+
+	If Browser("MatchWorkBenchException").Page("MatchWorkbenchExceptions").WebButton("OK").Exist(nminwait) Then
+		Browser("MatchWorkBenchException").Page("MatchWorkbenchExceptions").WebButton("OK").Click
+		Call WriteToReport(micPass,"All vouchers are matched ","All vouchers matched",false)
+		else
+			Call WriteToReport(micFail,"All vouchers doesn't matched ","All vouchers are not atched",True)
+	End If
+
+	If Browser("MatchWorkBenchException").Exist(nminwait) Then
+		Browser("MatchWorkBenchException").Close
+	End If
+
+
+
+End If
+
+End Function
+
+Public Function ap_createVoucherWithCopyPO(Byref businessunit,Byref supplierID)
+'	Dim businessunit,supplierID
+	Dim voucherID,approvalStatus,invoiceNo,Total,invoiceDate,i,CopyFrom,PayTerm,MatchStatus,Salestax,Misc,Fright,PONumberFrom
+	Dim rc,nCount,temp
+'	'Navigate to Account Payable --> Vouchers --> ADD/Update-> Regular Entry
+'	SelectMainMenu1(GlobalDictionary("MainMenuSelection"))
+	
+'	businessunit=GlobalDictionary("businessunit")
+	voucherID=GlobalDictionary("voucherID")
+	invoiceNo=GlobalDictionary("invoiceNo")&inVoiceNumberGeneration
+	invoiceDate=date-2'GlobalDictionary("invoiceDate")
+'	supplierID=GlobalDictionary("SupplierID")
+	CopyFrom=GlobalDictionary("CopyFrom")
+	PayTerm=GlobalDictionary("PayTerm")
+	Salestax=GlobalDictionary("Salestax")
+	Misc=GlobalDictionary("Misc")
+	Fright=GlobalDictionary("Fright")
+	PONumberFrom=GlobalDictionary("PONumberFrom")
+	AccountNumber=GlobalDictionary("dtAccountNumber1")
+	Dept=GlobalDictionary("dtDept1")
+	temp=0
+	'wait for the ojects to get loaded
+	app_SearchSync()
+
+'Add business unit and voucgher id in existing value
+	with Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent")
+	.WebEdit("BusinessUnit").WaitProperty "visible",True,20000
+	If .WebEdit("BusinessUnit").Exist(nMINWAIT) Then
+		.WebEdit("BusinessUnit").Set businessunit
+		Call WriteToReport(micPass,"Business unit ","is present and entered "&businessunit,false)
+		else
+		Call WriteToReport(micFail,"Business unit","is not present",True)
+	End If
+	
+	If .WebEdit("VoucherId").Exist(nMINWAIT) Then
+		.WebEdit("VoucherId").Set voucherID
+		Call WriteToReport(micPass,"Voucher Id ","is present and entered "&voucherID,false)
+		else
+		Call WriteToReport(micFail,"Voucher Id","is not present",True)
+	End If
+	
+	If .WebButton("Add").Exist(nMINWAIT) Then
+		.WebButton("Add").highlight
+		.WebButton("Add").Click
+		Call WriteToReport(micPass,"Add button to add the voucher","is present and clicked",false)
+		else
+		Call WriteToReport(micFail,"Add button to add the voucher","is not present",True)
+	End If
+	
+	'wait for the ojects to get loaded
+	app_SearchSync()
+
+	.WebEdit("invoiceNo").WaitProperty "visible",true,20000
+	'enter invoice id and invoice date and save
+	If .WebEdit("invoiceNo").Exist(nMINWAIT) Then
+		.WebEdit("invoiceNo").Set invoiceNo
+		Call WriteToReport(micPass,"invoiceNo ","is present and entered "&invoiceNo,false)
+		else
+		Call WriteToReport(micFail,"invoiceNo","is not present",True)
+	End If
+	
+	If .WebEdit("invoiceDate").Exist(nMINWAIT) Then
+		.WebEdit("invoiceDate").Set invoiceDate
+		Call WriteToReport(micPass,"invoice Date ","is present and entred as "&invoiceDate,false)
+		else
+		Call WriteToReport(micFail,"invoice Date","is not present",True)
+	End If
+	If .WebEdit("PayTerms").Exist(nMINWAIT) Then
+		.WebEdit("PayTerms").Set PayTerm
+		Call WriteToReport(micPass,"PayTerm ","is present and entered as"&PayTerm,false)
+		else
+		Call WriteToReport(micFail,"PayTerm","is not present",True)
+	End If
+End with	
+'wait for the ojects to get loaded
+	app_SearchSync()
+	If Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebButton("SupplierIDLookup").Exist(nMINWAIT) Then
+		Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebButton("SupplierIDLookup").Click
+	End If
+
+	If Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebEdit("SupplierIDlookup").Exist(nMINWAIT) Then
+'		If InStr(supplierID,"...")<>0 Then
+		Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebEdit("SupplierIDlookup").Set Replace(supplierID,"...","")
+		If Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebButton("LookUp").Exist(nMINWAIT) Then
+			Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebButton("LookUp").Click
+		End If
+
+		If Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebTable("SupplierID").Exist(nMINWAIT) Then
+			If Cint(Trim(Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebTable("SupplierID").RowCount))>1 Then
+				Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("LookupSupllierIDForm").WebTable("SupplierID").ChildItem(2,1,"Link",0).click
+			End If
+		End If
+'		else
+'			Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("SupplierID").Set Trim(supplierID)
+'		End If
+		Call WriteToReport(micPass,"Supplier ID","is present and value entered"&supplierID,false)
+		else
+		Call WriteToReport(micFail,"Supplier ID","is not present",True)
+	End If
+	
+	'wait for the ojects to get loaded
+	app_SearchSync()
+	
+	
+	
+	
+	'wait for the ojects to get loaded
+	app_SearchSync()
+	
+	
+	If (NOT IsEmpty(CopyFrom)) AND  CopyFrom<>"" Then
+		temp=1
+		with Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent")		
+		If .WebList("CopyFrom").Exist(nMINWAIT) Then
+			.WebList("CopyFrom").Select CopyFrom
+			Call WriteToReport(micPass,"CopyFrom","is present and selected "&CopyFrom,false)
+			else
+			Call WriteToReport(micFail,"Calculate button in invoice information","is not present",True)
+		End If
+		
+		If .Link("Go").Exist(nMINWAIT) Then
+'			wait(3)
+			.Link("Go").Click
+			Call WriteToReport(micPass,"go link ","is present and clicked",false)
+			else
+			Call WriteToReport(micFail,"Go link","is not present",True)
+		End If
+		
+		If .WebEdit("POBusinessUnit").Exist(nMINWAIT) Then
+			.WebEdit("POBusinessUnit").Set businessunit
+			Call WriteToReport(micPass,"POBusinessUnit ","is present and entered as"&businessunit,false)
+			else
+			Call WriteToReport(micFail,"POBusinessUnit","is not present",True)
+		End If
+		End with	
+		If NOT IsEmpty(PONumberfrom) AND PONumberfrom<>"" Then
+			If  PONumberfrom>0  Then
+				If Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("PONumberFrom").Exist(nMINWAIT) Then
+					Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("PONumberFrom").Set PONumberFrom
+					Call WriteToReport(micPass,"PONumberFrom ","is present and entered as"&PONumberFrom,false)
+					temp=2
+					else
+					Call WriteToReport(micFail,"PONumberFrom","is not present",True)
+				End If
+			End If
+		End If
+		with Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent")	
+	
+			If .WebButton("PONumberLookup").Exist(nMINWAIT) Then
+				.WebButton("PONumberLookup").Click
+			End If
+		End with	
+			
+		app_SearchSync()'wait(4)
+		
+		If Browser("PeopleSoft Browser").Page("Regular Entry").Frame("lookUpPONumberForm").WebTable("PONumber").Exist(nMINWAIT) Then
+			If Cint(Trim(Browser("PeopleSoft Browser").Page("Regular Entry").Frame("lookUpPONumberForm").WebTable("PONumber").RowCount))>1 Then
+				PONumberFrom=Browser("PeopleSoft Browser").Page("Regular Entry").Frame("lookUpPONumberForm").WebTable("PONumber").GetCellData(2,2)
+				Browser("PeopleSoft Browser").Page("Regular Entry").Frame("lookUpPONumberForm").WebTable("PONumber").ChildItem(2,1,"Link",0).click
+				temp=2
+				Call WriteToReport(micPass,"PO number seletced","Selecetd PO number is "&PONumberFrom,True)
+			else
+				Call WriteToReport(micFail,"invoices for "&businessunit&","&supplierID ,"is not present",True)
+			End If
+		End If
+		
+	
+		with Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent")	
+	
+		If .WebButton("CopyEntireDocument").Exist(nMINWAIT) Then
+			.WebButton("CopyEntireDocument").Click
+			Call WriteToReport(micPass,"CopyEntireDocument","is present and clicked",false)
+			else
+			Call WriteToReport(micFail,"CopyEntireDocument","is not present",True)
+		End If
+		end with 
+		
+		else
+		With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("Account")
+			.Set AccountNumber
+			Call WriteToReport(micPass,"Account number","is present=" & AccountNumber,false)
+		End With
+
+		With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("Dept")
+			.Set Dept
+			Call WriteToReport(micPass,"Department number","is present=" & Dept,false)
+		End  With
+	End If
+		
+	
+
+	
+If temp<>1 Then
+	
+	with Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent")	
+'	.WebEdit("Total").WaitProperty "visible",True,20000
+
+	
+	app_SearchSync()
+'	If StrComp(GlobalDictionary("Selection"),"fright",1)=0 OR StrComp(GlobalDictionary("SelectionSelection"),"quantity",1)=0 Then
+	If NOT IsEmpty(Fright) AND Fright<>""Then
+		If  Fright>0  Then
+			If .WebEdit("freight").Exist(nMINWAIT) Then
+				.WebEdit("freight").Set Fright
+				Call WriteToReport(micPass,"Fright ","is present and entered as"&Fright,false)
+				else
+				Call WriteToReport(micFail,"Fright","is not present",True)
+			End If
+		End If
+	End If
+	
+	wait 3 
+	If NOT IsEmpty(Salestax) AND Salestax<>""Then
+		If Salestax>0  Then
+			If .WebEdit("salesTax").Exist(nMINWAIT) Then
+				.WebEdit("salesTax").Set Salestax
+				Call WriteToReport(micPass,"Salestax ","is present and entered as"&Salestax,false)
+				else
+				Call WriteToReport(micFail,"Salestax","is not present",True)
+			End If
+		End If
+	End If
+	wait 3 
+	If NOT IsEmpty(Misc) AND Misc<>"" Then
+		If  Misc>0  Then
+			If .WebEdit("MiscellaousAmount").Exist(nMINWAIT) Then
+				.WebEdit("MiscellaousAmount").Set Misc
+				Call WriteToReport(micPass,"MiscellaousAmount ","is present and entered as"&Misc,false)
+				else
+				Call WriteToReport(micFail,"MiscellaousAmount","is not present",True)
+			End If
+		End If
+	End If
+	
+	If NOT IsEmpty(GlobalDictionary("Quantity")) AND GlobalDictionary("Quantity")<>"" Then
+		If  GlobalDictionary("Quantity")>0 Then
+			If .WebEdit("Quantity").Exist(nMINWAIT) Then
+				If IsEmpty(.WebEdit("Quantity").GetROProperty("value")) OR GlobalDictionary("Quantity")="" Then
+					appUnitPrice=0
+				else:appUnitPrice=Cdbl(.WebEdit("Quantity").GetROProperty("value"))
+				End If
+				appUnitPrice=Cdbl(.WebEdit("Quantity").GetROProperty("value"))
+				Call WriteToReport(micPass,"Quantity captured from application :"&appUnitPrice ,"Quantity is captured from application as "&appUnitPrice ,false)
+				appUnitPrice=appUnitPrice+1
+				.WebEdit("Quantity").Set(appUnitPrice)
+				Call WriteToReport(micPass,"Quantity :"&appUnitPrice ,"Unit price value changed to "&appUnitPrice ,false)
+				else
+				Call WriteToReport(micFail,"Unitprice","is not present",True)
+			End If
+		End If
+		
+		
+		If .WebButton("CalculateInvoiceLine").Exist(nMINWAIT) Then
+			.WebButton("CalculateInvoiceLine").Click
+			Call WriteToReport(micPass,"Calculate button in invoice information","is present and clicked",false)
+			else
+			Call WriteToReport(micFail,"Calculate button in invoice information","is not present",True)
+		End If
+	End If
+	
+	
+	app_SearchSync()
+	
+	If .WebButton("Calculate").Exist(nMINWAIT) Then
+		.WebButton("Calculate").Click
+		Call WriteToReport(micPass,"Calculate button in invoice information","is present and clicked for get the difference",false)
+		else
+		Call WriteToReport(micFail,"Calculate button in invoice information","is not present",True)
+	End If
+	
+	
+	If .WebElement("Difference").Exist(nMINWAIT) Then
+		appDifference=.WebElement("Difference").GetROProperty("innertext")
+		Call WriteToReport(micPass,"Deifference is captured","Captured from application as"&appDifference,false)
+	End If
+	
+	If .WebEdit("Total").Exist(nMINWAIT) Then
+		.WebEdit("Total").Click
+		app_SearchSync()
+		wait 5
+		.WebEdit("Total").Click
+		appDifference=cdbl(appDifference)+Cdbl(.WebEdit("Total").GetROProperty("value"))
+		.WebEdit("Total").Set appDifference
+		Call WriteToReport(micPass,"Total : "&appDifference,"is present and entered as "&appDifference,false)
+		else
+		Call WriteToReport(micFail,"Total","is not present",True)
+	End If
+	
+	If .WebButton("Calculate").Exist(nMINWAIT) Then
+		.WebButton("Calculate").Click
+		Call WriteToReport(micPass,"Calculate button in invoice information","is present and clicked to get difeerence",false)
+		else
+		Call WriteToReport(micFail,"Calculate button in invoice information","is not present",True)
+	End If
+	
+	If .WebElement("Difference").Exist(nMINWAIT) Then
+		appDifference=.WebElement("Difference").GetROProperty("innertext")
+		Call WriteToReport(micPass,"Deifference should be 0","Captured from application as"&appDifference,false)
+	End If
+	
+	
+	app_SearchSync()	
+	
+	If .WebButton("Save").Exist(nMINWAIT) Then
+		.WebButton("Save").Click
+		Call WriteToReport(micPass,"Save button in invoice information","is present and clicked",false)
+		else
+		Call WriteToReport(micFail,"Save button in invoice information","is not present",True)
+	End If
+'wait for the ojects to get loaded
+	app_SearchSync()	
+		If Browser("PeopleSoft Browser").Page("Regular Entry").WebButton("OK").Exist(nMINWAIT) Then
+			Browser("PeopleSoft Browser").Page("Regular Entry").WebButton("OK").Click
+		End If
+'wait for the ojects to get loaded
+	app_SearchSync()	
+	If Browser("PeopleSoft Browser").Page("Regular Entry").WebButton("OK").Exist(10) Then
+		Browser("PeopleSoft Browser").Page("Regular Entry").WebButton("OK").Click
+	End if
+	
+	'wait for the ojects to get loaded
+	app_SearchSync()
+	'wait for the ojects to get loaded
+	app_SearchSync()
+'Voucher id generation validation	
+	If .WebElement("voucherID").Exist(nMINWAIT) Then
+		voucherID=.WebElement("voucherID").GetROProperty("innertext")
+		If StrComp(voucherID,"NEXT",1)<>0 Then
+			Call WriteToReport(micPass,"voucherID : "&voucherID,"is present and generated as "&voucherID,false)
+			else
+			Call WriteToReport(micFail,"voucherID","doesn't get generated",True)
+		End If
+	End If
+	
+	
+	If .WebTabStrip("tabSelection").Exist(10) Then
+		.WebTabStrip("tabSelection").Select("Voucher Attributes")
+		Call WriteToReport(micPass,"Voucher Attributes tab","is present",false)
+	else
+		Call WriteToReport(micFail,"Voucher Attributes tab","is not present",True)
+	End If
+'wait for the ojects to get loaded
+	app_SearchSync()	
+	If .WebEdit("invoiceNo").Exist(nMINWAIT) Then
+		appinvoiceNo=.WebEdit("invoiceNo").GetROProperty("value") 
+		If StrComp(Trim(appinvoiceNo),trim(invoiceNo))=0 Then
+			Call WriteToReport(micPass,"Voucher Attributes ","data is present",false)
+'			else
+'			Call WriteToReport(micFail,"Voucher Attributes","data is not present",True)
+		End If
+	End If
+	
+'	If .WebTabStrip("tabSelection").Exist(10) Then
+'		.WebTabStrip("tabSelection").Select("Invoice Information")
+'		Call WriteToReport(micPass,"Invoice Information tab","is present",false)
+'	else
+'		Call WriteToReport(micFail,"Invoice Information tab","is not present",True)
+'	End If
+	
+	If .WebButton("SubmitForApproval_VoucherAttribute").Exist(nMINWAIT) Then
+		.WebButton("SubmitForApproval_VoucherAttribute").Click
+		Call WriteToReport(micPass,"SubmitApproval button in invoice information","is present",false)
+		else
+		Call WriteToReport(micFail,"SubmitApproval button in invoice information","is not present",True)
+	End If
+End with
+'wait for the ojects to get loaded
+	app_SearchSync()
+	If Browser("PeopleSoft Browser").Page("Regular Entry").Frame("Approval Comments").WebEdit("AdditionalDetails").Exist(nMAXWAIT) Then
+		Browser("PeopleSoft Browser").Page("Regular Entry").Sync
+		Browser("PeopleSoft Browser").Page("Regular Entry").Frame("Approval Comments").WebEdit("AdditionalDetails").Click
+		wait(2)
+		Browser("PeopleSoft Browser").Page("Regular Entry").Frame("Approval Comments").WebEdit("AdditionalDetails").Set voucherID&" is Approved"
+	End If
+	If Browser("PeopleSoft Browser").Page("Regular Entry").Frame("Approval Comments").WebButton("OK").Exist(nMAXWAIT) Then
+		Browser("PeopleSoft Browser").Page("Regular Entry").Frame("Approval Comments").WebButton("OK").Click
+	End If
+	If Browser("PeopleSoft Browser").Page("Regular Entry").WebButton("OK").Exist(10) Then
+		Browser("PeopleSoft Browser").Page("Regular Entry").WebButton("OK").Click
+	End if
+'wait for the ojects to get loaded
+	app_SearchSync()	
+with Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent")	
+	If .WebTabStrip("tabSelection").Exist(nMINWAIT) Then
+		.WebTabStrip("tabSelection").Select("Summary")
+		Call WriteToReport(micPass,"Summary tab","is present and selected",false)
+	elseIf .WebElement("Summary").Exist(nminwait) Then
+		.WebElement("Summary").Click
+		Call WriteToReport(micPass,"Summary tab","is present and selected",false)
+	else
+		Call WriteToReport(micFail,"Summary tab","is not present",True)
+	End If
+'wait for the ojects to get loaded
+	app_SearchSync()	
+	If .WebElement("approvalStatus").Exist(nMINWAIT) Then
+		approvalStatus=.WebElement("approvalStatus").GetROProperty("innertext")
+		If StrComp(approvalStatus,"Approved",1)=0 Then
+			Call WriteToReport(micPass,"Approval status changed to Approved status","is present",false)
+			else
+'			Call WriteToReport(micFail,"Approval status","doesn't chaged to Approved, Actual status is "&approvalStatus,True)
+		End If
+	End If
+	
+	If .WebElement("MatchStatus").Exist(nMINWAIT) Then
+		MatchStatus=.WebElement("MatchStatus").GetROProperty("innertext")
+		If StrComp(MatchStatus,"Ready",1)=0 Then
+			Call WriteToReport(micPass,"MatchStatus : "&MatchStatus,"is present and generated as "&MatchStatus,false)
+		End If
+	End If
+
+End with
+else
+	Call WriteToReport(micFail,"PO Number search","no results(Supllier details) available while PO lookup for BU:"&businessunit,True)
+End If
+
+ap_createVoucherWithCopyPO=voucherID 
+End Function
+
+
+Public Function ap_matchingVoucher(Byref businessunit,Byref voucherID)
+	Dim Desciption,ProcessFrequency,MatchActions,Options,RunControlID,appProcessInstance,appProcess,flag
+	flag=false
+		'Accounts Payable --> Batch Processes --> Voucher --> Matching
+'		SelectMainMenu1(GlobalDictionary("VoucherMatchingSelection"))
+		
+		RunControlID=GlobalDictionary("RunControlID")
+	'Voucher matching
+	With Browser("PeopleSoft Browser").Page("Matching").PSFrame("MatchRequest")
+		If .WebElement("AddaNewValue").Exist(nminwait) Then
+			.WebElement("AddaNewValue").Click
+			Call WriteToReport(micPass,"Add new Value tab selected","Add New Value tab is present and clicked",false)
+		else
+			Call WriteToReport(micFail,"Add New value tab","doesn't present in the application",True)
+		End If
+		
+		'wait for the ojects to get loaded
+		app_SearchSync()
+		
+		If .WebEdit("RunControlID").Exist(nminwait) Then
+			.WebEdit("RunControlID").Set RunControlID&inVoiceNumberGeneration
+			Call WriteToReport(micPass,"Run Control ID : "&RunControlID,"RunControlID is present and enterred as "&RunControlID,false)
+		else
+			Call WriteToReport(micFail,"RunControlID","doesn't present in the application",True)
+		End If
+		If .WebButton("Add").Exist(nminwait) Then
+			.WebButton("Add").Click
+			Call WriteToReport(micPass,"Add button clicked","Add button is present and clicked",false)
+		else
+			Call WriteToReport(micFail,"Add button","doesn't present in the application",True)
+		End If
+		
+		'wait for the ojects to get loaded
+		app_SearchSync()
+		
+	
+		Desciption=GlobalDictionary("Desciption")
+		ProcessFrequency=GlobalDictionary("ProcessFrequency")
+		MatchActions=GlobalDictionary("MatchActions")
+		Options=GlobalDictionary("Options")
+	'enter Run Control parameters values
+		If .WebEdit("Description").Exist(nminwait) Then
+			.WebEdit("Description").Set Desciption
+			Call WriteToReport(micPass,"Description : "&Desciption,"Description is present and enterred as "&Desciption,false)
+		else
+			Call WriteToReport(micFail,"Description","doesn't present in the application",True)
+		End If
+		If .WebList("ProcessFrequency").Exist(nminwait) Then
+			.WebList("ProcessFrequency").Select ProcessFrequency
+			Call WriteToReport(micPass,"ProcessFrequency : "&ProcessFrequency,"ProcessFrequency is present and enterred as "&ProcessFrequency,false)
+		else
+			Call WriteToReport(micFail,"ProcessFrequency","doesn't present in the application",True)
+		End If
+		If .WebList("MatchActions").Exist(nminwait) Then
+			.WebList("MatchActions").Select MatchActions
+			Call WriteToReport(micPass,"MatchActions : "&MatchActions,"MatchActions is present and enterred as "&MatchActions,false)
+		else
+			Call WriteToReport(micFail,"MatchActions","doesn't present in the application",True)
+		End If
+		If .WebList("Options").Exist(nminwait) Then
+			.WebList("Options").Select Options
+			Call WriteToReport(micPass,"Options : "&Options,"Options is present and enterred as "&Options,false)
+		else
+			Call WriteToReport(micFail,"Options","doesn't present in the application",True)
+		End If
+		
+		'wait for the ojects to get loaded
+		app_SearchSync()
+		
+	'Enter Voucher details
+		If .WebEdit("BusinessUnit").Exist(nminwait) Then
+			.WebEdit("BusinessUnit").Set businessunit
+			Call WriteToReport(micPass,"BusinessUnit : "&businessunit,"BusinessUnit is present and enterred as "&businessunit,false)
+		else
+			Call WriteToReport(micFail,"BusinessUnit","doesn't present in the application",True)
+		End If
+		If .WebEdit("VoucherID").Exist(nminwait) Then
+			.WebEdit("VoucherID").Set voucherID
+			Call WriteToReport(micPass,"voucher ID : "&voucherID,"voucherID is present and enterred as "&voucherID,false)
+		else
+			Call WriteToReport(micFail,"voucher ID","doesn't present in the application",True)
+		End If
+		If .WebButton("Run").Exist(nminwait) Then
+			.WebButton("Run").Click
+			Call WriteToReport(micPass,"Run button clicked","Run button is present and clicked",false)
+		else
+			Call WriteToReport(micFail,"Run button","doesn't present in the application",True)
+		End If
+	End with
+		
+		'wait for the ojects to get loaded
+		app_SearchSync()
+		
+	'Enter values in Process scheduler request
+	
+	With Browser("PeopleSoft Browser").Page("Matching").PSFrame("ProcessSchedularrequest")
+		If .WebTable("ProcessList").Exist(nminwait) Then
+			If Cint(trim(.WebTable("ProcessList").RowCount))>1 Then
+				.WebTable("ProcessList").ChildItem(2,1,"WebCheckBox",0).set "ON"
+				appProcess=.WebTable("ProcessList").GetCellData(2,3)
+				Call WriteToReport(micPass,"Process : "&appProcess," Process is present and selected as "& appProcess ,false)
+			End If
+		End If
+		If .WebButton("OK").Exist(nminwait) Then
+			.WebButton("OK").Click
+		End If
+	End with 
+
+	
+	
+	'wait for the ojects to get loaded
+	app_SearchSync()
+
+			
+		with Browser("PeopleSoft Browser").Page("Matching").PSFrame("MatchRequest")
+			If .WebElement("ProcessInstance").Exist(nminwait) Then
+				appProcessInstance=.WebElement("ProcessInstance").GetROProperty("innertext")
+				appProcessInstance=Trim(Split(appProcessInstance,":")(1))
+				Call WriteToReport(micPass,"ProcessInstance : "&appProcessInstance,"is present and generated as "&appProcessInstance,false)
+			else
+				Call WriteToReport(micFail,"ProcessInstance","doesn't get generated",True)
+			End If
+			If .Link("ProcessMonitor").Exist(nminwait) Then
+				.Link("ProcessMonitor").Click
+			End If
+		
+		End with 
+
+'Enter all the detail in the Process monitor screen
+		flag=ap_ProcesstheInstanseinProcessMonitor(appProcessInstance)
+'End If
+If flag Then
+	ap_matchingVoucher="success"
+else
+	ap_matchingVoucher="fail"
+End If
+End Function
+
+
+Public Function ap_openExistingVoucher(businessunit,voucherID)
+
+		
+		'Add business unit and voucgher id in existing value
+	with Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent")
+		
+		.WebEdit("BusinessUnit").WaitProperty "visible",True,20000
+		If .WebTabStrip("tabSelectionMain").Exist(nMINWAIT) Then
+			.WebTabStrip("tabSelectionMain").Select("Find an Existing Value")
+			Call WriteToReport(micPass,"Find an existing Value tab ","is present and clicked",false)
+			else
+			Call WriteToReport(micFail,"Find an existing Value tab","is not present",True)
+		End If
+	
+		.WebEdit("BusinessUnitFEV").WaitProperty "visible",True,20000
+		If .WebEdit("BusinessUnitFEV").Exist(nMINWAIT) Then
+			.WebEdit("BusinessUnitFEV").Set businessunit
+			Call WriteToReport(micPass,"Business unit ","is present and entered as "&businessunit,false)
+			else
+			Call WriteToReport(micFail,"Business unit","is not present",True)
+		End If
+		
+		If .WebEdit("VoucherIdFEV").Exist(nMINWAIT) Then
+			.WebEdit("VoucherIdFEV").Set voucherID
+			Call WriteToReport(micPass,"Voucher Id ","is present and entered as "&voucherID,false)
+			else
+			Call WriteToReport(micFail,"Voucher Id","is not present",True)
+		End If
+		
+		If .WebButton("Search").Exist(nMINWAIT) Then
+			.WebButton("Search").Click
+			Call WriteToReport(micPass,"Search button to Search the voucher","is present",false)
+			else
+			Call WriteToReport(micFail,"Search button to Search the voucher","is not present",True)
+		End If
+		
+		'wait for the ojects to get loaded
+		app_SearchSync()
+	End with 	
+	
+	
+
+End Function
+
+
+
+'*********************************************************************************************************************************
+''' <summary>  
+''' ap_ProcesstheInstanseinProcessMonitor() To procees the instances
+'''Parameter1:	appProcessInstance.(pocess instance number)
+''' <para>
+''' <note>Required Testcase Inputs are "NA"</note> 
+''' </para>
+''' </summary>
+''' <author>Gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+'AP_ProcesstheInstanse in Process Monitor
+Function ap_ProcesstheInstanseinProcessMonitor(appProcessInstance)
+Dim flag,nCount:flag=false
+With Browser("PeopleSoft Browser").Page("Matching").PSFrame("ProcessMonitor")
+	If .WebEdit("InstanceFrom").Exist(nMINWAIT) Then
+		.WebEdit("InstanceFrom").Set appProcessInstance
+		Call WriteToReport(micPass,"Instance from ","is present and entered as "&appProcessInstance,false)
+	else
+		Call WriteToReport(micFail,"Instance from","is not present",True)
+	End If
+
+	'Click on Refresh button
+	If .WebButton("Refresh").Exist(nMINWAIT) Then
+		.WebButton("Refresh").Click
+	End If
+
+	nCount=0
+	'check the status of the Job 
+	If .WebTable("ProcessList").Exist(nMINWAIT) Then
+		While (StrComp(Trim(.WebTable("ProcessList").GetCellData(2,8)),"Success",1)<>0) and nCount<10
+			app_SearchSync()
+			nCount=nCount+1
+			If .WebButton("Refresh").Exist(nMAXWAIT) Then
+				.WebButton("Refresh").Click
+			End If
+		Wend
+		nCount=0
+		While (StrComp(Trim(.WebTable("ProcessList").GetCellData(2,9)),"Posted",1)<>0) and nCount<10
+			app_SearchSync()
+			nCount=nCount+1
+			If .WebButton("Refresh").Exist(nMAXWAIT) Then
+				.WebButton("Refresh").Click
+			End If
+		Wend
+		flag=True
+	End If
+End With
+ap_ProcesstheInstanseinProcessMonitor=flag
+End Function
+
+
+
+'*********************************************************************************************************************************
+''' <summary>  
+''' ap_verifyMatchstatusofVoucher() To verify the match status of  Voucher
+'''Parameter1:	strMatchStatus(status to be validated),strOption(if exception lick exist,put "Click")
+''' <para>
+''' <note>Required Testcase Inputs are "NA"</note> 
+''' </para>
+''' </summary>
+''' <author>Gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>Logged in as user that has right to open vouchers</startstate>
+''' <endstate>Voucher opened</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+
+'AP_verify match status of voucher
+Public Function ap_verifyMatchstatusofVoucher(strMatchStatus,strOption)
+	Dim MatchStatus	
+		'wait for the ojects to get loaded
+		app_SearchSync()
+		
+	with Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent")	
+		If .WebElement("MatchStatus").Exist(nMINWAIT) Then
+			MatchStatus=.WebElement("MatchStatus").GetROProperty("outertext")
+			If StrComp(MatchStatus,strMatchStatus,1)=0 Then
+'				.WebElement("MatchStatus").Click
+				Call WriteToReport(micPass,"MatchStatus : "&MatchStatus,"is present and generated as "&MatchStatus,false)
+				If StrComp(strOption,"click",1)=0 Then
+					If .Link("Exceptions").exist(nminwait) Then
+						.Link("Exceptions").Click
+						wait(4)
+						Call WriteToReport(micPass,"Exceptions Link ","is present and Clicked",false)
+						If Browser("MatchWorkBenchException").Page("MatchWorkbenchExceptions").WebButton("OK").Exist(nminwait) Then
+							Browser("MatchWorkBenchException").Page("MatchWorkbenchExceptions").WebButton("OK").Click
+							Call WriteToReport(micPass,"Ok button","is present and Clicked",false)
+						End If
+					else
+						Call WriteToReport(micFail,"Exceptions Link ","doesn't exist in the application",True)	
+					End If
+				End If
+			else
+				Call WriteToReport(micFail,"MatchStatus","doesn't get generated to Ready status",True)
+			End If
+		End If
+	End with
+End Function
+
+
+'*********************************************************************************************************************************
+''' <summary>  
+'''  InventorySupplierForm() To verify vendor record created successfully.
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "businessunit,vouherID,SupplierID,VoucherStyle,dtFormValue,dtSubject,dtDate,dtDesc,dtCompanyName,dtDBAName,dtPaymentCapability,dtNotificationEmail,dtCountry,dtAddressLine1,dtCity,dtProvince,dtZip,dtAcctContName
+''',dtContactEmail,dtAccPhone,dtAccFax,dtRequestorName,dtRequestorPhone,dtDepartment,dtReqDate,Approver1,dtFromName,dtFromName2,dtComments,Approver2,APPaymentPerson,dtFrom3
+''',dtFilePath,dtSupplierId,dtShortName,dtSupplierType,dtSuppPayGrp,dtExcepUser"</note> 
+''' </para>
+''' </summary>
+''' <author>Vijay anandan</author>
+''' <datecreated>05/02/2019</datecreated>
+''' <startstate></startstate>
+''' <endstate></endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+'17420-Inventory
+'****************************
+
+Public Function InventorySupplierForm()
+'Navigate to Below page
+'Suppliers > Supplier Registration > Supplier Forms > Inventory Supplier Form
+SelectMainMenu1(GlobalDictionary("MainMenuSelection"))
+dtFormValue=(GlobalDictionary("dtFormValue"))
+dtSubject=(GlobalDictionary("dtSubject"))
+dtDate=(GlobalDictionary("dtDate"))
+dtDesc=(GlobalDictionary("dtDesc"))
+dtCompanyName=(GlobalDictionary("dtCompanyName"))
+dtDBAName=(GlobalDictionary("dtDBAName"))
+dtPaymentCapability=(GlobalDictionary("dtPaymentCapability"))
+dtNotificationEmail=(GlobalDictionary("dtNotificationEmail"))
+dtCountry=(GlobalDictionary("dtCountry"))
+dtAddressLine1=(GlobalDictionary("dtAddressLine1"))
+dtCity=(GlobalDictionary("dtCity"))
+dtProvince=(GlobalDictionary("dtProvince"))
+dtZip=(GlobalDictionary("dtZip"))
+dtAcctContName=(GlobalDictionary("dtAcctContName"))
+dtContactEmail=(GlobalDictionary("dtContactEmail"))
+dtAccPhone=(GlobalDictionary("dtAccPhone"))
+dtAccFax=(GlobalDictionary("dtAccFax"))
+dtRequestorName=(GlobalDictionary("dtRequestorName"))
+dtRequestorPhone=(GlobalDictionary("dtRequestorPhone"))
+dtDepartment=(GlobalDictionary("dtDepartment"))
+dtReqDate=(GlobalDictionary("dtReqDate"))
+
+Approver1=(GlobalDictionary("Approver1"))
+dtFromName=(GlobalDictionary("dtFromName"))
+dtFromName2=(GlobalDictionary("dtFromName2"))
+dtComments=(GlobalDictionary("dtComments"))
+Approver2=(GlobalDictionary("Approver2"))
+APPaymentPerson=(GlobalDictionary("APPaymentPerson"))
+dtFrom3=(GlobalDictionary("dtFrom3"))
+dtFilePath=(GlobalDictionary("dtFilePath"))
+
+
+'CLick on Add New Value
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebElement("AddNewValue")
+If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"Add New value is ","is present and clicked", false)
+	Else
+	Call WriteToReport(micFail,"Add New value is ","is not present and clicked", True)
+End If
+End  With
+
+'enter add value field
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("AddValueToForm")
+If .Exist(nMINWAIT) Then
+	.Set dtFormValue
+	Call WriteToReport(micPass,"AddValueToForm Field  is present ","and set with="&dtFormValue, false)
+End If
+End  With 
+
+'click add button
+With  Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebButton("AddButton")
+If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"AddButton ","is present and clicked", false)
+	Else
+	Call WriteToReport(micFail,"AddButton ","is not present and clicked", True)
+End If
+End with 
+
+'wait for the ojects to get loaded
+ app_SearchSync()
+ 
+ 'Enter all the detasil in the Form
+ With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("Fill a Form_Subject")
+If .Exist(nMINWAIT) Then
+	.Set dtSubject
+	Call WriteToReport(micPass,"Subject Field  is present ","and set with="&dtSubject, false)
+End If
+End  With 
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("FillaForm_Date")
+If .Exist(nMINWAIT) Then
+	.Set dtDate
+	Call WriteToReport(micPass,"dtDate Field  is present ","and set with="&dtDate, false)
+End If
+End  With
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebList("FillaForm_DescDrpdown")
+If .Exist(nMINWAIT) Then
+	.Select dtDesc
+	Call WriteToReport(micPass,"FillaForm_DescDrpdown  is present ","and set with="&dtDesc, false)
+End If
+End  With 
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("FillaForm_CompanyName")
+If .Exist(nMINWAIT) Then
+	.Set dtCompanyName
+	Call WriteToReport(micPass,"FillaForm_CompanyName Field  is present ","and set with="&dtCompanyName, false)
+End If
+End  With
+ 
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("FillaForm_DBAName")
+If .Exist(nMINWAIT) Then
+	.Set dtDBAName
+	Call WriteToReport(micPass,"DBAName Field  is present ","and set with="&dtDBAName, false)
+End If
+End  With
+
+'Enter all the deail in the Payment capability
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebList("FillaForm_PaymentMethod")
+If .Exist(nMINWAIT) Then
+	.Select dtPaymentCapability
+	Call WriteToReport(micPass,"Payment methond   is present ","and set with="&dtPaymentCapability, false)
+End If
+End  WIth 
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebCheckBox("FillaForm_SndNotifyEmailchkbox")
+If .Exist(nMINWAIT) Then
+	If .GetROProperty("checked")="0" Then
+		.Click
+		Call WriteToReport(micPass,"FillaForm_SndNotifyEmailchkbox checkbox is present ","and checked  ", false)
+	End If
+End If
+End  With 
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("FilaForm_NotificationEmail")
+If .Exist(nMINWAIT) Then
+	.Set dtNotificationEmail
+	Call WriteToReport(micPass,"Notification Email   is present ","and set with="&dtNotificationEmail, false)
+End If
+End  With 
+
+'Enter all the details in Remittance Address
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("RemittanceCountry")
+If .Exist(nMINWAIT) Then
+	.Set dtCountry
+	Call WriteToReport(micPass,"Country   is present ","and set with="&dtCountry, false)
+End If
+End  With 
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("RemittanceAddress1")
+If .Exist(nMINWAIT) Then
+	.Set dtAddressLine1
+	Call WriteToReport(micPass,"Address1   is present ","and set with="&dtAddressLine1, false)
+End If
+End  With 
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("RemittanceCity")
+If .Exist(nMINWAIT) Then
+	.Set dtCity
+	Call WriteToReport(micPass,"City   is present ","and set with="&dtCity, false)
+End If
+End  With
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("RemittanceProvince")
+If .Exist(nMINWAIT) Then
+	.Set dtProvince
+	Call WriteToReport(micPass,"Province  is present ","and set with="&dtProvince, false)
+End If
+End  With
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("RemittanceZip")
+If .Exist(nMINWAIT) Then
+	.Set dtZip
+	Call WriteToReport(micPass,"Zip   is present ","and set with="&dtZip, false)
+End If
+End  With
+
+'Enter te Accounting contact ndetails
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("AccContactName")
+If .Exist(nMINWAIT) Then
+	.Set dtAcctContName:Call WriteToReport(micPass,"Account name is present ","and set with="&dtAcctContName, false)
+End If
+End  With 
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("AccContactEmail")
+If .Exist(nMINWAIT) Then
+	.Set dtContactEmail:Call WriteToReport(micPass,"Contact email is present ","and set with="&dtContactEmail, false)
+End If
+End  With 
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("AccContactPhone")
+If .Exist(nMINWAIT) Then
+	.Set dtAccPhone:Call WriteToReport(micPass,"AccContactPhone is present ","and set with="&dtAccPhone, false)
+End If
+End  With 
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("AccContactFax")
+If .Exist(nMINWAIT) Then
+	.Set dtAccFax:Call WriteToReport(micPass,"AccContactFax is present ","and set with="&dtAccFax, false)
+End If
+End  With
+
+'enter requestor details
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("RequestorName")
+If .Exist(nMINWAIT) Then
+	.Set dtRequestorName:Call WriteToReport(micPass,"RequestorName is present ","and set with ="&dtRequestorName, false)
+End If
+End  With 
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("RequestorPhone")
+If .Exist(nMINWAIT) Then
+	.Set dtRequestorPhone:Call WriteToReport(micPass,"RequestorPhone is present ","and set with="&dtRequestorPhone, false)
+End If
+End  With 
+
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("RequestorDeptName")
+If .Exist(nMINWAIT) Then
+	.Set dtDepartment:Call WriteToReport(micPass,"Department is present ","and set with="&dtDepartment, false)
+End If
+End  With 
+
+
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebEdit("RequestorDate")
+If .Exist(nMINWAIT) Then
+.Set dtReqDate
+	Call WriteToReport(micPass,"RequestorDate Field  is present ","and set with="&dtReqDate, false)
+End If
+End  With
+
+
+'Check the attachedmtn checkbox
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebCheckBox("RequestorVerification_Chkbox")
+If .Exist(nMINWAIT) Then
+	.Click:Call WriteToReport(micPass,"DocumentsAttached is present ","and clicked  ", false)
+End If
+End  WIth 
+
+'Save trge page
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebButton("FillaForm_Save")
+If .Exist(nMINWAIT) Then
+	.Click:Call WriteToReport(micPass,"Save is present ","and clicked  ", false)
+End If
+End  WIth
+
+'Get the sequence Number
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebElement("FillaFormSeqenceNumber")
+If .Exist(nMINWAIT) Then
+	appSequenceNumber=.GetROProperty("innertext")
+	GlobalDictionary("SequenceNumber")=appSequenceNumber
+	Reporter.ReportEvent micPass,"The form is saved","and the sequence number is="&appSequenceNumber
+End If
+End  With 
+
+ 'wait for the ojects to get loaded
+ app_SearchSync()
+
+'Click on Instruction tab
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").Link("FillaForm_Instructions")
+If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"Instruction link is present ","and clicked  ", false)
+End If
+End  WIth
+
+ 'wait for the ojects to get loaded
+ app_SearchSync()
+
+'Validate the detail ni Instruiction tab
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebElement("Fillaform_InstructionPage")
+If .Exist(nMINWAIT) Then
+	Call WriteToReport(micPass,"Instruction page is displayed ","and validated", false)
+End If
+End  WIth
+
+'CLick on Attachemnt link
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").Link("FillaForm_Attachments")
+If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"Attachments link is present ","and clicked  ", false)
+End If
+End  With 
+
+ 'wait for the ojects to get loaded
+ app_SearchSync()
+ 
+ 'CLick on Attach button
+ With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebButton("FillaForm_Attach")
+ If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"Attachments button is present ","and clicked  ", false)
+End If
+End  With
+
+
+'Upload the file
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("FileAttachment").WebFile("fillaForm_AttachDocs")
+If .Exist(nMINWAIT) Then
+	.Set dtFilePath
+End If
+End  With 
+
+wait 3
+'CLick on Upload Button
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("FileAttachment").WebButton("FillAttachment_Upload")
+ If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"Attachments button is present ","and clicked  ", false)
+End If
+End  With
+
+ 'wait for the ojects to get loaded
+ app_SearchSync()
+
+'click on FOrm LInk
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").Link("FillaForm_Form")
+ If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"Form link is present ","and clicked  ", false)
+End If
+End  With
+
+'Click submit button
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebButton("FillaForm_Submit")
+ If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"Submit button is present ","and clicked  ", false)
+End If
+End  With
+
+'CLick on Ok button
+With Browser("PeopleSoft Browser").Page("Search/Fill a Form").PSFrame("Target Content").WebButton("FilaForm_Submit_Ok")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  WIth 
+
+'Set the GLobal dictionary of Usert id to MICHPER
+GlobalDictionary("SignInUser")=(GlobalDictionary("Approver1"))
+
+End Function
+
+Public Function InventorySupplierFormApproval1ApproveFlow()
+'Navigate to below page
+'Worklist > worklist
+SelectMainMenu1(GlobalDictionary("MainMenuSelection1"))
+dtFromName=(GlobalDictionary("dtFromName"))
+dtSupplierId=(GlobalDictionary("dtSupplierId")) & RandomNumberGeneraion & Day(Date)
+GlobalDictionary("SupplierIdCreated")=dtSupplierId
+dtShortName=(GlobalDictionary("dtShortName"))
+dtSupplierType=(GlobalDictionary("dtSupplierType"))
+dtSuppPayGrp=(GlobalDictionary("dtSuppPayGrp"))
+dtExcepUser=(GlobalDictionary("dtExcepUser"))
+
+With Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable")
+If .Exist(nMINWAIT) Then
+	appDate=.GetCellData(2,2)
+	k=0
+	invoiceDate=CDate(date)
+  		Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable").ChildItem(1,2,"Link",0).Click
+  		wait(3)
+  		Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable").ChildItem(1,2,"Link",0).Click
+
+End If
+End  With 
+
+'Chck the worklist table and search for the name
+With Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable")
+If .Exist(nMINWAIT) Then
+	For i=2 to .RowCount
+	appFrom4=.GetCellData(i,1)
+	If instr(1,appFrom4,dtName2,1 )>0 Then
+		appDate=.GetCellData(i,2)
+		seqNo=.GetCellData(i,6)
+		If instr(1,seqNo,GlobalDictionary("SequenceNumber"),1) Then
+			Set oLink=.ChildItem(i,6,"Link",0)
+			If oLink.exist(nMINWAIT) Then
+				oLink.click
+				Exit For
+			End If
+		End If
+	End If	
+	Next
+End If
+End  With 
+
+'Click goto form button
+With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("TargetContent").WebButton("GoToForm")
+	If .Exist(nMINWAIT) Then
+	 .Click
+End If
+End  WIth
+
+'wait for the ojects to get loaded
+		app_SearchSync()
+		
+'Enter all the supplier details in the form
+		With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("Form").WebEdit("Form_SupplierId")
+		If .Exist(nMINWAIT) Then
+			.Set dtSupplierId
+			Reporter.ReportEvent micPass,"The Form_SupplierId field is present and","set with="&dtSupplierId
+			Else
+			Reporter.ReportEvent micFail,"The Form_SupplierId field is not","present"
+		End If
+		End  WIth 
+		
+		With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("Form").WebEdit("Form_SupplierShortName")
+		If .Exist(nMINWAIT) Then
+			.Set dtShortName
+			Reporter.ReportEvent micPass,"The supplier name is present and","set with="&dtShortName
+			Else
+			Reporter.ReportEvent micFail,"The suppleir name is not","present"
+		End If
+		End  WIth 
+		
+		With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("Form").WebList("Form_SupplierTypeDrpDwn")
+		If .Exist(nMINWAIT) Then
+			.Select dtSupplierType
+			Reporter.ReportEvent micPass,"The supplier type is present and","set with="&dtSupplierType
+			Else
+			Reporter.ReportEvent micFail,"The supplier type is not","present"
+		End If
+		End  WIth
+		
+		With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("Form").WebEdit("Form_SupplierPayGroup")
+		If .Exist(nMINWAIT) Then
+			.Set dtSuppPayGrp
+			Reporter.ReportEvent micPass,"The Form_SupplierPayGroup is present and","set with="&dtSuppPayGrp
+			Else
+			Reporter.ReportEvent micFail,"The Form_SupplierPayGroup is not","present"
+		End If
+		End  WIth 
+		
+		With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("Form").WebEdit("Form_MatchExceptionUser")
+		If .Exist(nMINWAIT) Then
+			.Set dtExcepUser
+			Reporter.ReportEvent micPass,"The supplier Form_MatchExceptionUser is present and","set with="&dtExcepUser
+			Else
+			Reporter.ReportEvent micFail,"The suppleir Form_MatchExceptionUser is not","present"
+		End If
+		End  WIth 
+	
+	'wait for the ojects to get loaded
+		app_SearchSync()
+
+'click ok button
+With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("Form").WebButton("Form_OK")
+If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"OK button is present ","and clicked  ", false)
+End If
+End  WIth 
+
+'CLick on Approve button
+With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("TargetContent").WebButton("Approve")
+If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"Approve buttion ","is present and clicked", false)
+End If
+End  WIth 
+
+'validate approved status
+With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("TargetContent").Image("Approved")
+If .Exist(nMINWAIT) Then
+	Call WriteToReport(micPass,"The form is Approved ","aand Green tick is displayed in the approval flow ", false)
+End If
+End  WIth 
+
+GlobalDictionary("SignInUser")=(GlobalDIctionary("Approver2"))
+
+'Sign out of application
+
+End Function
+
+
+Public Function InventorySupplierFormApproval2ApproveFlow()
+'Navigate to below page
+'Worklist > worklist
+SelectMainMenu1(GlobalDictionary("MainMenuSelection1"))
+Call WriteToReport(micPass,"Now following user is loggedin "&(GlobalDIctionary("Approver2")),"to Approve the sequence", false)
+dtFromName1=(GlobalDictionary("dtFromName1"))
+dtComments=(GlobalDictionary("dtComments"))
+
+With Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable")
+If .Exist(nMINWAIT) Then
+	appDate=.GetCellData(2,2)
+	k=0
+	invoiceDate=CDate(date)
+  		Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable").ChildItem(1,2,"Link",0).Click
+  		wait(3)
+  		Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable").ChildItem(1,2,"Link",0).Click
+
+End If
+End  With 
+
+'Chck the worklist table and search for the name
+With Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable")
+If .Exist(nMINWAIT) Then
+	For i=2 to .RowCount
+	appFrom4=.GetCellData(i,1)
+	If instr(1,appFrom4,dtName2,1 )>0 Then
+		appDate=.GetCellData(i,2)
+		seqNo=.GetCellData(i,6)
+		If instr(1,seqNo,GlobalDictionary("SequenceNumber"),1) Then
+			Set oLink=.ChildItem(i,6,"Link",0)
+			If oLink.exist(nMINWAIT) Then
+				oLink.click
+				Exit For
+			End If
+		End If
+	End If	
+	Next
+End If
+End  With 
+
+'click goto form btton
+With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("TargetContent").WebButton("GoToForm")
+	If .Exist(nMINWAIT) Then
+	 .Click
+End If
+End  WIth
+
+'enter comments in moreinfo field
+With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("Form").WebEdit("FillaForm_MoreInfoComment")
+If .Exist(nMINWAIT) Then
+	.Set dtComments
+End If
+End  WIth 
+
+'click ok button
+With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("Form").WebButton("Form_OK")
+If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"OK button is present ","and clicked  ", false)
+End If
+End  WIth 
+
+'CLickon Approve button
+With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("TargetContent").WebButton("Approve")
+If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"Approve button ","is present and clicked", false)
+End If
+End  WIth 
+
+With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("TargetContent").Image("Approved2")
+If .Exist(nMINWAIT) Then
+	Call WriteToReport(micPass,"The status is approved ","and able to see the green tick", false)
+End If
+End  WIth 
+
+GlobalDictionary("SignInUser")=(GlobalDIctionary("APPaymentPerson"))
+'Log out of applciation
+
+End  Function
+
+
+Public Function InventorySupplierFormAPPerson()
+'Navigate to below page
+'Worklist > worklist
+SelectMainMenu1(GlobalDictionary("MainMenuSelection1"))
+dtComments2=(GlobalDictionary("dtComments2"))
+Call WriteToReport(micPass,"Now following user is loggedin "&(GlobalDIctionary("APPaymentPerson")),"to Approve the sequence", false)
+dtName2=(GlobalDictionary("dtFrom2"))
+
+With Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable")
+If .Exist(nMINWAIT) Then
+	appDate=.GetCellData(2,2)
+	k=0
+	invoiceDate=CDate(date)
+  		Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable").ChildItem(1,2,"Link",0).Click
+  		wait(3)
+  		Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable").ChildItem(1,2,"Link",0).Click
+
+End If
+End  With 
+
+'Chck the worklist table and search for the name
+With Browser("PeopleSoft Browser").Page("Worklist").PSFrame("Worklist").WebTable("Worklist_WorklistTable")
+If .Exist(nMINWAIT) Then
+	For i=2 to .RowCount
+	appFrom4=.GetCellData(i,1)
+	If instr(1,appFrom4,dtName2,1 )>0 Then
+		appDate=.GetCellData(i,2)
+		seqNo=.GetCellData(i,6)
+		If instr(1,seqNo,GlobalDictionary("SequenceNumber"),1) Then
+			Set oLink=.ChildItem(i,6,"Link",0)
+			If oLink.exist(nMINWAIT) Then
+				oLink.click
+				Exit For
+			End If
+		End If
+	End If	
+	Next
+End If
+End  With 
+
+
+With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("Form").WebEdit("FillaForm_MoreInfoComment")
+If .Exist(nMINWAIT) Then
+	.Set dtComments2
+End If
+End  WIth 
+
+
+With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("Approve_FillaForm").WebButton("Approve_SaveAndPost")
+If .Exist(nMINWAIT) Then
+	 .Click
+End If
+End  WIth
+
+With Browser("PeopleSoft Browser").Page("Search/Fill in a Form").WebElement("alertbutton")
+If .Exist(nMINWAIT) Then
+	 .Click
+End If
+End  WIth
+
+With Browser("PeopleSoft Browser").Page("Search/Fill in a Form").WebElement("alertMsg")
+If .Exist(nMINWAIT) Then
+	Browser("PeopleSoft Browser").Page("Search/Fill in a Form").WebElement("alertbutton").Click
+	Call WriteToReport(micPass,"OK button is present ","and clicked  ", false)
+End If
+End  WIth 
+
+
+With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("Form").WebButton("Form_OK")
+If .Exist(nMINWAIT) Then
+	.Click
+	Call WriteToReport(micPass,"OK button is present ","and clicked  ", false)
+End If
+End  WIth 
+'
+''enter the comments
+'With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("TargetContent").WebEdit("CommentBox")
+'If .Exist(nMINWAIT) Then
+'	.Set dtComments1
+'End If
+'End  WIth 
+
+'With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("TargetContent").WebButton("GoToForm")
+'	If .Exist(nMINWAIT) Then
+'	 .Click
+'End If
+'End  WIth
+
+'Click on Submit
+ 'CLickon Approve button
+'With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("TargetContent").WebButton("Approve")
+'If .Exist(nMINWAIT) Then
+'	.Click
+'	Call WriteToReport(micPass,"Approve buttion ","is present and clicked", false)
+'End If
+'End  WIth 
+'
+'
+'With Browser("PeopleSoft Browser").Page("Approve/ReviewForm").PSFrame("TargetContent").Image("Approved3")
+'If .Exist(nMINWAIT) Then
+'	Call WriteToReport(micPass,"The status is approved ","and able to see the green tick", false)
+'End If
+'End  WIth
+'
+
+'Navigate to below page
+'Suppliers > Supplier Information > Add/Update > Supplier 
+'Enter the Supplier ID
+SelectMainMenu1(GlobalDictionary("MainMenuSelection2"))
+dtSetId=(GlobalDictionary("dtSetId"))
+
+'enter setid
+With Browser("PeopleSoft Browser").Page("SupplierInfo").PSFrame("TargetContent").WebEdit("FEV_SetId")
+If .Exist(nMINWAIT) Then
+	.Set dtSetId
+End If
+End  WIth
+
+'Enter the Supplier ID
+With Browser("PeopleSoft Browser").Page("Supplier").Frame("TargetContent").WebEdit("FindExistingValue_VendorID")
+If .Exist(nMINWAIT) Then
+	.Set (GlobalDictionary("SupplierIdCreated"))
+	Reporter.ReportEvent micPass,"THe supplier id is ","set which we have created from previous steps="&(GlobalDictionary("SupplierIdCreated"))
+End If
+End  With 
+
+'CLick on Search button
+With Browser("PeopleSoft Browser").Page("Supplier").Frame("TargetContent").WebButton("Search")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  With
+
+'wait for the ojects to get loaded
+		app_SearchSync()
+
+'Validate whether page is opened
+WIth Browser("PeopleSoft Browser").Page("Supplier").Frame("TargetContent").WebElement("Summary")
+If .Exist(nMINWAIT) Then
+	.Click
+	Reporter.ReportEvent micPass,"The summary tab is","present details are validated"
+End If
+End  With 
+
+'wait for the ojects to get loaded
+		app_SearchSync()
+
+End Function
+
+
+'*********************************************************************************************************************************
+''' <summary>  
+''' runPaymentSelectionNonInventory()
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "BusinessUnit, PayCycle"</note> 
+''' </para>
+''' </summary>
+''' <author>Gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+
+'AP_07_01_04b
+Public Function runPaycycleJobsandApprovewithapprover()
+	Dim PayCycle,businessunit,appPaycycleStatus,flag,i,appVoucherCount
+	Dim BU(),Vid(),RC,strSelection
+	PayCycle=Split(GlobalDictionary("PayCycle"),";")
+	
+	businessunit=GlobalDictionary("businessunit")
+	
+	'Navigate to Account Payable --> Payments --> payment processing -> Pay Cycle Manager
+	SelectMainMenu1(GlobalDictionary("MainMenuSelection"))
+		
+	For i = 0 To ubound(paycycle) Step 1
+		
+		app_SearchSync()
+		
+		'open a paycycle
+		ap_openApaycycle(paycycle(i))
+		
+		app_SearchSync()
+		
+		appPaycycleStatus=ap_getPayCycleStatus()
+		flag=0
+		If InStr(1,appPaycycleStatus,"Selected",1)<>0 Then
+			With Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager")
+				If .WebButton("PayCycle_Reset").Exist(nminwait) Then
+					.WebButton("PayCycle_Reset").Click
+				End If
+			End With
+			If Browser("PeopleSoft Browser").Page("PayCycleManager").WebButton("PayCycle_Alert_Ok").Exist(nminwait) Then
+				Browser("PeopleSoft Browser").Page("PayCycleManager").WebButton("PayCycle_Alert_Ok").Click
+			End If
+			ap_refreshTillStatuschaged(appPaycycleStatus):GlobalDictionary(cycleNO)=i
+			flag=1:Exit for
+		ElseIf InStr(1,appPaycycleStatus,"running",1)<>0 Then
+			ap_refreshTillStatuschaged(appPaycycleStatus)
+			If InStr(1,appPaycycleStatus,"Selected",1)<>0 Then
+				With Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager")
+					If .WebButton("PayCycle_Reset").Exist(nminwait) Then
+						.WebButton("PayCycle_Reset").Click
+					End If
+				End With
+				wait(3)
+				If Browser("PeopleSoft Browser").Page("PayCycleManager").WebButton("PayCycle_Alert_Ok").Exist(nminwait) Then
+					Browser("PeopleSoft Browser").Page("PayCycleManager").WebButton("PayCycle_Alert_Ok").Click
+				End If
+				ap_refreshTillStatuschaged(appPaycycleStatus):GlobalDictionary(cycleNO)=i
+				flag=1:Exit for
+			else
+				Call WriteToReport(micDone,"Pay Cycle "&paycycle(i),"Pay Cycle "&paycycle(i)&" has "&appPaycycleStatus&" status, Moving to Next pay cycle" ,false)
+				'return to the paycycle Manager search
+				If Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebButton("PayCYcle_ReturntoSearch").Exist(nminwait) Then
+					Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebButton("PayCYcle_ReturntoSearch").Click
+				End If
+			End If
+		ElseIf InStr(1,appPaycycleStatus,"completed",1)<>0 or InStr(1,appPaycycleStatus,"reset",1)<>0 or InStr(1,appPaycycleStatus,"No work",1)<>0 Then
+			If Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebButton("PayCYcle_Refresh").exist(nminwait) Then
+				Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebButton("PayCYcle_Refresh").Click
+			End If
+			GlobalDictionary(cycleNO)=i
+			flag=1:Exit for
+		else
+			Call WriteToReport(micDone,"Pay Cycle "&paycycle(i),"Pay Cycle "&paycycle(i)&" has "&appPaycycleStatus&" status, Moving to Next pay cycle" ,false)
+			'return to the paycycle Manager search
+			If Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebButton("PayCYcle_ReturntoSearch").Exist(nminwait) Then
+				Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebButton("PayCYcle_ReturntoSearch").Click
+			End If
+		End If
+	Next
+	
+	If flag Then
+		With Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager")
+			If .Link("PayCycle_SelectionCriteria").Exist(nminwait) Then
+				.Link("PayCycle_SelectionCriteria").Click
+				Call WriteToReport(micPass,"Selection Criteria link","is present and clicked",false)
+				else
+				Call WriteToReport(micFail,"Selection Criteria link","is not present",True)
+			End If
+			
+		End With
+		
+		'selection criteria added
+		Dim strSQL, connectionString, sheetName
+		businessUnit=GlobalDictionary("businessUnit")
+		sheetName=GlobalDictionary("sheetName")
+		connectionString = "Provider=SQLOLEDB;Server=PSFNREGSQLSTG1;DATABASE=FNREG;uid='';pwd='';Trusted_Connection=Yes"
+			
+'			strSQL="select TOP 3 SCHEDULED_PAY_DT from PS_PYMNT_VCHR_XREF where DUE_DT >= '01/01/2018' and BUSINESS_UNIT NOT IN ('00012', '00017') and PYMNT_ID = ' ' and PYMNT_GROUP_CD = '05' order by SCHEDULED_PAY_DT desc, BANK_CD, BANK_ACCT_KEY, PYMNT_METHOD, REMIT_SETID, REMIT_VENDOR"
+		strSQL=GlobalDictionary("strSQL")
+		If dbGetAllRecords(strSQL, connectionString, sheetName) Then
+			Call WriteToReport(micPass,"Query executed successfully","Executed query is ["&strSQL&"]",false)
+			call ap_paymentSelectionCritiriSaveDates(GlobalDictionary("daysdIFF"),Cdate(Trim(DataTable.Value("SCHEDULED_PAY_DT",sheetName) )))
+
+'			ap_paymentSelectionCritiriSaveDates(GlobalDictionary("daysdIFF"))
+			app_SearchSync()
+				
+			With Browser("PeopleSoft Browser").Page("PaymentSelectionCriteria").PSFrame("TargetContent")
+				If .Link("PayCycle_PayCycleManager").Exist(nminwait) Then
+					.Link("PayCycle_PayCycleManager").Click
+					Call WriteToReport(micPass,"PayCycle Manager link","is present and clicked",false)
+					else
+					Call WriteToReport(micFail,"PayCycle Manager link","is not present",True)
+				End If
+			End With
+			
+			app_SearchSync()
+			'get the current status from appliaction
+			appPaycycleStatus=ap_getPayCycleStatus()
+			
+			With Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager")
+				If .WebButton("PayCycle_Process").Exist(nminwait) Then
+					If .WebElement("PayCycle_StepName").Exist(nminwait) Then
+						Call WriteToReport(micPass,"Process step name"," Selected step name "&.WebElement("PayCycle_StepName").GetROProperty("innertext"),false)
+					End If
+					.WebButton("PayCycle_Process").Click
+					Call WriteToReport(micPass,"process button","is present and clicked",false)
+					else
+					Call WriteToReport(micFail,"Process button","is not present",True)
+				End If
+			End With
+			
+	'refresh till the status is changed		
+			ap_refreshTillStatuschaged(appPaycycleStatus)
+			
+			app_SearchSync()
+			If Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").Link("PayCycle_ProcessMonitor").Exist(nminwait) Then
+				Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").Link("PayCycle_ProcessMonitor").Click
+				wait 2:Call WriteToReport(micPass,"process Monitor link","is present and clicked",false)
+			End If
+
+			'capture the process instance number
+			ap_captureProcessDetailsinProcessMonitorPage()
+			
+			'open a paycycle
+			ap_openApaycycle(paycycle(GlobalDictionary(cycleNO)))
+			
+			app_SearchSync()
+			'capture teh pay cycle status
+			appPaycycleStatus=ap_getPayCycleStatus()
+			
+			If StrComp(Trim(appPaycycleStatus),"No Work",1)<>0 Then
+				'validate the voucher count
+				appVoucherCount=ap_scheduledPaymentSelectedCountValidation(2,GlobalDictionary("daysdIFF"))
+				
+				If Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").Link("PayCycle_Details").Exist(nminwait) Then
+					Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").Link("PayCycle_Details").Click
+					Call WriteToReport(micPass,"Details link","is present and clicked",false)
+					else
+					Call WriteToReport(micFail,"Details link","is not present",True)
+				End If
+				
+				app_SearchSync()
+				ap_searchPayCycleDetails(businessUnit)
+				app_SearchSync()
+		
+				
+				With Browser("PeopleSoft Browser").Page("PayCycleDetails").PSFrame("PayCyclesDetails")
+					If .WebButton("ExcludeALL").Exist(nminwait) Then
+						.WebButton("ExcludeALL").Click:app_SearchSync()
+						Call WriteToReport(micPass,"Exclude all button","is present and clicked",false)
+						wait(3):app_SearchSync():app_SearchSync():app_SearchSync():app_SearchSync()
+					End If
+					If .WebTable("PayCycleSearchResults").Exist(nminwait) Then
+					
+						If .WebTable("PayCycleSearchResults").RowCount>2 Then
+							rc=2
+						else
+							RC=.WebTable("PayCycleSearchResults").RowCount
+						End If
+						For i = 1 To RC Step 1
+							ReDim Preserve BU(i-1):BU(i-1)=.WebTable("PayCycleSearchResults").GetCellData(i,4)
+							ReDim Preserve Vid(i-1):Vid(i-1)=.WebTable("PayCycleSearchResults").GetCellData(i,5)
+							If (i mod 2) Then
+								strSelection=(GlobalDictionary("PaymentActionSeparate"))'"Separate"
+							else:strSelection=(GlobalDictionary("PaymentActionNone"))'"None"					
+							End If
+							.WebTable("PayCycleSearchResults").ChildItem(i,1,"WebList",0).select(strSelection)
+							Call WriteToReport(micPass,"Payment action selected","Payment action is selected as "&strSelection&" for "&BU(i-1)&" - "&Vid(i-1),false)
+							If StrComp(strSelection,"Hold",1)=0 Then
+								.WebTable("PayCycleSearchResults").ChildItem(i,2,"WebEdit",0).set(GlobalDictionary("Holdreason"))
+								Call WriteToReport(micDone,"Hold reason","is present and selected as : "&(GlobalDictionary("Holdreason")),false)
+							End If
+						Next
+					End If
+					
+					If .WebButton("Save").Exist(nminwait) Then
+						.WebButton("Save").Click
+						Call WriteToReport(micPass,"process button","is present and clicked",false)
+					End If
+					app_SearchSync()
+					If .WebButton("Save").Exist(nminwait) Then
+						.WebButton("Save").Click
+					End If
+					For i = 1 To 15 Step 1
+						app_SearchSync():wait(3)
+					Next
+					app_SearchSync()
+					If .Link("PayCycleManager").Exist(nminwait) Then
+						.Link("PayCycleManager").Click
+						Call WriteToReport(micPass,"PayCycleManager link","is present and clicked",false)
+					End If
+				End With
+				
+				app_SearchSync()
+				appPaycycleStatus=ap_getPayCycleStatus()
+				
+				With Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager")
+					If .WebButton("PayCycle_Process").Exist(nminwait) Then
+						If .WebElement("PayCycle_StepName").Exist(nminwait) Then
+							Call WriteToReport(micPass,"Process step name"," Selected step name "&.WebElement("PayCycle_StepName").GetROProperty("innertext"),false)
+						End If
+						.WebButton("PayCycle_Process").Click
+						Call WriteToReport(micPass,"process button in Details","is present and clicked",false)
+						else
+						Call WriteToReport(micFail,"Process button in Details","is not present",True)
+					End If
+				End With
+				
+				'refresh till the status is changed		
+				ap_refreshTillStatuschaged(appPaycycleStatus)
+				app_SearchSync()
+				
+				If Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").Link("PayCycle_ProcessMonitor").Exist(nminwait) Then
+					Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").Link("PayCycle_ProcessMonitor").Click
+					wait 2:Call WriteToReport(micPass,"process Monitor link","is present and clicked",false)
+				End If
+				'capture the process instance number
+				ap_captureProcessDetailsinProcessMonitorPage()
+
+				app_SearchSync()
+				
+				'logout the application
+				PSFinLogout()
+				
+				GlobalDictionary("User")=GlobalDictionary("SignInUser")
+				GlobalDictionary("SignInUser")=GlobalDictionary("SignInApprover")
+				
+				'login as approver
+				UserSignIn()
+				
+				'Navigate to Account Payable --> Payments --> payment processing -> Pay Cycle Manager
+				SelectMainMenu1(GlobalDictionary("MainMenuSelection"))
+				
+				'open the paycyle
+				ap_openApaycycle(paycycle(GlobalDictionary(cycleNO)))
+				
+				With Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager")
+					If .Link("PayCycle_Approve").Exist(nminwait) Then
+						.Link("PayCycle_Approve").Click
+						Call WriteToReport(micpass,"Click on Approve link ","Approve link is present and clicked" ,false)
+					End If
+				End With
+
+				With Browser("PeopleSoft Browser").Page("PayCycleApproval").PSFrame("PayCycleApproval")
+					If .WebButton("Approve").Exist(nminwait) Then
+						.WebButton("Approve").Click
+						Call WriteToReport(micpass,"Click on Approve button ","Approve button is present and clicked" ,false)
+					End If
+					If .Link("PayCycle_PayCYcleManager").Exist(nminwait) Then
+						.Link("PayCycle_PayCYcleManager").Click
+						Call WriteToReport(micpass,"Click on Pay CYcle Manager link ","Pay CYcle Manager link is present and clicked" ,false)
+					End If
+				End With
+				
+				app_SearchSync()
+				'logout the application
+				PSFinLogout()
+				
+				GlobalDictionary("SignInUser")=GlobalDictionary("User")
+				
+				'login as approver
+				UserSignIn()
+				
+				'Navigate to Account Payable --> Payments --> payment processing -> Pay Cycle Manager
+				SelectMainMenu1(GlobalDictionary("MainMenuSelection"))
+				
+				'open the paycyle
+				ap_openApaycycle(paycycle(GlobalDictionary(cycleNO)))
+
+				'Process once
+				With Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager")
+					If .WebTable("PayCycleResultsFirst3Cols").Exist(nminwait) Then
+						rc=.WebTable("PayCycleResultsFirst3Cols").RowCount
+						For i = 1 To rc Step 1
+							If StrComp(Trim(.WebTable("PayCycleResultsLast6Cols").GetCellData(i,3)),"Approved",1)=0 Then
+							
+								If .WebTable("PayCycleResultsLast6Cols").Exist(nminwait) Then
+									If InStr(1,Trim(.WebTable("PayCycleResultsLast6Cols").GetCellData(i,5)),"web",1)>0 Then
+										.WebTable("PayCycleResultsLast6Cols").ChildItem(i,5,"WebList",0).select("Web")
+									End If
+									If InStr(1,Trim(.WebTable("PayCycleResultsLast6Cols").GetCellData(i,4)),"PSNT1",1)>0 Then
+										.WebTable("PayCycleResultsLast6Cols").ChildItem(i,4,"WebList",0).select("PSNT1")
+									End If
+								End If
+	'							Do While Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebTable("PayCycleResultsFirst3Cols").ChildItem(i,1,"WebButton",0).getroproperty("disabled")=0
+									appPaycycleStatus=ap_getPayCycleStatus()
+									Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebTable("PayCycleResultsFirst3Cols").ChildItem(i,1,"WebButton",0).click				
+									Call WriteToReport(micPass,"process button in Pay cycle results ","is present and clicked for Account : "&Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebTable("PayCycleResultsFirst3Cols").GetCellData(i,3) ,false)
+									app_SearchSync()
+									'refresh till the status is changed		
+									ap_refreshTillStatuschaged(appPaycycleStatus)
+									app_SearchSync()
+									
+									If Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").Link("PayCycle_ProcessMonitor").Exist(nminwait) Then
+										Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").Link("PayCycle_ProcessMonitor").Click
+										wait 2:Call WriteToReport(micPass,"process Monitor link","is present and clicked",false)
+									End If
+					
+									'capture the process instance number
+									ap_captureProcessDetailsinProcessMonitorPage()
+									
+									'open a paycycle
+									ap_openApaycycle(paycycle(GlobalDictionary(cycleNO)))
+									
+									app_SearchSync()
+									Exit for
+'								loop
+							End If
+						Next
+					End If
+				End With
+				
+				'Navigate to Reporting Tools --> Report manager
+				SelectMainMenu1(GlobalDictionary("MainMenuSelection1"))
+				
+				
+				'Navigate to Account Payable --> Payments --> payment processing -> Pay Cycle Manager
+				SelectMainMenu1(GlobalDictionary("MainMenuSelection"))
+				
+				'open the paycyle
+				ap_openApaycycle(paycycle(GlobalDictionary(cycleNO)))
+				
+				'Process till results process get completed
+				ap_processThePayCycleResults()
+				
+				
+			else
+				Call WriteToReport(micfail,"Pay Cycle moved to No Work Status ","Pay Cycle moved to No Work Status " ,false)
+			End If
+		End If	
+	else
+		Call WriteToReport(micfail,"All the Pay Cycles are non executable status ","All the Pay Cycles are non executable status" ,false)
+	End If
+	
+
+End Function
+
+'*********************************************************************************************************************************
+''' <summary>  
+''' ap_openApaycycle() To open a paycycle
+'''Parameter1:	paycycleA. eg:paycycleA paycycle name
+''' <para>
+''' <note>Required Testcase Inputs are "NA"</note> 
+''' </para>
+''' </summary>
+''' <author>Gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>Logged in as user that has right to post vouchers</startstate>
+''' <endstate>NA</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+
+'Ap_open a Pacycle
+Public Function ap_openApaycycle(paycycleA)
+	app_SearchSync()
+	
+	with Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("TargetContent")
+		If .WebEdit("PayCycle_SearchManager").Exist(nminwait) Then
+			.WebEdit("PayCycle_SearchManager").Set paycycleA
+			Call WriteToReport(micPass,"Pay Cycle ","is present and entered as"&paycycleA,false)
+			else
+			Call WriteToReport(micFail,"Pay Cycle ","is not present",True)
+		End If
+		If .WebButton("PayCycle_Search").Exist(nminwait) Then
+			.WebButton("PayCycle_Search").Click
+			Call WriteToReport(micPass,"Search button ","Search button is present and clicked",false)
+			else
+			Call WriteToReport(micFail,"Search button ","Search button is not present",True)
+		End If
+	end with
+	app_SearchSync()	
+End Function
+
+'*********************************************************************************************************************************
+''' <summary>  
+''' AP_paycycleStatus() To get the pay cycle status
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "NA"</note> 
+''' </para>
+''' </summary>
+''' <author>Gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>Logged in as user that has right to pay cycle manager</startstate>
+''' <endstate>NA</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+
+'AP_paycycleStatus
+Public Function ap_getPayCycleStatus()
+	Dim appStatus
+	app_SearchSync()
+	With Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager")
+		If .WebElement("PayCYcle_Status").Exist(nminwait) Then
+			appStatus=Trim(.WebElement("PayCYcle_Status").GetROProperty("innertext"))
+		End If
+	End With
+	ap_getPayCycleStatus=appStatus
+End Function 
+
+'*********************************************************************************************************************************
+''' <summary>  
+''' ap_refreshTillStatuschaged() To status change
+'''Parameter1:	currentStatus.(Pay cycle current status)
+''' <para>
+''' <note>Required Testcase Inputs are "NA"</note> 
+''' </para>
+''' </summary>
+''' <author>gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>Logged in as user that has right to post vouchers</startstate>
+''' <endstate>Payment resecheduled to current date</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+
+'AP_refresh till status change
+Public Function ap_refreshTillStatuschaged(currentStatus)
+	Dim appstatus,ncount,appStepname
+	appstatus=ap_getPayCycleStatus()
+	ncount=0
+	do While StrComp(appstatus,currentStatus,1)=0 OR StrComp(appstatus,"running",1)=0 or ncount>700 
+		If Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebButton("PayCYcle_Refresh").exist(nminwait) Then
+			Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebButton("PayCYcle_Refresh").Click
+		End If
+		wait(2):ncount=ncount+1'app_SearchSync()
+		appstatus=ap_getPayCycleStatus()
+		If Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebElement("PayCycle_StepName").Exist(nminwait) Then
+			appStepname=Trim(Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebElement("PayCycle_StepName").GetROProperty("innertext"))
+			If StrComp(appStepname,"Payment Selection",1)=0 Then
+				Exit do
+			End If
+		End If
+	loop
+	If StrComp(appstatus,currentStatus,1)<>0 Then
+		Call WriteToReport(micPass,"Status changed successfully ","Status changed from "&currentStatus &" to "&appstatus ,false)
+	End If
+End Function
+'*********************************************************************************************************************************
+''' <summary>  
+''' ap_paymentSelectionCritiriSaveDates() To save the dates in pay selection critria
+'''Parameter1:	daysDiff.(days difference from currect date )
+''' <para>
+''' <note>Required Testcase Inputs are "NA"</note> 
+''' </para>
+''' </summary>
+''' <author>Gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>Logged in as user that has right to post vouchers</startstate>
+''' <endstate>Payment resecheduled to current date</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+
+'AP_ payment selection critiria selection
+Public Function ap_paymentSelectionCritiriSaveDates(daysDiff,paythroughdate)
+	app_SearchSync()
+	With Browser("PeopleSoft Browser").Page("PaymentSelectionCriteria").PSFrame("TargetContent")
+		If .WebEdit("PayCycle_PayFromDate").Exist(nminwait) Then
+			.WebEdit("PayCycle_PayFromDate").Set date-daysDiff'date-daysDiff
+			Call WriteToReport(micPass,"PayFromDate ","is present and entered as"&date-daysDiff,false)'&date-daysDiff,false)
+		else
+			Call WriteToReport(micFail,"PayFromDate","is not present",True)
+		End If
+		If .WebEdit("PayCYcle_PayThroughDate").Exist(nminwait) Then
+			.WebEdit("PayCYcle_PayThroughDate").Set paythroughdate'date+30
+			Call WriteToReport(micPass,"PayThroughDate ","is present and entered as"&paythroughdate,false)'&date+daysDiff,false)
+		else
+			Call WriteToReport(micFail,"PayThroughDate","is not present",True)
+		End If
+		If .WebEdit("PayCYcle_PaymentDate").Exist(nminwait) Then
+			.WebEdit("PayCYcle_PaymentDate").Set date
+			Call WriteToReport(micPass,"PaymentDate ","is present and entered as"&date,false)
+		else
+			Call WriteToReport(micFail,"PaymentDate","is not present",True)
+		End If
+		If .WebEdit("PayCycle_AcctDate").Exist(nminwait) Then
+			.WebEdit("PayCycle_AcctDate").Set date
+			Call WriteToReport(micPass,"AcctDate ","is present and entered as"&date,false)
+		else
+			Call WriteToReport(micFail,"AcctDate","is not present",True)
+		End If
+		If .WebEdit("PayCycle_WithholdingDate").Exist(nminwait) Then
+			.WebEdit("PayCycle_WithholdingDate").Set date
+			Call WriteToReport(micPass,"WithholdingDate ","is present and entered as"&date,false)
+		else
+			Call WriteToReport(micFail,"WithholdingDate","is not present",True)
+		End If
+		If .WebEdit("PayCycle_NextPatThroughDate").Exist(nminwait) Then
+			.WebEdit("PayCycle_NextPatThroughDate").Set paythroughdate+1'date+60
+			Call WriteToReport(micPass,"NextPatThroughDate ","is present and entered as"&paythroughdate+1,false)
+		else
+			Call WriteToReport(micFail,"NextPatThroughDate","is not present",True)
+		End If
+		If .WebEdit("PayCYcle_NextPaymentDate").Exist(nminwait) Then
+			.WebEdit("PayCYcle_NextPaymentDate").Set paythroughdate+daysDiff'date+60
+			Call WriteToReport(micPass,"NextPaymentDate ","is present and entered as"&paythroughdate+daysDiff,false)
+		else
+			Call WriteToReport(micFail,"NextPaymentDate","is not present",True)
+		End If
+		If .WebButton("PayCycle_Save").Exist(nminwait) Then
+			.WebButton("PayCycle_Save").Click
+			Call WriteToReport(micPass,"Save button ","is present and clicked",false)
+		else
+			Call WriteToReport(micFail,"Save button","is not present",True)
+		End If
+	End With
+
+End Function
+
+'*********************************************************************************************************************************
+''' <summary>  
+''' ap_scheduledPaymentSelectedCountValidation() To scheduled paments count validation
+'''Parameter1:	schedulCount,iDays.*(schedulCount- expected count, idays - days incerement in selection critria)
+''' <para>
+''' <note>Required Testcase Inputs are "NA"</note> 
+''' </para>
+''' </summary>
+''' <author>Gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>Logged in as user that has right to post vouchers</startstate>
+''' <endstate>Payment resecheduled to current date</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+
+'AP_voucher count validation
+Public Function ap_scheduledPaymentSelectedCountValidation(schedulCount,iDays)
+Dim appVoucherCount,appPaycycleStatus,i
+	'validate the voucher count
+	If Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebElement("PayCycle_SchedulePaymentSelected").Exist(nminwait) Then
+		appVoucherCount=Trim(Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebElement("PayCycle_SchedulePaymentSelected").GetROProperty("innertext"))
+		Call WriteToReport(micDone,"Schedule Payments Selected","Schedule Payments Selected is captured from application, as "&appVoucherCount,false)
+	End If
+	If isEmpty(appVoucherCount) or appVoucherCount="" Then
+		appVoucherCount=0
+	End If
+	
+	appPaycycleStatus=ap_getPayCycleStatus()
+	
+	i=2
+	If Cint(appVoucherCount)<schedulCount Then
+		While appVoucherCount < schedulCount or i<5
+			i=i+1
+			With Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager")
+				If .WebButton("PayCycle_Reset").Exist(nminwait) Then
+					.WebButton("PayCycle_Reset").Click
+				End If
+			End With
+			If Browser("PeopleSoft Browser").Page("PayCycleManager").WebButton("PayCycle_Alert_Ok").Exist(nminwait) Then
+				Browser("PeopleSoft Browser").Page("PayCycleManager").WebButton("PayCycle_Alert_Ok").Click
+			End If
+			
+'			refresh until status get changed
+			ap_refreshTillStatuschaged(appPaycycleStatus)
+			
+			With Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager")
+				If .Link("PayCycle_SelectionCriteria").Exist(nminwait) Then
+					.Link("PayCycle_SelectionCriteria").Click
+					Call WriteToReport(micPass,"Selection Criteria link","is present and clicked",false)
+					else
+					Call WriteToReport(micFail,"Selection Criteria link","is not present",True)
+				End If
+				
+			End With
+				'selection criteria added
+				call ap_paymentSelectionCritiriSaveDates(iDays*i,date+30)
+				app_SearchSync()
+				
+			With Browser("PeopleSoft Browser").Page("PaymentSelectionCriteria").PSFrame("TargetContent")
+				If .Link("PayCycle_PayCycleManager").Exist(nminwait) Then
+					.Link("PayCycle_PayCycleManager").Click
+					Call WriteToReport(micPass,"PayCycle Manager link","is present and clicked",false)
+					else
+					Call WriteToReport(micFail,"PayCycle Manager link","is not present",True)
+				End If
+			End With
+			
+			app_SearchSync()
+'			Get the status from app
+			appPaycycleStatus=ap_getPayCycleStatus()
+'			initiate the process
+			With Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager")
+				If .WebButton("PayCycle_Process").Exist(nminwait) Then
+					.WebButton("PayCycle_Process").Click
+					If .WebElement("PayCycle_StepName").Exist(nminwait) Then
+						Call WriteToReport(micPass,"Process step name"," Selected step name "&.WebElement("PayCycle_StepName").GetROProperty("innertext"),false)
+					End If
+					Call WriteToReport(micPass,"process button","is present and clicked",false)
+					else
+					Call WriteToReport(micFail,"Process button","is not present",True)
+				End If
+			End With
+			
+'			refresh the application untill status chaged
+			ap_refreshTillStatuschaged(appPaycycleStatus)
+			
+'			get the voucher count from app
+			If Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebElement("PayCycle_SchedulePaymentSelected").Exist(nminwait) Then
+				appVoucherCount=Trim(Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebElement("PayCycle_SchedulePaymentSelected").GetROProperty("innertext"))
+			End If
+		Wend
+		
+	else
+		If Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebButton("PayCYcle_Refresh").exist(nminwait) Then
+			Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebButton("PayCYcle_Refresh").Click
+		End If
+	End If
+
+ap_scheduledPaymentSelectedCountValidation=appVoucherCount
+End Function
+'*********************************************************************************************************************************
+''' <summary>  
+''' ap_processThePayCycleResults() : to process all the process available in the paycycle list
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "NA"</note> 
+''' </para>
+''' </summary>
+''' <author>Gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+
+'AP_Process the pay Cycle Results
+Public Function ap_processThePayCycleResults()
+Dim rc,i,appPaycycleStatus
+With Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager")
+	If .WebTable("PayCycleResultsFirst3Cols").Exist(nminwait) Then
+		rc=.WebTable("PayCycleResultsFirst3Cols").RowCount
+		For i = 1 To rc Step 1
+			If .WebTable("PayCycleResultsLast6Cols").Exist(nminwait) Then
+				If InStr(1,Trim(.WebTable("PayCycleResultsLast6Cols").GetCellData(i,5)),"web",1)>0 Then
+					.WebTable("PayCycleResultsLast6Cols").ChildItem(i,5,"WebList",0).select("Web")
+				End If
+				If InStr(1,Trim(.WebTable("PayCycleResultsLast6Cols").GetCellData(i,4)),"PSNT1",1)>0 Then
+					.WebTable("PayCycleResultsLast6Cols").ChildItem(i,4,"WebList",0).select("PSNT1")
+				End If
+			End If
+			While Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebTable("PayCycleResultsFirst3Cols").ChildItem(i,1,"WebButton",0).getroproperty("disabled")=0
+				appPaycycleStatus=ap_getPayCycleStatus()
+				Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebTable("PayCycleResultsFirst3Cols").ChildItem(i,1,"WebButton",0).click				
+				Call WriteToReport(micPass,"process button in Pay cycle results ","is present and clicked for Account : "&Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").WebTable("PayCycleResultsFirst3Cols").GetCellData(i,3) ,false)
+				app_SearchSync()
+				'refresh till the status is changed		
+				ap_refreshTillStatuschaged(appPaycycleStatus)
+				app_SearchSync()
+				
+				If Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").Link("PayCycle_ProcessMonitor").Exist(nminwait) Then
+					Browser("PeopleSoft Browser").Page("PayCycleManager").PSFrame("PayCycleManager").Link("PayCycle_ProcessMonitor").Click
+					wait 2:Call WriteToReport(micPass,"process Monitor link","is present and clicked",false)
+				End If
+
+				'capture the process instance number
+				ap_captureProcessDetailsinProcessMonitorPage()
+				
+				'open a paycycle
+				ap_openApaycycle(paycycle(GlobalDictionary(cycleNO)))
+				
+				app_SearchSync()
+			Wend
+		Next
+	End If
+End With
+End Function
+'*********************************************************************************************************************************
+''' <summary>  
+''' ap_processThePayCycleResults() : to process all the process available in the paycycle list
+'''Parameter1:	None.
+''' <para>
+''' <note>Required Testcase Inputs are "NA"</note> 
+''' </para>
+''' </summary>
+''' <author>Gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>NA</startstate>
+''' <endstate>NA</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+'AP_ProcesstheInstanse in Process Monitor
+Function ap_captureProcessDetailsinProcessMonitorPage()
+Dim flag,nCount
+With Browser("PeopleSoft Browser").Page("Process Monitor").PSFrame("Process Monitor")
+	'check the status of the Job 
+	If .WebTable("ProcessTable_ProcessMonitor").Exist(nMINWAIT) Then
+	Call WriteToReport(micPass,"process details","Instance number "&.WebTable("ProcessTable_ProcessMonitor").GetCellData(2,2)&" Process name "&.WebTable("ProcessTable_ProcessMonitor").GetCellData(2,5),false)
+		strVar=.WebTable("ProcessTable_ProcessMonitor").GetCellData(2,8)
+		If (StrComp(Trim(strVar),"Success",1)=0) Then
+			Call WriteToReport(micPass,"Run status of a process ","is present "&strVar,false)
+		else
+			Call WriteToReport(micFail,"Run status of a process ","is present and expected is success, Actual is "&strVar,True)
+		End If
+		strVar=.WebTable("ProcessTable_ProcessMonitor").GetCellData(2,9)
+		If (StrComp(Trim(strVar),"Posted",1)=0) Then
+			Call WriteToReport(micPass,"Run status of a process ","is present "&strVar,false)
+		else
+			Call WriteToReport(micFail,"Run status of a process ","is present and expected is Posted, Actual is "&strVar,True)
+		End If 		
+		
+	End If
+	If .Link("Go back").Exist(nminwait) Then
+		.Link("Go back").Click
+	End If
+End With
+
+
+End Function
+'*********************************************************************************************************************************
+''' <summary>  
+''' ap_searchPayCycleDetails() To search PayCycle Details
+'''Parameter1:	businessunit.
+''' <para>
+''' <note>Required Testcase Inputs are "NA"</note> 
+''' </para>
+''' </summary>
+''' <author>Gunasekaran S</author>
+''' <datecreated>12/12/2018</datecreated>
+''' <startstate>Logged in as user that has right to post vouchers</startstate>
+''' <endstate>Payment resecheduled to current date</endstate>
+'Change Control: 
+'   NA
+'**********************************************************************************************************************************
+
+
+'AP_Search details in Pay Cycle details
+Public Function ap_searchPayCycleDetails(businessunit)
+
+With Browser("PeopleSoft Browser").Page("PayCycleDetails").PSFrame("PayCyclesDetails")
+	If .WebEdit("BusinessUnit").Exist(nminwait) Then
+		.WebEdit("BusinessUnit").Set businessunit
+		Call WriteToReport(micPass,"BusinessUnit ","is present and entered as"&businessunit,false)
+	else
+		Call WriteToReport(micFail,"BusinessUnit","is not present",True)
+	End If
+	If .WebButton("Search").Exist(nminwait) Then
+		.WebButton("Search").Click
+		Call WriteToReport(micPass,"Search button ","is present and Clicked",false)
+	else
+		Call WriteToReport(micFail,"Search button","is not present",True)
+	End If
+	
+	app_SearchSync()
+	Dim ncount:ncount=0
+	While (.WebButton("ExcludeALL").GetROProperty("disabled")=1 and .WebButton("SeparateAll").GetROProperty("disabled")=1) or ncount>5000
+		app_SearchSync():wait(2):ncount=ncount+1
+	Wend
+End With
+
+End Function
+
+'****************************************************************************************************************************************
+
+Public Function SearchExistingMatchExceptionVoucher(ActionStatus,VoucherID)
+'CLick on Advanced srqarch link
+	WIth Browser("PeopleSoft Browser").Page("MatchExceptions").PSFrame("MatchExceptions").Link("MatchExp_AdvancedSearch")
+	If .Exist(nMINWAIT) Then
+		.Click
+		Call WriteToReport(micPass,"Advanced search link","is present and clicked",false)
+				else
+	 	Call WriteToReport(micFail,"Advanced search link","is not present",True)
+	End If
+	End  With 
+	
+	'ENter the Action status and Voucehr ID
+	With Browser("PeopleSoft Browser").Page("MatchExceptions").PSFrame("MatchExceptions").WebList("MatchExp_ActionStatus")
+	If .Exist(nMINWAIT) Then
+		.Select dtActionStatus
+	End If
+	End  With 
+	
+	'Enter the Voucher ID
+	With Browser("PeopleSoft Browser").Page("MatchExceptions").PSFrame("MatchExceptions").WebEdit("MatchExp_VoucherId")
+	If .Exist(nMINWAIT) Then
+		.Set dtVoucherID
+	End If
+	End  With
+	
+	'Click on Search button
+	With Browser("PeopleSoft Browser").Page("MatchExceptions").PSFrame("MatchExceptions").WebButton("MatchExp_Search")
+	If .Exist(nMINWAIT) Then
+		.Click
+	End If
+	End  WIth	
+End Function
+
+Public Function APMatchExceptionActions()
+	'Navigate to belwo navigation
+	'Accounts Payable --> Vouchers --> AP Match Exceptions Actions
+	SelectMainMenu1(GlobalDictionary("MatchExceptionActions"))
+	
+	dtActionStatus=GlobalDictionary("ActionStatusOpen") 'Open
+	dtVoucherID=(GlobalDictionary("VoucherID"))
+	dtBusinessUnit=(GlobalDictionary("BusinessUnit"))
+	
+	'Set all the mandatory details in the page
+	Call SearchExistingMatchExceptionVoucher(dtActionStatus,dtVoucherID)
+	
+	'Get the Purchase order Unit price
+	With Browser("PeopleSoft Browser").Page("MatchExceptions").PSFrame("MatchExceptions").WebElement("MatchExp_POAmt")
+	If .Exist(nMINWAIT) Then
+		appPOAmount=cdbl(.GetROProperty("innertext"))
+		Reporter.ReportEvent micPass,"The Purchase order amount is","is"&appPOAmount
+	End If
+	End  With 
+	
+	'Check for the variance amount
+	With Browser("PeopleSoft Browser").Page("MatchExceptions").PSFrame("MatchExceptions").WebElement("MatchExp_VariAmt")
+	If .Exist(nMINWAIT) Then
+	varAmt=.GetROProperty("innertext")
+	GlobalDictionary("VarAmt")=varAmt
+	Call WriteToReport(micPass,"Valiance amt is present","and value is"&varAmt,false)
+		else
+	Call WriteToReport(micFail,"Valiance amt is present","is not present",True)
+	End If
+	End  With 
+	
+	'CHeck for the variance amout whether it is positive or negative
+	If Cint(varAmt)>0 Then
+		InvoiceAmount="DecreaseInvoiceAmount"
+		GlobalDictionary("InvoiceAmount")=InvoiceAmount
+		Call WriteToReport(micPass,"Valiance amt is positive","and we need to decrease the Invoice Amount",false)
+		Else
+		InvoiceAmount="IncreaseInvoiceAmount"
+		GlobalDictionary("InvoiceAmount")=InvoiceAmount
+		Call WriteToReport(micPass,"Valiance amt is negative","and we need to increase the Invoice Amount",false)
+	End If
+	
+	'Navighate toe below regualr entry page to correct the erros
+	SelectMainMenu1(GlobalDictionary("RegularEntry"))
+	
+	'wait for tha applicatio to load
+	For i=0 to 2 
+		app_SearchSync()
+	Next
+	
+	'Open the existing vouchjer
+	Call ap_openExistingVoucher(dtbusinessunit,dtVoucherID)
+	
+	
+	'wait for tha applicatio to load
+	For i=0 to 2 
+		app_SearchSync()
+	Next
+	
+	'Click on Invoice information tab
+	With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebElement("InvoiceInformation")
+	If .Exist(nMINWAIT) Then
+		.Click
+		Call WriteToReport(micPass,"Invoice information button is  ","is present and clicked",false)
+	End If
+	End  With 
+	
+	app_SearchSync()
+	
+	With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("unitPrice")
+		If .Exist(nMINWAIT) Then
+			.Set appPOAmount
+			Reporter.ReportEvent micPass,"The Unit proce is p[resent","and set with"&appPOAmount
+		End If
+	End With
+	
+''Depending upon the varaince amount adjust the Invpoice amount
+''GlobalDictionary("InvoiceAmount")="DecreaseInvoiceAmount"
+''GlobalDictionary("VarAmt")="-1348.28"
+'	WIth Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("Quantity_1")
+'	If .Exist(nMINWAIT) Then
+'		appQuantityAmt=Cint(.GetROProperty("value"))
+'	End If
+'	End  With 
+'	
+'	If appQuantityAmt>1 Then
+'	appUnitPrice=Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("unitPrice").GetROProperty("value")
+'	appUnitTotalPrice=appQuantityAmt * appUnitPrice
+'	FinalUnitPrice=Cdbl(appUnitTotalPrice) + Cdbl(GlobalDictionary("VarAmt"))
+'		
+'	WIth Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("Quantity_1")
+'	If .Exist(nMINWAIT) Then
+'		.Set "1"
+'	End If
+'	End  With 
+'		
+'	With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("unitPrice")
+'		If .Exist(nMINWAIT) Then
+'			.Set FinalUnitPrice
+'		End If
+'	End With
+'	
+'	'CHange the quaqntitie in associate receiver
+'	With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").Link("PurchaseOrderAssociateReceiver")
+'	If .Exist(nMINWAIT) Then
+'		.Click
+'	End If
+'	End  With 
+'	
+'	app_SearchSync()
+'	
+'	With Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("AssociateReceiver").WebEdit("AssociateRec_Quantity")
+'	If .Exist(nMINWAIT) Then
+'		.Set "1"
+'	End If
+'	End  With 
+'	
+'	With Browser("PeopleSoft Browser").Page("Regular Entry").PSFrame("AssociateReceiver").WebButton("OK")
+'	If .Exist(nMINWAIT) Then
+'		.Click
+'	End If
+'	End  With 
+'	
+'	app_SearchSync()
+'
+'			
+'		Else
+'		appUnitPrice=Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("unitPrice").GetROProperty("value")
+'		FinalUnitPrice=Cdbl(appUnitTotalPrice) + Cdbl(GlobalDictionary("VarAmt"))
+'		With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("unitPrice")
+'		If .Exist(nMINWAIT) Then
+'				.Set FinalUnitPrice
+'		End If
+'		End With
+'	End If
+		
+'Clicko n Calculate Button
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebButton("CalculateInvoiceLine")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  With 
+
+'Adjust the Mail total price to save the voucher
+'Click on Calcualte button
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebButton("Calculate")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  WIth 
+
+app_SearchSync()
+
+'Get the value from difference
+WIth Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebElement("Difference")
+If .Exist(nMINWAIT) Then
+	appDiff=.GetROProperty("innertext")
+End If
+End  With 
+
+'ENter the final total amount
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("Total")
+	If .Exist(nMINWAIT) Then
+		finalTotalAmount=cdbl(Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebEdit("Total").GetROProperty("value")) + cdbl(appDiff)
+		.Set finalTotalAmount
+	End If
+End With
+
+'Clicko n Calculate button
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebButton("Calculate")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  With 
+
+app_SearchSync()
+
+'CLick on save button
+With Browser("PeopleSoft Browser").Page("Regular Entry").Frame("TargetContent").WebButton("Save")
+If .Exist(nMINWAIT) Then
+	.Click
+	Reporter.ReportEvent micPass,"The save button is","present and clicked"
+End If
+End  With 
+
+'Capture the warning message
+With Browser("PeopleSoft Browser").Page("Regular Entry").WebElement("MessageforDifference")
+If .Exist(nMINWAIT) Then
+	appWarningMess=.GetROProperty("innertext")
+	Call WriteToReport(micPass,"The warning message is ","is gettin displayed as expected anmd message is"&appWarningMess,false)
+End If
+End  With 
+
+'CLick on Ok btton
+With Browser("PeopleSoft Browser").Page("Regular Entry").WebButton("OK")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  With 
+
+'Capture the warning message
+With Browser("PeopleSoft Browser").Page("Regular Entry").WebElement("MessageforDifference")
+If .Exist(nMINWAIT) Then
+	appWarningMess=.GetROProperty("innertext")
+	Call WriteToReport(micPass,"The warning message is ","is gettin displayed as expected anmd message is"&appWarningMess,false)
+End If
+End  With 
+
+'CLick on Ok btton
+With Browser("PeopleSoft Browser").Page("Regular Entry").WebButton("OK")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  With
+
+'Navigate to Matching page to perform the matching
+strValue=ap_matchingVoucher(dtbusinessunit,dtvoucherID)
+
+If strValue="success" Then
+	'naviogate to below to check the matching is sucessfull
+	'Accounts Payable --> Vouchers --> AP Match Exceptions Actions
+	SelectMainMenu1(GlobalDictionary("MatchExceptionActions"))
+	dtActionStatus=GlobalDictionary("ActionStatusOpen") 'Open
+	dtVoucherID=(GlobalDictionary("VoucherID"))
+	dtBusinessUnit=(GlobalDictionary("BusinessUnit"))
+	
+	'Set all the mandatory details in the page
+	Call SearchExistingMatchExceptionVoucher(dtActionStatus,dtVoucherID)
+	
+	'Check for the variance amount
+	With Browser("PeopleSoft Browser").Page("MatchExceptions").PSFrame("MatchExceptions").WebElement("MatchExp_VariAmt")
+	If .Exist(nMINWAIT) Then
+	varAmt=.GetROProperty("innertext")
+	If Cint(varAmt)="0" Then
+		Reporter.ReportEvent micPass,"The varaince amount is","0 and is sucesfully matched"
+	End If
+	End If
+	End  With
+	
+	'Navigate to regulae entry to check the status
+	'Navighate toe below regualr entry page to correct the erros
+	'Accounts Payble > Vouchers > Add Update > Regular Entry
+	
+	SelectMainMenu1(GlobalDictionary("RegularEntry"))
+	
+	'wait for tha applicatio to load
+	For i=0 to 2 
+		app_SearchSync()
+	Next
+	
+	'Open the existing vouchjer
+	Call ap_openExistingVoucher(dtbusinessunit,dtVoucherID)
+	
+	strMatchStatus=GlobalDictionary("MatchStatus")
+	
+	'to validate the match status of the voucehr
+	Call ap_verifyMatchstatusofVoucher(strMatchStatus,strOption)	
+	
+	Else
+	Reporter.ReportEvent micFail,"The matching","did not happen sucessfully"
+End If
+	
+End Function
+
+Public Function AutoMatchExceptionReport()
+'Navigate to Below path
+'Accounts Payable --> CDW AP Reprots --> AP Automatch Exception Report
+SelectMainMenu1(GlobalDictionary("AutomatchExceptionReport"))
+
+dtRunControlID=GlobalDictionary("dtRunControlID")&inVoiceNumberGeneration
+
+'Click on Add new value button
+With Browser("PeopleSoft Browser").Page("AutomatchExceptionReport").PSFrame("AutomatchExceptionreport").WebElement("AutomatchException_AddNewValue")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  With 
+
+'Enter the RUn control ID
+With Browser("PeopleSoft Browser").Page("AutomatchExceptionReport").PSFrame("AutomatchExceptionreport").WebEdit("RunControlID")
+If .Exist(nMINWAIT) Then
+	.Set dtRunControlID
+End If
+End  With 
+
+'Click on Add button
+With Browser("PeopleSoft Browser").Page("AutomatchExceptionReport").PSFrame("AutomatchExceptionreport").WebButton("Add")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  With 
+
+'Click on Exceptoin type
+With Browser("PeopleSoft Browser").Page("AutomatchExceptionReport").PSFrame("AutomatchExceptionreport").WebCheckBox("AllExceptionType")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  With 
+
+'Enter the sign iun user
+WIth Browser("PeopleSoft Browser").Page("AutomatchExceptionReport").PSFrame("AutomatchExceptionreport").WebEdit("Automatch_AllUsers")
+If .Exist(nMINWAIT) Then
+	.Set (GlobalDictionary("SignInUser"))
+	Reporter.ReportEvent micPass,"The All users text box","is presetna nd set with"&(GlobalDictionary("SignInUser"))
+End If
+End  With 
+
+'Click on Run button
+With Browser("PeopleSoft Browser").Page("AutomatchExceptionReport").PSFrame("AutomatchExceptionreport").WebButton("Run")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  With 
+
+app_SearchSync()
+
+'Get the process name froim the repot
+With Browser("PeopleSoft Browser").Page("AutomatchExceptionReport").PSFrame("ProcessSchedulerRequest").WebTable("ProcessList")
+If .Exist(nMINWAIT) Then
+	appProcessName=.GetCellData(2,3)
+	Reporter.ReportEvent micPass,"The Process name is","is"&appProcessName
+End If
+End  With 
+
+'CLick on Ok button
+With Browser("PeopleSoft Browser").Page("AutomatchExceptionReport").PSFrame("ProcessSchedulerRequest").WebButton("OK")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  With 
+
+app_SearchSync()
+
+With Browser("PeopleSoft Browser").Page("AutomatchExceptionReport").PSFrame("AutomatchExceptionreport").WebElement("ProcessInstance")
+If .Exist(nMINWAIT) Then
+	appProcessIns=.GetROProperty("innertext")
+	appProcessinssplit=split(appProcessIns,";")
+	finalProcessins=appProcessinssplit(UBound(appProcessinssplit))
+	GlobalDictionary("finalProcessins")=finalProcessins
+End If
+End  With 
+
+'Click on Process monitor screen
+With Browser("PeopleSoft Browser").Page("AutomatchExceptionReport").PSFrame("AutomatchExceptionreport").Link("ProcessMonitor")
+If .Exist(nMINWAIT) Then
+	.Click
+	Reporter.ReportEvent micPass,"The process monitor screen is present","and clicked"
+End If
+End  With 
+
+'Check the process monitor to check for Sucess and posted
+Call CheckProcessMontiorStatus (finalProcessins)
+
+'Navigate to report manager and exteract the excel sheet and get the voucher number
+ReportManagerExcelFileGeneretion(ProcessInstance)
+
+'
+
+End Function
+
+
+Public Function ReportManagerExcelFileGeneretion(ProcessInstance)
+'Navigate to following path to check for the document
+'Reporting Tools – Report Manager
+SelectMainMenu1(GlobalDictionary("ReportManager"))
+
+'wait for the ojects to get loaded
+app_SearchSync()
+
+'Enter the professinstance and click on process button
+WIth Browser("PeopleSoft Browser").Page("Report Manager").PSFrame("Report Distribution Mgr").WebEdit("RM_txtFromInst")
+If .Exist(nMINWAIT) Then
+	.Set ProcessInstance
+	Reporter.ReportEvent micPass,"The process intance is set and","set with"&ProcessInstance
+End If
+End  With 
+
+With Browser("PeopleSoft Browser").Page("Report Manager").PSFrame("Report Distribution Mgr").WebButton("RM_btnRefresh")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  With 
+
+'wait for the ojects to get loaded
+app_SearchSync()
+
+'Click on attahcemtn link present int he grid
+With Browser("PeopleSoft Browser").Page("Report Manager").PSFrame("Report Distribution Mgr").WebTable("RM_ReportTable")
+If .Exist(nMINWAIT) Then
+	Set oDocLink=.ChildItem(2,2,"Link",0)
+	If oDocLink.exist(nMINWAIT) Then
+		oDocName=.GetROProperty("innertext")
+		oDocLink.click
+	End If
+End If
+End  With 
+
+'Report List
+With Browser("PeopleSoft Browser").Page("Report Manager").PSFrame("ReportList").WebTable("RL_ReportList")
+If .Exist(nMINWAIT) Then
+	Set oFileName=.ChildItem(2,1,"Link",0)
+	If oFileName.exist(nMINWAIT) Then
+		oFileName.click
+	End If
+End If
+End  With 
+
+
+End Function
+
+
+Public Function SaveExternalExcelSheet()
+With Browser("PeopleSoft Browser NewTab").Dialog("Internet Explorer").WinButton("SaveAs")
+If .Exist(nMINWAIT) Then
+	.Click
+End If
+End  With 
+
+
+
+End Function
